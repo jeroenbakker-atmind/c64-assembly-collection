@@ -29,7 +29,8 @@ start:
     STA $D01A
 
     CLI                  ; clear interrupt flag, allowing the CPU to respond to interrupt requests
-    RTS
+loop:
+    jmp loop
 
 ; IRQ to draw black background + border
 irq:
@@ -47,7 +48,7 @@ irq:
 
     ASL $D019            ; acknowledge the interrupt by clearing the VIC's interrupt flag
 
-    JMP $EA31            ; jump into KERNAL's standard interrupt service routine to handle keyboard scan, cursor display etc.
+    JMP $EA81            ; jump into shorter ROM routine to only restore registers from the stack etc
 
 ; IRQ to draw grey background + border
 irq2:
