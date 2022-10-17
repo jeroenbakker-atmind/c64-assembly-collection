@@ -7,13 +7,10 @@
 start:
 	/* text-mem at 0400, font-mem at 2000 */
 	lda #$18
-	sta $d018
+	sta VIDEO_MEMORY_BLOCK
 
 end:
 	rts
 
 	org    $1ffe
 	incbin "ahoy_art_deco.64c"
-
-
-
