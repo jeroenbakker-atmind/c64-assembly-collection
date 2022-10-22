@@ -5,7 +5,8 @@ dasm test-sprite.asm -o../bin/test-sprite.prg
 dasm test-rasterbar.asm -o../bin/test-rasterbar.prg
 dasm test-sprite-duplication.asm -o../bin/test-sprite-duplication.prg
 dasm test-charset.asm -o../bin/test-charset.prg
+dasm test-controller.asm -o../bin/test-controller.prg
 
 cd ../..
-x64 c64-assembly-collection/bin/test-charset.prg
+x64 c64-assembly-collection/bin/test-controller.prg
 

@@ -57,5 +57,19 @@ SPRITE_5_NUM = $07fd
 SPRITE_6_NUM = $07fe
 SPRITE_7_NUM = $07ff
 
+/*
+ * Contollers/joystick
+ * bit 1 = up
+ *     2 = down
+ *     3 = left
+ *     4 = right
+ *     5 = button
+ */
+CONTROLLER_1 = $dc01
+CONTROLLER_2 = $dc00
 
-
+CONTROLLER_UP = $01
+CONTROLLER_DOWN = $02
+CONTROLLER_LEFT = $04
+CONTROLLER_RIGHT = $08
+CONTROLLER_BUTTON = $10
