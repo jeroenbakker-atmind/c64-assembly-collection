@@ -9,6 +9,14 @@ start:
 	lda #$18
 	sta VIDEO_MEMORY_BLOCK
 
+	ldx #$00
+print_charset:
+	txa
+	sta $0400,x
+	inx
+	cpx #$0
+	bne print_charset
+
 end:
 	rts
 
