@@ -1,3 +1,8 @@
 
 bin/
 *.swp
+*.D64
+
+# Added by cargo
+
+/target
