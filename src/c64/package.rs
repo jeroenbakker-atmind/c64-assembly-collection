@@ -5,7 +5,7 @@ use std::{
 };
 
 use cbm::{
-    disk::{file::FileOps, Disk, Id, D64},
+    disk::{directory::FileType, file::FileOps, Disk, Id, D64},
     Petscii,
 };
 
@@ -18,24 +18,43 @@ pub fn do_packaging() -> std::io::Result<()> {
     let id = Id::from_bytes(b"1A");
     disk.write_format(&name, &id)?;
 
-    for (src_name, dst_name) in [
-        ("bin/test-charset.prg", "charset"),
-        ("bin/test-rasterbar.prg", "rasterbar"),
-        ("bin/test-controller.prg", "controller"),
-        ("bin/test-sprite.prg", "sprite"),
-        ("bin/test-sprite-duplication.prg", "sprite dup"),
-    ] {
-        add_program_file(&mut disk, Path::new(src_name), Petscii::from_str(dst_name))?;
-    }
+    add_files_to_disk(&mut disk)?;
+
     Ok(())
 }
 
-fn add_program_file(disk: &mut D64, src_filename: &Path, dst_filename: Petscii) -> Result<()> {
-    let file = disk.create_file(
-        &dst_filename,
-        cbm::disk::directory::FileType::PRG,
-        cbm::disk::file::Scheme::Linear,
-    )?;
+fn add_files_to_disk(disk: &mut D64) -> Result<()> {
+    for (src_name, dst_name, file_type) in [
+        ("bin/test-load-charset.prg", "load-charset", FileType::PRG),
+        ("bin/test-charset.prg", "charset", FileType::PRG),
+        ("bin/test-rasterbar.prg", "rasterbar", FileType::PRG),
+        ("bin/test-controller.prg", "controller", FileType::PRG),
+        ("bin/test-sprite.prg", "sprite", FileType::PRG),
+        (
+            "bin/test-sprite-duplication.prg",
+            "sprite dup",
+            FileType::PRG,
+        ),
+        ("src/ahoy_art_deco.64c", "font", FileType::SEQ),
+    ] {
+        add_file_to_disk(
+            disk,
+            Path::new(src_name),
+            Petscii::from_str(dst_name),
+            file_type,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn add_file_to_disk(
+    disk: &mut D64,
+    src_filename: &Path,
+    dst_filename: Petscii,
+    file_type: FileType,
+) -> Result<()> {
+    let file = disk.create_file(&dst_filename, file_type, cbm::disk::file::Scheme::Linear)?;
 
     let mut fs_file = std::fs::File::open(src_filename)?;
     let mut content = Vec::new();

@@ -73,3 +73,11 @@ CONTROLLER_DOWN = $02
 CONTROLLER_LEFT = $04
 CONTROLLER_RIGHT = $08
 CONTROLLER_BUTTON = $10
+
+/*
+ * https://sta.c64.org/cbm64krnfunc.html
+ * https://www.pagetable.com/c64ref/kernal/
+ */
+KERNEL_LOAD = $ffd5
+KERNEL_SET_FILE_PARAMETERS = $ffba
+KERNEL_SET_FILE_NAME = $ffbd
