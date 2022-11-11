@@ -14,17 +14,20 @@ print_charset:
 	bne print_charset
 
 load_charset_file:
-	/* A = Logical ID, X = Device, Y = Skip header */
+	/* A = Logical ID, X = Device, Y = Ignore header */
 	lda #$01
 	ldx #$08
 	ldy #$00
 	jsr KERNEL_SET_FILE_PARAMETERS
 
+	/* A = Length of file name, X+Y contains address where name is stored. */
 	lda #$06
 	ldx #<font_file_name
 	ldy #>font_file_name
 	jsr KERNEL_SET_FILE_NAME
 
+	/* A = LOAD (not verify) as header is ignored, X and Y contains the address
+	 * where the file will be located in RAM. */
 	lda #$00
 	ldx #<font_address
 	ldy #>font_address
