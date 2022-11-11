@@ -1,3 +1,5 @@
+  org $0800
+
 basic:
   .byte $00
 basic_line1:

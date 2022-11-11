@@ -12,6 +12,11 @@ fn package_disk1a() -> Result<()> {
 
     disk.add_files(&[
         (
+            "bin/test-autostart.prg",
+            Petscii::from_str("autostart"),
+            FileType::PRG,
+        ),
+        (
             "bin/test-load-charset.prg",
             Petscii::from_str("load-charset"),
             FileType::PRG,

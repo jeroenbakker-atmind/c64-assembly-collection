@@ -7,6 +7,7 @@ dasm test-sprite-duplication.asm -o../bin/test-sprite-duplication.prg
 dasm test-charset.asm -o../bin/test-charset.prg
 dasm test-load-charset.asm -o../bin/test-load-charset.prg
 dasm test-controller.asm -o../bin/test-controller.prg
+dasm test-autostart.asm -o../bin/test-autostart.prg
 cd ..
 
 cargo run

@@ -1,5 +1,4 @@
     processor 6502
-    org 2048
 
     include "defines.asm"
     include "basic_header.asm"
