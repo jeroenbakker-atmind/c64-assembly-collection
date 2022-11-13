@@ -9,6 +9,7 @@ default-run="builder"
 
 [dependencies]
 cbm="0.1.0"
+png="0.17.7"
 
 [lib]
 name="c64"

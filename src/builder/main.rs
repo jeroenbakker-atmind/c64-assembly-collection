@@ -1,6 +1,9 @@
 use std::io::Result;
 
-use c64::create_disk::PackageDisk;
+use c64::{
+    charset::{print_petscii, Charset},
+    create_disk::PackageDisk,
+};
 use cbm::{
     disk::{directory::FileType, Id},
     Petscii,
@@ -67,5 +70,6 @@ fn package_disk1a() -> Result<()> {
 }
 
 fn main() -> std::io::Result<()> {
+    print_petscii(Charset::Lower, Petscii::from("disk 1a"));
     package_disk1a()
 }
