@@ -15,5 +15,5 @@ cd ..
 cargo run
 cd ..
 
-x64 c64-assembly-collection/demo-disk1.D64
+x64 -8 c64-assembly-collection/demo-disk1.D64
 
