@@ -51,6 +51,17 @@ fn package_disk1a() -> Result<()> {
             Petscii::from_str("font"),
             FileType::SEQ,
         ),
+        // Load program and the dummy program that will be loaded.
+        (
+            "bin/test-load-program.prg",
+            Petscii::from_str("load program"),
+            FileType::PRG,
+        ),
+        (
+            "bin/test-dummy.prg",
+            Petscii::from_str("dummy"),
+            FileType::PRG,
+        ),
     ])?;
     Ok(())
 }
