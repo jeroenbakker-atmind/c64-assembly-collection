@@ -1,7 +1,7 @@
 use std::io::Result;
 
 use c64::{
-    charset::{print_petscii, Charset},
+    charset::{find_best_petschii, print_petscii, Charset},
     create_disk::PackageDisk,
 };
 use cbm::{
@@ -72,4 +72,44 @@ fn package_disk1a() -> Result<()> {
 fn main() -> std::io::Result<()> {
     print_petscii(Charset::Lower, Petscii::from("disk 1a"));
     package_disk1a()
+}
+
+#[test]
+fn test_image_to_petscii() {
+    use png;
+    use std::fs::File;
+    // The decoder is a build for reader and can be used to set various decoding options
+    // via `Transformations`. The default output transformation is `Transformations::IDENTITY`.
+    let decoder = png::Decoder::new(File::open("resources/test.png").unwrap());
+    let mut reader = decoder.read_info().unwrap();
+    // Allocate the output buffer.
+    let mut buf = vec![0; reader.output_buffer_size()];
+    // Read the next frame. An APNG might contain multiple frames.
+    let info = reader.next_frame(&mut buf).unwrap();
+    // Grab the bytes of the image.
+    let bytes = &buf[..info.buffer_size()];
+
+    let height = reader.info().height;
+    let width = reader.info().width;
+    println!("{}, {}", width, height);
+    for y in 0..height / 8 {
+        let mut petscii_chars = Vec::new();
+        for x in 0..width / 8 {
+            let mut bits = Vec::new();
+            for iy in 0..8 {
+                for ix in 0..8 {
+                    let xo = ix + x * 8;
+                    let yo = iy + y * 8;
+                    let byte = bytes[(yo * width + xo) as usize];
+                    let bit = if byte > 127 { true } else { false };
+                    //println!("{},{}+{},{}={},{} {}", x, y, ix, iy, xo, yo, bit);
+                    bits.push(bit);
+                }
+            }
+            let best_match = find_best_petschii(&bits);
+            petscii_chars.push(best_match);
+        }
+        println!("\"{}\"", Petscii::from_bytes(&petscii_chars));
+    }
+    unimplemented!()
 }

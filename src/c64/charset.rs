@@ -90,3 +90,51 @@ pub fn print_petscii(charset: Charset, petscii: Petscii) {
         println!();
     }
 }
+
+fn petscii_to_bits(charset: Charset, petscii_char: u8) -> Vec<bool> {
+    let (charset_char, invert) = petscii_to_charset(petscii_char);
+
+    let offset = charset_char as usize * 8;
+    let char_set = !invert;
+    let char_notset = invert;
+    let mut bits = Vec::new();
+
+    for y in 0..8 {
+        let mut byte = charset.charset()[offset + y];
+        let mut line = Vec::with_capacity(8);
+        for _x in 0..8 {
+            let a = if byte & 1 != 0 { char_set } else { char_notset };
+            line.push(a);
+            byte >>= 1;
+        }
+        line.reverse();
+        for c in &line {
+            bits.push(*c);
+        }
+    }
+    bits
+}
+
+pub fn compare_petscii_bits(a: &Vec<bool>, b: &Vec<bool>) -> u32 {
+    let mut difference = 0;
+    for (ab, bb) in a.iter().zip(b) {
+        if ab != bb {
+            difference += 1
+        }
+    }
+    difference
+}
+
+pub fn find_best_petschii(input_bits: &Vec<bool>) -> u8 {
+    let mut checks = Vec::new();
+    for petscii_char in 0..=255 {
+        let petscii_bits = petscii_to_bits(Charset::Upper, petscii_char);
+        checks.push((petscii_char, petscii_bits));
+    }
+
+    let min = checks
+        .iter()
+        .min_by_key(|a| compare_petscii_bits(input_bits, &a.1))
+        .unwrap();
+    min.0
+}
