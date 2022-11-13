@@ -1,3 +1,19 @@
+/* VIC: Where to look for text, charset and bitmap graphics
+ * default: 21 (0001 0101)
+ *
+ * When VIC is in text mode the 4 most significant bits multiplied by 1024
+ * points to the start address of the screen characters in RAM.
+ * Bits 1-3 multiplied by 2048 points to the start address of the character
+ * set.
+ *
+ * When VIC is in bitmap mode the 4 most significant buts multiplied by 1024
+ * point to the start address of the color buffer. Bits 3 indicated if bitmap
+ * memory starts at address $0000 (unset) or $2000 (set).
+ *
+ * Taking this into account when the c64 starts it points to $0400 for screen
+ * characters and $1000 for the charset. I haven't seen any evidence what
+ * bit 1 does.
+ */
 VIDEO_MEMORY_BLOCK = $d018
 BORDER_COLOR = $d020
 BACKGROUND_COLOR = $d021
