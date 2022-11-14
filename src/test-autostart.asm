@@ -5,7 +5,8 @@
 
     /* Blank the screen during loading by filling the screen with 32 (space). */
     org $0400
-    repeat 1000
+    include "petscii_image.asm"
+    repeat 320
     .byte $20
     repend
 

@@ -91,7 +91,7 @@ fn test_image_to_petscii() {
 
     let height = reader.info().height;
     let width = reader.info().width;
-    println!("{}, {}", width, height);
+    println!("{}, {}, {}", width, height, bytes.len());
     for y in 0..height / 8 {
         let mut petscii_chars = Vec::new();
         for x in 0..width / 8 {
@@ -100,8 +100,9 @@ fn test_image_to_petscii() {
                 for ix in 0..8 {
                     let xo = ix + x * 8;
                     let yo = iy + y * 8;
-                    let byte = bytes[(yo * width + xo) as usize];
-                    let bit = if byte > 127 { true } else { false };
+                    let offset = (yo * width + xo) as usize;
+                    let byte = bytes[offset * 4];
+                    let bit = if byte > 127 { false } else { true };
                     //println!("{},{}+{},{}={},{} {}", x, y, ix, iy, xo, yo, bit);
                     bits.push(bit);
                 }
@@ -109,7 +110,15 @@ fn test_image_to_petscii() {
             let best_match = find_best_petschii(&bits);
             petscii_chars.push(best_match);
         }
-        println!("\"{}\"", Petscii::from_bytes(&petscii_chars));
+        print!("  .byte ");
+        for (i, a) in petscii_chars.iter().enumerate() {
+            if i != 0 {
+                print!(", ");
+
+            }
+            print!("${:2x}", a);
+        }
+        println!()
     }
     unimplemented!()
 }
