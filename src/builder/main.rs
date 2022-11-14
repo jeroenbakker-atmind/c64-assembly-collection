@@ -1,7 +1,7 @@
 use std::io::Result;
 
 use c64::{
-    charset::{find_best_petschii, print_petscii, Charset},
+    charset::{print_petscii, Charset},
     create_disk::PackageDisk,
 };
 use cbm::{
@@ -76,6 +76,7 @@ fn main() -> std::io::Result<()> {
 
 #[test]
 fn test_image_to_petscii() {
+    use c64::charset::image_to_petscii;
     use png;
     use std::fs::File;
     // The decoder is a build for reader and can be used to set various decoding options
@@ -89,32 +90,16 @@ fn test_image_to_petscii() {
     // Grab the bytes of the image.
     let bytes = &buf[..info.buffer_size()];
 
-    let height = reader.info().height;
-    let width = reader.info().width;
-    println!("{}, {}, {}", width, height, bytes.len());
-    for y in 0..height / 8 {
-        let mut petscii_chars = Vec::new();
-        for x in 0..width / 8 {
-            let mut bits = Vec::new();
-            for iy in 0..8 {
-                for ix in 0..8 {
-                    let xo = ix + x * 8;
-                    let yo = iy + y * 8;
-                    let offset = (yo * width + xo) as usize;
-                    let byte = bytes[offset * 4];
-                    let bit = if byte > 127 { false } else { true };
-                    //println!("{},{}+{},{}={},{} {}", x, y, ix, iy, xo, yo, bit);
-                    bits.push(bit);
-                }
-            }
-            let best_match = find_best_petschii(&bits);
-            petscii_chars.push(best_match);
-        }
+    let height = reader.info().height as usize;
+    let width = reader.info().width as usize;
+
+    let petscii_chars = image_to_petscii(bytes, 4, width, height);
+
+    for chunk in petscii_chars.chunks(16) {
         print!("  .byte ");
-        for (i, a) in petscii_chars.iter().enumerate() {
+        for (i, a) in chunk.iter().enumerate() {
             if i != 0 {
                 print!(", ");
-
             }
             print!("${:2x}", a);
         }
