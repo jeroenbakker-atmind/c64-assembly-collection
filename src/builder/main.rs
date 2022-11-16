@@ -109,5 +109,16 @@ fn test_image_to_standard_character_mode() {
         }
         println!()
     }
+    for chunk in text_image.foreground_colors.chunks(16) {
+        print!("  .byte ");
+        for (i, a) in chunk.iter().enumerate() {
+            if i != 0 {
+                print!(", ");
+            }
+            print!("{:?}", a);
+        }
+        println!()
+    }
+    println!("/* background {:?} */", text_image.background_color);
     unimplemented!()
 }
