@@ -18,6 +18,13 @@ const CHARSET_LOWER: &[u8; 1024] = include_bytes!("c64_us_lower.bin");
 pub enum Charset {
     Lower,
     Upper,
+    Custom(&'static [u8;1024])
+}
+
+impl Default for Charset {
+    fn default() -> Self {
+        Charset::Upper
+    }
 }
 
 impl Charset {
@@ -26,6 +33,7 @@ impl Charset {
         match self {
             Charset::Upper => CHARSET_UPPER,
             Charset::Lower => CHARSET_LOWER,
+            Charset::Custom(data) =>data,
         }
     }
 }
@@ -77,7 +85,7 @@ pub fn print_petscii(charset: Charset, petscii: Petscii) {
 }
 
 /// Return a bitvec containing the 64 bits of a specific petscii character.
-fn petscii_to_bits(charset: Charset, petscii_char: u8) -> Vec<bool> {
+pub fn petscii_to_bits(charset: Charset, petscii_char: u8) -> Vec<bool> {
     let (charset_char, invert) = petscii_to_charset(petscii_char);
 
     let offset = charset_char as usize * 8;
@@ -110,46 +118,4 @@ pub fn compare_petscii_bits(a: &Vec<bool>, b: &Vec<bool>) -> u32 {
         }
     }
     difference
-}
-
-/// Return the petscii char that matches the input bitvec the closest.
-pub fn find_best_matching_petscii_char(charset: Charset, input_bits: &Vec<bool>) -> u8 {
-    let mut checks = Vec::new();
-    for petscii_char in 0..=255 {
-        let petscii_bits = petscii_to_bits(charset, petscii_char);
-        checks.push((petscii_char, petscii_bits));
-    }
-
-    let min = checks
-        .iter()
-        .min_by_key(|a| compare_petscii_bits(input_bits, &a.1))
-        .unwrap();
-    min.0
-}
-
-pub fn image_to_petscii(
-    pixels: &[u8],
-    components_per_pixel: usize,
-    width: usize,
-    height: usize,
-) -> Vec<u8> {
-    let mut petscii_chars = Vec::new();
-    for y in 0..height / 8 {
-        for x in 0..width / 8 {
-            let mut bits = Vec::new();
-            for iy in 0..8 {
-                for ix in 0..8 {
-                    let xo = ix + x * 8;
-                    let yo = iy + y * 8;
-                    let offset = (yo * width + xo) as usize;
-                    let byte = pixels[offset * components_per_pixel];
-                    let bit = if byte > 127 { false } else { true };
-                    bits.push(bit);
-                }
-            }
-            let best_match = find_best_matching_petscii_char(Charset::Upper, &bits);
-            petscii_chars.push(best_match);
-        }
-    }
-    petscii_chars
 }

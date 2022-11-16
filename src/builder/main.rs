@@ -75,8 +75,8 @@ fn main() -> std::io::Result<()> {
 }
 
 #[test]
-fn test_image_to_petscii() {
-    use c64::charset::image_to_petscii;
+fn test_image_to_standard_character_mode() {
+    use c64::image_converter::{DefaultImageContainer, ImageConverter, StandardCharacterMode};
     use png;
     use std::fs::File;
     // The decoder is a build for reader and can be used to set various decoding options
@@ -87,15 +87,19 @@ fn test_image_to_petscii() {
     let mut buf = vec![0; reader.output_buffer_size()];
     // Read the next frame. An APNG might contain multiple frames.
     let info = reader.next_frame(&mut buf).unwrap();
-    // Grab the bytes of the image.
-    let bytes = &buf[..info.buffer_size()];
 
-    let height = reader.info().height as usize;
-    let width = reader.info().width as usize;
+    let image = DefaultImageContainer {
+        width: info.width as usize,
+        height: info.height as usize,
 
-    let petscii_chars = image_to_petscii(bytes, 4, width, height);
+        buffer: buf.clone(),
+        components_per_pixel: 4,
+    };
+    let converter = StandardCharacterMode::default();
 
-    for chunk in petscii_chars.chunks(16) {
+    let text_image = converter.convert(&image);
+
+    for chunk in text_image.characters.chunks(16) {
         print!("  .byte ");
         for (i, a) in chunk.iter().enumerate() {
             if i != 0 {
