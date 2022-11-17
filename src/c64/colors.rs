@@ -51,6 +51,29 @@ impl From<u8> for Color {
     }
 }
 
+impl From<Color> for u8 {
+    fn from(src: Color) -> Self {
+        match src {
+            Color::Black => 0,
+            Color::White => 1,
+            Color::Red => 2,
+            Color::Cyan => 3,
+            Color::Purple => 4,
+            Color::Green => 5,
+            Color::Blue => 6,
+            Color::Yellow => 7,
+            Color::Orange => 8,
+            Color::Brown => 9,
+            Color::LightRed => 10,
+            Color::DarkGrey => 11,
+            Color::Grey => 12,
+            Color::LightGreen => 13,
+            Color::LightBlue => 14,
+            Color::LightGrey => 15,
+        }
+    }
+}
+
 impl SRGB {
     pub fn from_rgb(r: u8, g: u8, b: u8) -> SRGB {
         SRGB { r, g, b }

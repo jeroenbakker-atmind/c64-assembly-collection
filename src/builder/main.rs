@@ -65,6 +65,12 @@ fn package_disk1a() -> Result<()> {
             Petscii::from_str("dummy"),
             FileType::PRG,
         ),
+        // text mode
+        (
+            "bin/test-standard-text.prg",
+            Petscii::from_str("standard text"),
+            FileType::PRG,
+        ),
     ])?;
     Ok(())
 }
@@ -98,7 +104,7 @@ fn test_image_to_standard_character_mode() {
     let converter = StandardCharacterMode::default();
 
     let text_image = converter.convert(&image);
-
+    println!("image_chars:");
     for chunk in text_image.characters.chunks(16) {
         print!("  .byte ");
         for (i, a) in chunk.iter().enumerate() {
@@ -109,16 +115,18 @@ fn test_image_to_standard_character_mode() {
         }
         println!()
     }
+    println!("image_colors:");
     for chunk in text_image.foreground_colors.chunks(16) {
         print!("  .byte ");
         for (i, a) in chunk.iter().enumerate() {
             if i != 0 {
                 print!(", ");
             }
-            print!("{:?}", a);
+            print!("${:02x}", u8::from(*a));
         }
         println!()
     }
-    println!("/* background {:?} */", text_image.background_color);
+    println!("image_background:");
+    println!("  .byte ${:02x}", u8::from(text_image.background_color));
     unimplemented!()
 }
