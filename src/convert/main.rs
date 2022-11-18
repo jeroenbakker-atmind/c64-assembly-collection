@@ -30,8 +30,8 @@ enum ConversionFormat {
     #[arg(short, long)]
     variable_prefix: String,
  }
- 
- 
+
+
 fn main() {
     let args = Arguments::parse();
 
@@ -41,7 +41,7 @@ fn main() {
     let mut buf = vec![0; reader.output_buffer_size()];
     // Read the next frame. An APNG might contain multiple frames.
     let info = reader.next_frame(&mut buf).unwrap();
-    
+
     let image = DefaultImageContainer {
         width: info.width as usize,
         height: info.height as usize,
@@ -50,7 +50,7 @@ fn main() {
         components_per_pixel: 4,
     };
     let converter = StandardCharacterMode {
-        mode: ConversionMode::Bit,
+        mode: ConversionMode::Distance,
         ..StandardCharacterMode::default()
     };
     let text_image = converter.convert(&image);
@@ -85,5 +85,5 @@ fn main() {
         writer.write_all(line.as_bytes()).unwrap();
     }
     writer.write_all(format!("{}_background:\n  .byte ${:02x}\n", args.variable_prefix, u8::from(text_image.background_color)).as_bytes()).unwrap();
-     
+
 }

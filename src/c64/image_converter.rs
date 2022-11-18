@@ -161,32 +161,54 @@ impl StandardCharacterMode {
             foreground_colors,
             background_color,
         }
-
     }
 
-
-    pub fn find_best_matching_petscii_char_and_color(&self, background_color: SRGB, input_colors: &Vec<SRGB>, colors_to_check: &[SRGB], chars_to_check:&[Vec<bool>]) -> (u8, u8) {
-        colors_to_check.iter().enumerate().zip(chars_to_check.iter().enumerate()).map(|((color_index, color),(char_index, char_bits))| {
-            let mut test_colors = Vec::new();
-            for bit in char_bits {
-                if *bit {
-                    test_colors.push(*color);
-                }
-                else {
-                    test_colors.push(background_color);
-                }
+    pub fn find_best_matching_petscii_char_and_color(
+        &self,
+        background_color: SRGB,
+        input_colors: &Vec<SRGB>,
+        colors_to_check: &[SRGB],
+        chars_to_check: &[Vec<bool>],
+    ) -> (u8, u8) {
+        let mut permutations = Vec::new();
+        for color_index in 0..colors_to_check.len() {
+            for char_index in 0..chars_to_check.len() {
+                permutations.push((color_index, char_index));
             }
-            (color_index, char_index, test_colors)
-        }).map(|(color_index, char_index, test_colors)| {
-            let mut distance = 0;
-            for (a, b) in test_colors.iter().zip(input_colors) {
-                distance += a.distance(*b);
-            }
-            (color_index, char_index, distance)
+        }
 
-        }).min_by_key(|(_color_index, _char_index, distance)| *distance).map(|(color_index, char_index, _distance)|(color_index as u8, char_index as u8)).unwrap()
+        permutations
+            .iter()
+            .map(|(color_index, char_index)| {
+                (
+                    *color_index,
+                    &colors_to_check[*color_index],
+                    *char_index,
+                    &chars_to_check[*char_index],
+                )
+            })
+            .map(|(color_index, color, char_index, char_bits)| {
+                let mut test_colors = Vec::new();
+                for bit in char_bits {
+                    if *bit {
+                        test_colors.push(*color);
+                    } else {
+                        test_colors.push(background_color);
+                    }
+                }
+                (color_index, char_index, test_colors)
+            })
+            .map(|(color_index, char_index, test_colors)| {
+                let mut distance = 0;
+                for (a, b) in test_colors.iter().zip(input_colors) {
+                    distance += a.distance(*b);
+                }
+                (color_index, char_index, distance)
+            })
+            .min_by_key(|(_color_index, _char_index, distance)| *distance)
+            .map(|(color_index, char_index, _distance)| (color_index as u8, char_index as u8))
+            .unwrap()
     }
-
 
     fn extract_distance(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
         let background_color = StandardCharacterMode::find_best_background_color(image);
@@ -195,7 +217,6 @@ impl StandardCharacterMode {
         let mut foreground_colors = Vec::new();
         let height = image.height();
         let width = image.width();
-
 
         let mut all_colors_to_check = Vec::new();
         for i in 0..16 {
@@ -219,8 +240,13 @@ impl StandardCharacterMode {
                         colors.push(srgb_color);
                     }
                 }
-                let best_match = self.find_best_matching_petscii_char_and_color(SRGB::from(background_color), &colors, &all_colors_to_check, &all_chars_to_check);
-
+                let best_match = self.find_best_matching_petscii_char_and_color(
+                    SRGB::from(background_color),
+                    &colors,
+                    &all_colors_to_check,
+                    &all_chars_to_check,
+                );
+                println!("{:?}", best_match);
                 petscii_chars.push(best_match.0);
                 foreground_colors.push(Color::from(best_match.1));
             }
@@ -244,7 +270,5 @@ impl ImageConverter for StandardCharacterMode {
             ConversionMode::Bit => self.extract_luminance(input),
             ConversionMode::Distance => self.extract_distance(input),
         }
-
-
     }
 }
