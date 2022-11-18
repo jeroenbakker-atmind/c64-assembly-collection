@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e
+
+# Compile resources.
+cargo run --bin convert -- -i=resources/test.png -o=src/temp-test-image.asm -f=standard-text --variable-prefix=image
+
 cd src
 dasm test-sprite.asm -o../bin/test-sprite.prg
 dasm test-rasterbar.asm -o../bin/test-rasterbar.prg
@@ -10,6 +14,7 @@ dasm test-controller.asm -o../bin/test-controller.prg
 dasm test-autostart.asm -o../bin/test-autostart.prg
 dasm test-dummy.asm -o../bin/test-dummy.prg
 dasm test-load-program.asm -o../bin/test-load-program.prg
+
 dasm test-standard-text.asm -o../bin/test-standard-text.prg
 cd ..
 

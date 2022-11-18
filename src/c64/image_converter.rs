@@ -101,7 +101,6 @@ impl StandardCharacterMode {
 
     pub fn find_best_background_color(image: &dyn Image) -> Color {
         let histogram = StandardCharacterMode::color_histogram(image);
-        println!("{:#?}", histogram);
         *(histogram.data.iter().max_by_key(|(_k, v)| *v).unwrap().0)
     }
 }

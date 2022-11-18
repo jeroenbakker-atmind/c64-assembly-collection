@@ -10,6 +10,7 @@ default-run="builder"
 [dependencies]
 cbm="0.1.0"
 png="0.17.7"
+clap={ version = "4.0.26", features = ["derive"] }
 
 [lib]
 name="c64"
@@ -18,5 +19,9 @@ path="src/c64/lib.rs"
 [[bin]]
 name="builder"
 path="src/builder/main.rs"
+
+[[bin]]
+name="convert"
+path="src/convert/main.rs"
 
 
