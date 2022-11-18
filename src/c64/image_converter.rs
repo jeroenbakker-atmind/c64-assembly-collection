@@ -53,10 +53,25 @@ pub struct StandardCharacterModeResult {
     pub background_color: Color,
 }
 
+pub enum ConversionMode {
+    /// Convert color to a bit value based on its luminence.
+    Bit,
+
+    /// Reduce errors by finding the solution with least amount of errors.
+    Distance,
+}
+
+impl Default for ConversionMode {
+    fn default() -> Self {
+        ConversionMode::Bit
+    }
+}
+
 /// Converter to convert an input image to standard character mode of the C64.
 #[derive(Default)]
 pub struct StandardCharacterMode {
     pub charset: Charset,
+    pub mode: ConversionMode,
 }
 
 impl StandardCharacterMode {
@@ -103,22 +118,14 @@ impl StandardCharacterMode {
         let histogram = StandardCharacterMode::color_histogram(image);
         *(histogram.data.iter().max_by_key(|(_k, v)| *v).unwrap().0)
     }
-}
 
-impl ImageConverter for StandardCharacterMode {
-    type ResultType = StandardCharacterModeResult;
-
-    fn convert(&self, input: &dyn Image) -> Self::ResultType {
-        assert_eq!(input.width() % 8, 0);
-        assert_eq!(input.height() % 8, 0);
-
-        let background_color = StandardCharacterMode::find_best_background_color(input);
-        // TODO: determine best foregroung color for each character.
+    fn extract_luminance(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
+        let background_color = StandardCharacterMode::find_best_background_color(image);
 
         let mut petscii_chars = Vec::new();
         let mut foreground_colors = Vec::new();
-        let height = input.height();
-        let width = input.width();
+        let height = image.height();
+        let width = image.width();
 
         for y in 0..height / 8 {
             for x in 0..width / 8 {
@@ -128,7 +135,7 @@ impl ImageConverter for StandardCharacterMode {
                     for ix in 0..8 {
                         let xo = ix + x * 8;
                         let yo = iy + y * 8;
-                        let srgb_color = input.get_pixel_color(xo, yo);
+                        let srgb_color = image.get_pixel_color(xo, yo);
                         let color = Color::from(srgb_color);
                         let bit = color != background_color;
                         bits.push(bit);
@@ -154,5 +161,90 @@ impl ImageConverter for StandardCharacterMode {
             foreground_colors,
             background_color,
         }
+
+    }
+
+
+    pub fn find_best_matching_petscii_char_and_color(&self, background_color: SRGB, input_colors: &Vec<SRGB>, colors_to_check: &[SRGB], chars_to_check:&[Vec<bool>]) -> (u8, u8) {
+        colors_to_check.iter().enumerate().zip(chars_to_check.iter().enumerate()).map(|((color_index, color),(char_index, char_bits))| {
+            let mut test_colors = Vec::new();
+            for bit in char_bits {
+                if *bit {
+                    test_colors.push(*color);
+                }
+                else {
+                    test_colors.push(background_color);
+                }
+            }
+            (color_index, char_index, test_colors)
+        }).map(|(color_index, char_index, test_colors)| {
+            let mut distance = 0;
+            for (a, b) in test_colors.iter().zip(input_colors) {
+                distance += a.distance(*b);
+            }
+            (color_index, char_index, distance)
+
+        }).min_by_key(|(_color_index, _char_index, distance)| *distance).map(|(color_index, char_index, _distance)|(color_index as u8, char_index as u8)).unwrap()
+    }
+
+
+    fn extract_distance(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
+        let background_color = StandardCharacterMode::find_best_background_color(image);
+
+        let mut petscii_chars = Vec::new();
+        let mut foreground_colors = Vec::new();
+        let height = image.height();
+        let width = image.width();
+
+
+        let mut all_colors_to_check = Vec::new();
+        for i in 0..16 {
+            let color = Color::from(i);
+            all_colors_to_check.push(SRGB::from(color));
+        }
+        let mut all_chars_to_check = Vec::new();
+        for i in 0..255 {
+            let petscii_bits = petscii_to_bits(self.charset, i);
+            all_chars_to_check.push(petscii_bits);
+        }
+
+        for y in 0..height / 8 {
+            for x in 0..width / 8 {
+                let mut colors = Vec::new();
+                for iy in 0..8 {
+                    for ix in 0..8 {
+                        let xo = ix + x * 8;
+                        let yo = iy + y * 8;
+                        let srgb_color = image.get_pixel_color(xo, yo);
+                        colors.push(srgb_color);
+                    }
+                }
+                let best_match = self.find_best_matching_petscii_char_and_color(SRGB::from(background_color), &colors, &all_colors_to_check, &all_chars_to_check);
+
+                petscii_chars.push(best_match.0);
+                foreground_colors.push(Color::from(best_match.1));
+            }
+        }
+
+        StandardCharacterModeResult {
+            characters: petscii_chars,
+            foreground_colors,
+            background_color,
+        }
+    }
+}
+
+impl ImageConverter for StandardCharacterMode {
+    type ResultType = StandardCharacterModeResult;
+
+    fn convert(&self, input: &dyn Image) -> Self::ResultType {
+        assert_eq!(input.width() % 8, 0);
+        assert_eq!(input.height() % 8, 0);
+        match self.mode {
+            ConversionMode::Bit => self.extract_luminance(input),
+            ConversionMode::Distance => self.extract_distance(input),
+        }
+
+
     }
 }

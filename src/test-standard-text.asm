@@ -24,15 +24,15 @@ copy_text:
     lda image_colors+$0100,x
     sta $d900,x
 
-    cpx #168
-    bcs skip
-
-
     lda image_chars+$0200,x
     sta $0600,x
     lda image_colors+$0200,x
     sta $da00,x
 
+    lda image_chars+$0300,x
+    sta $0700,x
+    lda image_colors+$0300,x
+    sta $db00,x
 skip:
 
     inx

@@ -4,7 +4,7 @@ extern crate clap;
 use clap::{Parser, ValueEnum};
 use std::fs::File;
 use std::io::Write;
-use c64::image_converter::{DefaultImageContainer, ImageConverter, StandardCharacterMode};
+use c64::image_converter::{DefaultImageContainer, ImageConverter, StandardCharacterMode, ConversionMode};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 enum ConversionFormat {
@@ -49,12 +49,14 @@ fn main() {
         buffer: buf.clone(),
         components_per_pixel: 4,
     };
-    let converter = StandardCharacterMode::default();
-
+    let converter = StandardCharacterMode {
+        mode: ConversionMode::Bit,
+        ..StandardCharacterMode::default()
+    };
     let text_image = converter.convert(&image);
+    println!("{} chars", text_image.characters.len());
 
     let mut writer = File::create(args.output_filename).unwrap();
-     
     writer.write_all(format!("{}_chars:\n", args.variable_prefix).as_bytes()).unwrap();
     for chunk in text_image.characters.chunks(16) {
         let mut line = String::new();
