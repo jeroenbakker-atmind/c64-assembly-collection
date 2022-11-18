@@ -55,29 +55,33 @@ fn main() {
 
     let mut writer = File::create(args.output_filename).unwrap();
      
-    writer.write_all(format!("{}_chars:", args.variable_prefix).as_bytes()).unwrap();
+    writer.write_all(format!("{}_chars:\n", args.variable_prefix).as_bytes()).unwrap();
     for chunk in text_image.characters.chunks(16) {
-        print!("  .byte ");
+        let mut line = String::new();
+        line += "  .byte ";
         for (i, a) in chunk.iter().enumerate() {
             if i != 0 {
-                print!(", ");
+                line += ", ";
             }
-            print!("${:2x}", a);
+            line += &format!("${:02x}", a);
         }
-        println!()
+        line += "\n";
+        writer.write_all(line.as_bytes()).unwrap();
     }
-    println!("{}_colors:", args.variable_prefix);
+
+    writer.write_all(format!("{}_colors:\n", args.variable_prefix).as_bytes()).unwrap();
     for chunk in text_image.foreground_colors.chunks(16) {
-        print!("  .byte ");
+        let mut line = String::new();
+        line += "  .byte ";
         for (i, a) in chunk.iter().enumerate() {
             if i != 0 {
-                print!(", ");
+                line += ", ";
             }
-            print!("${:02x}", u8::from(*a));
+            line += &format!("${:02x}", u8::from(*a));
         }
-        println!()
+        line += "\n";
+        writer.write_all(line.as_bytes()).unwrap();
     }
-    println!("{}_background:", args.variable_prefix);
-    println!("  .byte ${:02x}", u8::from(text_image.background_color));
+    writer.write_all(format!("{}_background:\n  .byte ${:02x}\n", args.variable_prefix, u8::from(text_image.background_color)).as_bytes()).unwrap();
      
 }
