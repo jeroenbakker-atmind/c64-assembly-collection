@@ -2,7 +2,7 @@
 
 use crate::charset::{petscii_to_bits, Charset};
 use crate::colors::{average_color, Color, Histogram, SRGB};
-use crate::image_container::{Image, StandardCharacterImage};
+use crate::image_container::{difference, Image, StandardCharacterImage};
 
 pub trait ImageConverter {
     type ResultType;
@@ -15,6 +15,8 @@ pub enum ConversionQuality {
     EachChar,
 
     /// Reduce errors by finding the solution with least amount of errors by going over each Character and Foreground color.
+    EachCharAndForegroundColor,
+
     EachCharAndColor,
 }
 
@@ -119,6 +121,7 @@ impl StandardCharacterMode {
             characters: petscii_chars,
             foreground_colors,
             background_color,
+            charset: self.charset,
         }
     }
 
@@ -169,12 +172,11 @@ impl StandardCharacterMode {
             .unwrap()
     }
 
-    fn extract_each_char_and_color(
+    fn extract_each_char_and_foreground_color_with_background(
         &self,
         image: &dyn Image,
+        background_color: Color,
     ) -> <Self as ImageConverter>::ResultType {
-        let background_color = StandardCharacterMode::find_best_background_color(image);
-
         let mut petscii_chars = Vec::new();
         let mut foreground_colors = Vec::new();
         let height = image.height();
@@ -219,7 +221,29 @@ impl StandardCharacterMode {
             characters: petscii_chars,
             foreground_colors,
             background_color,
+            charset: self.charset,
         }
+    }
+
+    fn extract_each_char_and_foreground_color(
+        &self,
+        image: &dyn Image,
+    ) -> <Self as ImageConverter>::ResultType {
+        let background_color = StandardCharacterMode::find_best_background_color(image);
+        self.extract_each_char_and_foreground_color_with_background(image, background_color)
+    }
+
+    fn extract_each_char_and_color(
+        &self,
+        image: &dyn Image,
+    ) -> <Self as ImageConverter>::ResultType {
+        (0_u8..16)
+            .map(|background_index| Color::from(background_index))
+            .map(|background_color| {
+                self.extract_each_char_and_foreground_color_with_background(image, background_color)
+            })
+            .min_by_key(|result| difference(image, result))
+            .unwrap()
     }
 }
 
@@ -231,6 +255,9 @@ impl ImageConverter for StandardCharacterMode {
         assert_eq!(input.height() % 8, 0);
         match self.quality {
             ConversionQuality::EachChar => self.extract_each_char(input),
+            ConversionQuality::EachCharAndForegroundColor => {
+                self.extract_each_char_and_foreground_color(input)
+            }
             ConversionQuality::EachCharAndColor => self.extract_each_char_and_color(input),
         }
     }

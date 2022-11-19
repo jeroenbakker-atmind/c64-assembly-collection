@@ -1,6 +1,6 @@
 extern crate clap;
 
-use c64::image_container::DefaultImageContainer;
+use c64::image_container::{difference, DefaultImageContainer};
 use c64::image_converter::{ConversionQuality, ImageConverter, StandardCharacterMode};
 use clap::{Parser, ValueEnum};
 use std::fs::File;
@@ -49,11 +49,12 @@ fn main() {
         components_per_pixel: 4,
     };
     let converter = StandardCharacterMode {
-        quality: ConversionQuality::EachCharAndColor,
+        quality: ConversionQuality::EachChar,
         ..StandardCharacterMode::default()
     };
     let text_image = converter.convert(&image);
-    println!("{} chars", text_image.characters.len());
+    let diff: usize = difference(&image, &text_image);
+    println!("{} chars, difference {}", text_image.characters.len(), diff);
 
     let mut writer = File::create(args.output_filename).unwrap();
     writer
