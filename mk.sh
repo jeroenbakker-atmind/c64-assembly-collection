@@ -2,7 +2,7 @@
 set -e
 
 # Compile resources.
-RUST_BACKTRACE=1 cargo run --bin convert -- -i=resources/test.png -o=src/temp-test-image.asm -f=standard-text --variable-prefix=image
+RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image.asm -f=standard-text --variable-prefix=image
 
 cd src
 dasm test-sprite.asm -o../bin/test-sprite.prg

@@ -18,7 +18,7 @@ const CHARSET_LOWER: &[u8; 1024] = include_bytes!("c64_us_lower.bin");
 pub enum Charset {
     Lower,
     Upper,
-    Custom(&'static [u8;1024])
+    Custom(&'static [u8; 1024]),
 }
 
 impl Default for Charset {
@@ -33,7 +33,7 @@ impl Charset {
         match self {
             Charset::Upper => CHARSET_UPPER,
             Charset::Lower => CHARSET_LOWER,
-            Charset::Custom(data) =>data,
+            Charset::Custom(data) => data,
         }
     }
 }

@@ -1,10 +1,11 @@
-
 extern crate clap;
 
+use c64::image_converter::{
+    ConversionQuality, DefaultImageContainer, ImageConverter, StandardCharacterMode,
+};
 use clap::{Parser, ValueEnum};
 use std::fs::File;
 use std::io::Write;
-use c64::image_converter::{DefaultImageContainer, ImageConverter, StandardCharacterMode, ConversionMode};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 enum ConversionFormat {
@@ -13,7 +14,7 @@ enum ConversionFormat {
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
- struct Arguments {
+struct Arguments {
     /// Input PNG file to be converted.
     #[arg(short, long)]
     input_filename: String,
@@ -29,8 +30,7 @@ enum ConversionFormat {
     /// Prefix to add to generated variable names to make them unique.
     #[arg(short, long)]
     variable_prefix: String,
- }
-
+}
 
 fn main() {
     let args = Arguments::parse();
@@ -50,14 +50,16 @@ fn main() {
         components_per_pixel: 4,
     };
     let converter = StandardCharacterMode {
-        mode: ConversionMode::Distance,
+        quality: ConversionQuality::EachCharAndColor,
         ..StandardCharacterMode::default()
     };
     let text_image = converter.convert(&image);
     println!("{} chars", text_image.characters.len());
 
     let mut writer = File::create(args.output_filename).unwrap();
-    writer.write_all(format!("{}_chars:\n", args.variable_prefix).as_bytes()).unwrap();
+    writer
+        .write_all(format!("{}_chars:\n", args.variable_prefix).as_bytes())
+        .unwrap();
     for chunk in text_image.characters.chunks(16) {
         let mut line = String::new();
         line += "  .byte ";
@@ -71,7 +73,9 @@ fn main() {
         writer.write_all(line.as_bytes()).unwrap();
     }
 
-    writer.write_all(format!("{}_colors:\n", args.variable_prefix).as_bytes()).unwrap();
+    writer
+        .write_all(format!("{}_colors:\n", args.variable_prefix).as_bytes())
+        .unwrap();
     for chunk in text_image.foreground_colors.chunks(16) {
         let mut line = String::new();
         line += "  .byte ";
@@ -84,6 +88,14 @@ fn main() {
         line += "\n";
         writer.write_all(line.as_bytes()).unwrap();
     }
-    writer.write_all(format!("{}_background:\n  .byte ${:02x}\n", args.variable_prefix, u8::from(text_image.background_color)).as_bytes()).unwrap();
-
+    writer
+        .write_all(
+            format!(
+                "{}_background:\n  .byte ${:02x}\n",
+                args.variable_prefix,
+                u8::from(text_image.background_color)
+            )
+            .as_bytes(),
+        )
+        .unwrap();
 }

@@ -53,17 +53,17 @@ pub struct StandardCharacterModeResult {
     pub background_color: Color,
 }
 
-pub enum ConversionMode {
-    /// Convert color to a bit value based on its luminence.
-    Bit,
+pub enum ConversionQuality {
+    /// Convert color to a bit value based on its luminance.
+    EachChar,
 
-    /// Reduce errors by finding the solution with least amount of errors.
-    Distance,
+    /// Reduce errors by finding the solution with least amount of errors by going over each Character and Foreground color.
+    EachCharAndColor,
 }
 
-impl Default for ConversionMode {
+impl Default for ConversionQuality {
     fn default() -> Self {
-        ConversionMode::Bit
+        ConversionQuality::EachChar
     }
 }
 
@@ -71,7 +71,7 @@ impl Default for ConversionMode {
 #[derive(Default)]
 pub struct StandardCharacterMode {
     pub charset: Charset,
-    pub mode: ConversionMode,
+    pub quality: ConversionQuality,
 }
 
 impl StandardCharacterMode {
@@ -119,7 +119,7 @@ impl StandardCharacterMode {
         *(histogram.data.iter().max_by_key(|(_k, v)| *v).unwrap().0)
     }
 
-    fn extract_luminance(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
+    fn extract_each_char(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
         let background_color = StandardCharacterMode::find_best_background_color(image);
 
         let mut petscii_chars = Vec::new();
@@ -206,11 +206,14 @@ impl StandardCharacterMode {
                 (color_index, char_index, distance)
             })
             .min_by_key(|(_color_index, _char_index, distance)| *distance)
-            .map(|(color_index, char_index, _distance)| (color_index as u8, char_index as u8))
+            .map(|(color_index, char_index, _distance)| (char_index as u8, color_index as u8))
             .unwrap()
     }
 
-    fn extract_distance(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
+    fn extract_each_char_and_color(
+        &self,
+        image: &dyn Image,
+    ) -> <Self as ImageConverter>::ResultType {
         let background_color = StandardCharacterMode::find_best_background_color(image);
 
         let mut petscii_chars = Vec::new();
@@ -246,7 +249,6 @@ impl StandardCharacterMode {
                     &all_colors_to_check,
                     &all_chars_to_check,
                 );
-                println!("{:?}", best_match);
                 petscii_chars.push(best_match.0);
                 foreground_colors.push(Color::from(best_match.1));
             }
@@ -266,9 +268,9 @@ impl ImageConverter for StandardCharacterMode {
     fn convert(&self, input: &dyn Image) -> Self::ResultType {
         assert_eq!(input.width() % 8, 0);
         assert_eq!(input.height() % 8, 0);
-        match self.mode {
-            ConversionMode::Bit => self.extract_luminance(input),
-            ConversionMode::Distance => self.extract_distance(input),
+        match self.quality {
+            ConversionQuality::EachChar => self.extract_each_char(input),
+            ConversionQuality::EachCharAndColor => self.extract_each_char_and_color(input),
         }
     }
 }
