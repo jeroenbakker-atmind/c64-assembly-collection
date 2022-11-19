@@ -4,11 +4,7 @@ use crate::charset::{petscii_to_bits, Charset};
 use crate::colors::{average_color, Color, Histogram, SRGB};
 use crate::image_container::{difference, Image, StandardCharacterImage};
 
-pub trait ImageConverter {
-    type ResultType;
-
-    fn convert(&self, input: &dyn Image) -> Self::ResultType;
-}
+use super::ImageConverter;
 
 pub enum ConversionQuality {
     /// Convert color to a bit value based on its luminance.
