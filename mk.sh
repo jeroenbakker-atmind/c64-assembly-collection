@@ -5,17 +5,17 @@ set -e
 RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image.asm -f=standard-text --variable-prefix=image
 
 cd src
-dasm test-sprite.asm -o../bin/test-sprite.prg
-dasm test-rasterbar.asm -o../bin/test-rasterbar.prg
-dasm test-sprite-duplication.asm -o../bin/test-sprite-duplication.prg
-dasm test-charset.asm -o../bin/test-charset.prg
-dasm test-load-charset.asm -o../bin/test-load-charset.prg
-dasm test-controller.asm -o../bin/test-controller.prg
-dasm test-autostart.asm -o../bin/test-autostart.prg
-dasm test-dummy.asm -o../bin/test-dummy.prg
-dasm test-load-program.asm -o../bin/test-load-program.prg
+dasm sprite.asm -o../bin/sprite.prg
+dasm rasterbar.asm -o../bin/rasterbar.prg
+dasm sprite-duplication.asm -o../bin/sprite-duplication.prg
+dasm charset.asm -o../bin/charset.prg
+dasm load-charset.asm -o../bin/load-charset.prg
+dasm controller.asm -o../bin/controller.prg
+dasm autostart.asm -o../bin/autostart.prg
+dasm dummy.asm -o../bin/dummy.prg
+dasm load-program.asm -o../bin/load-program.prg
 
-dasm test-standard-text.asm -o../bin/test-standard-text.prg
+dasm standard-text.asm -o../bin/standard-text.prg
 cd ..
 
 cargo run

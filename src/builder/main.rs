@@ -15,37 +15,37 @@ fn package_disk1a() -> Result<()> {
 
     disk.add_files(&[
         (
-            "bin/test-autostart.prg",
+            "bin/autostart.prg",
             Petscii::from_str("autostart"),
             FileType::PRG,
         ),
         (
-            "bin/test-load-charset.prg",
+            "bin/load-charset.prg",
             Petscii::from_str("load-charset"),
             FileType::PRG,
         ),
         (
-            "bin/test-charset.prg",
+            "bin/charset.prg",
             Petscii::from_str("charset"),
             FileType::PRG,
         ),
         (
-            "bin/test-rasterbar.prg",
+            "bin/rasterbar.prg",
             Petscii::from_str("rasterbar"),
             FileType::PRG,
         ),
         (
-            "bin/test-controller.prg",
+            "bin/controller.prg",
             Petscii::from_str("controller"),
             FileType::PRG,
         ),
         (
-            "bin/test-sprite.prg",
+            "bin/sprite.prg",
             Petscii::from_str("sprite"),
             FileType::PRG,
         ),
         (
-            "bin/test-sprite-duplication.prg",
+            "bin/sprite-duplication.prg",
             Petscii::from_str("sprite dup"),
             FileType::PRG,
         ),
@@ -56,18 +56,18 @@ fn package_disk1a() -> Result<()> {
         ),
         // Load program and the dummy program that will be loaded.
         (
-            "bin/test-load-program.prg",
+            "bin/load-program.prg",
             Petscii::from_str("load program"),
             FileType::PRG,
         ),
         (
-            "bin/test-dummy.prg",
+            "bin/dummy.prg",
             Petscii::from_str("dummy"),
             FileType::PRG,
         ),
         // text mode
         (
-            "bin/test-standard-text.prg",
+            "bin/standard-text.prg",
             Petscii::from_str("standard text"),
             FileType::PRG,
         ),
