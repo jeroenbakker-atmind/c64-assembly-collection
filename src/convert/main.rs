@@ -49,7 +49,7 @@ fn main() {
         components_per_pixel: 4,
     };
     let converter = StandardCharacterMode {
-        quality: ConversionQuality::EachChar,
+        quality: ConversionQuality::EachCharAndColor,
         ..StandardCharacterMode::default()
     };
     let text_image = converter.convert(&image);
