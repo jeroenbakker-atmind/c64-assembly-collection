@@ -1,8 +1,7 @@
 extern crate clap;
 
-use c64::image_converter::{
-    ConversionQuality, DefaultImageContainer, ImageConverter, StandardCharacterMode,
-};
+use c64::image_container::DefaultImageContainer;
+use c64::image_converter::{ConversionQuality, ImageConverter, StandardCharacterMode};
 use clap::{Parser, ValueEnum};
 use std::fs::File;
 use std::io::Write;
