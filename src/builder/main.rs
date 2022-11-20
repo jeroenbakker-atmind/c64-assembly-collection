@@ -71,6 +71,12 @@ fn package_disk1a() -> Result<()> {
             Petscii::from_str("standard text"),
             FileType::PRG,
         ),
+        // bitmap mode
+        (
+            "bin/standard-bitmap.prg",
+            Petscii::from_str("standard bitmap"),
+            FileType::PRG,
+        ),
     ])?;
     Ok(())
 }

@@ -9,7 +9,22 @@ pub trait Image {
     fn get_pixel_color(&self, x: usize, y: usize) -> SRGB;
 }
 
+impl Image for Vec<SRGB> {
+    fn width(&self) -> usize {
+        self.len()
+    }
+    fn height(&self) -> usize {
+        1
+    }
+    fn get_pixel_color(&self, x: usize, _y: usize) -> SRGB {
+        self[x]
+    }
+}
+
 pub fn difference(a: &dyn Image, b: &dyn Image) -> usize {
+    assert_eq!(a.width(), b.width());
+    assert_eq!(a.height(), b.height());
+
     let mut result = 0;
     for x in 0..a.width() {
         for y in 0..a.height() {
@@ -81,4 +96,11 @@ impl Image for StandardCharacterImage {
             SRGB::from(self.background_color)
         }
     }
+}
+
+pub struct StandardBitmapImage {
+    pub width: usize,
+    pub height: usize,
+    pub bitmap: Vec<u8>,
+    pub colors: Vec<u8>,
 }
