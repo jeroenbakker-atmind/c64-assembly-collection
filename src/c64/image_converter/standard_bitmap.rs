@@ -80,13 +80,13 @@ impl ImageConverter for StandardBitmapMode {
 
         let colors = image_solution
             .iter()
-            .map(|s| u8::from(s.background_color) << 4 | u8::from(s.foreground_color))
+            .map(|s| u8::from(s.foreground_color) << 4 | u8::from(s.background_color))
             .collect();
 
         let mut bitmap = Vec::new();
         for y1 in 0..height / 8 {
-            for y2 in 0..8 {
-                for x1 in 0..width / 8 {
+            for x1 in 0..width / 8 {
+                for y2 in 0..8 {
                     let mut bitmask = 0;
                     let offset = y1 * (width / 8) + x1;
                     let solution = &image_solution[offset];

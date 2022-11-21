@@ -20,6 +20,14 @@ VIDEO_CONTROL_REG_2 = $d016
 BORDER_COLOR = $d020
 BACKGROUND_COLOR = $d021
 
+/* Bit 0 and 1 determines which memory areas the VIC20 sees.
+        0 - 16383 ($0000 - $3FFF) = 3 (default)
+    16384 - 32767 ($4000 - $7FFF) = 2 (good for bitmaps and BASIC)
+    32768 - 49151 ($8000 - $BFFF) = 1
+    49152 - 65535 ($C000 - $FFFF) = 0
+*/
+VIDEO_MEMORY_LOCATION = $dd00
+
 COLOR_BLACK = $00
 COLOR_WHITE = $01
 COLOR_RED = $02
