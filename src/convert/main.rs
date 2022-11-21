@@ -14,6 +14,11 @@ enum ConversionFormat {
     StandardBitmap,
 }
 
+#[derive(Debug, Copy, Clone, ValueEnum)]
+enum OutputEncoding {
+    Asm,
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Arguments {
@@ -29,9 +34,12 @@ struct Arguments {
     #[arg(short, long, value_enum)]
     format: ConversionFormat,
 
+    #[arg(short, long)]
+    output_encoding: OutputEncoding,
+
     /// Prefix to add to generated variable names to make them unique.
     #[arg(short, long)]
-    variable_prefix: String,
+    output_variable_prefix: String,
 }
 
 fn main() {
@@ -69,7 +77,7 @@ fn convert_standard_text(args: &Arguments, image: &dyn Image) {
 
     let mut writer = File::create(&args.output_filename).unwrap();
     writer
-        .write_all(format!("{}_chars:\n", args.variable_prefix).as_bytes())
+        .write_all(format!("{}_chars:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
     for chunk in text_image.characters.chunks(16) {
         let mut line = String::new();
@@ -85,7 +93,7 @@ fn convert_standard_text(args: &Arguments, image: &dyn Image) {
     }
 
     writer
-        .write_all(format!("{}_colors:\n", args.variable_prefix).as_bytes())
+        .write_all(format!("{}_colors:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
     for chunk in text_image.foreground_colors.chunks(16) {
         let mut line = String::new();
@@ -103,7 +111,7 @@ fn convert_standard_text(args: &Arguments, image: &dyn Image) {
         .write_all(
             format!(
                 "{}_background:\n  .byte ${:02x}\n",
-                args.variable_prefix,
+                args.output_variable_prefix,
                 u8::from(text_image.background_color)
             )
             .as_bytes(),
@@ -119,7 +127,7 @@ fn convert_standard_bitmap(args: &Arguments, image: &dyn Image) {
 
     let mut writer = File::create(&args.output_filename).unwrap();
     writer
-        .write_all(format!("{}_bitmap:\n", args.variable_prefix).as_bytes())
+        .write_all(format!("{}_bitmap:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
     for chunk in bitmap_image.bitmap.chunks(16) {
         let mut line = String::new();
@@ -135,7 +143,7 @@ fn convert_standard_bitmap(args: &Arguments, image: &dyn Image) {
     }
 
     writer
-        .write_all(format!("{}_colors:\n", args.variable_prefix).as_bytes())
+        .write_all(format!("{}_colors:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
     for chunk in bitmap_image.colors.chunks(16) {
         let mut line = String::new();
