@@ -10,35 +10,38 @@ use std::io::Write;
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 enum ConversionFormat {
+    /// Convert image to be used on C64 standard text mode.
     StandardText,
+    /// Convert image to be used on C64 standard bitmap mode.
     StandardBitmap,
 }
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 enum OutputEncoding {
+    /// Store the result to contain raw data that can be directly interpreted by the VIC chip, eg RAW memory.
     Asm,
 }
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Arguments {
-    /// Input PNG file to be converted.
+    /// Input PNG file to be converted. Width and height of the image must be divisable by 8.
     #[arg(short, long)]
     input_filename: String,
 
-    /// Output file containing the converted output.
+    /// Output file to store the converted image.
     #[arg(short, long)]
     output_filename: String,
 
-    /// Type of conversion to do.
-    #[arg(short, long, value_enum)]
+    /// Type of conversion to perform.
+    #[arg(long, value_enum)]
     format: ConversionFormat,
 
-    #[arg(short, long)]
+    #[arg(long)]
     output_encoding: OutputEncoding,
 
     /// Prefix to add to generated variable names to make them unique.
-    #[arg(short, long)]
+    #[arg(long)]
     output_variable_prefix: String,
 }
 
