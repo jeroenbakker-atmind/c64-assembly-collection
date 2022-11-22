@@ -81,7 +81,22 @@ fn package_disk1a() -> Result<()> {
     Ok(())
 }
 
+fn package_dev() -> Result<()> {
+    let mut disk =
+        c64::create_disk::initialize_disk(Petscii::from_str("development"), Id::from_bytes(b"FYR"))?;
+
+    disk.add_files(&[
+        (
+            "bin/standard-bitmap.prg",
+            Petscii::from_str("bitmap"),
+            FileType::PRG,
+        ),
+    ])?;
+    Ok(())
+}
+
 fn main() -> std::io::Result<()> {
     print_petscii(Charset::Lower, Petscii::from("disk 1a"));
-    package_disk1a()
+    //package_disk1a()?;
+    package_dev()
 }
