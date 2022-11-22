@@ -79,29 +79,30 @@ impl SRGB {
         SRGB { r, g, b }
     }
 
+    pub fn average(colors: &[SRGB]) -> Option<SRGB> {
+        if colors.len() == 0 {
+            return None;
+        }
+        let mut r = 0;
+        let mut g = 0;
+        let mut b = 0;
+        for color in colors {
+            r += color.r as usize;
+            g += color.g as usize;
+            b += color.b as usize;
+        }
+        Some(SRGB::from_rgb(
+            (r / colors.len()) as u8,
+            (g / colors.len()) as u8,
+            (b / colors.len()) as u8,
+        ))
+    }
+
     pub fn distance(&self, other: SRGB) -> usize {
         ((self.r as i32 - other.r as i32).abs()
             + (self.g as i32 - other.g as i32).abs()
             + (self.b as i32 - other.b as i32).abs()) as usize
     }
-}
-pub fn average_color(colors: &[SRGB]) -> Option<SRGB> {
-    if colors.len() == 0 {
-        return None;
-    }
-    let mut r = 0;
-    let mut g = 0;
-    let mut b = 0;
-    for color in colors {
-        r += color.r as usize;
-        g += color.g as usize;
-        b += color.b as usize;
-    }
-    Some(SRGB::from_rgb(
-        (r / colors.len()) as u8,
-        (g / colors.len()) as u8,
-        (b / colors.len()) as u8,
-    ))
 }
 
 impl From<Color> for SRGB {

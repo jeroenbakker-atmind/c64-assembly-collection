@@ -1,5 +1,6 @@
 extern crate clap;
 
+use c64::colors::Color;
 use c64::image_container::{difference, DefaultImageContainer, Image};
 use c64::image_converter::{
     ConversionQuality, ImageConverter, StandardBitmapMode, StandardCharacterMode,
@@ -14,6 +15,8 @@ enum ConversionFormat {
     StandardText,
     /// Convert image to be used on C64 standard bitmap mode.
     StandardBitmap,
+    /// Convert image to be used on C64 standard bitmap with 2 color buffers.
+    StandardBitmap256,
 }
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
@@ -66,6 +69,7 @@ fn main() {
     match args.format {
         ConversionFormat::StandardText => convert_standard_text(&args, &image),
         ConversionFormat::StandardBitmap => convert_standard_bitmap(&args, &image),
+        ConversionFormat::StandardBitmap256 => convert_standard_bitmap_256(&args, &image),
     };
 }
 
@@ -82,34 +86,13 @@ fn convert_standard_text(args: &Arguments, image: &dyn Image) {
     writer
         .write_all(format!("{}_chars:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
-    for chunk in text_image.characters.chunks(16) {
-        let mut line = String::new();
-        line += "  .byte ";
-        for (i, a) in chunk.iter().enumerate() {
-            if i != 0 {
-                line += ", ";
-            }
-            line += &format!("${:02x}", a);
-        }
-        line += "\n";
-        writer.write_all(line.as_bytes()).unwrap();
-    }
+    write_asm_bytes(&mut writer, &text_image.characters);
 
     writer
         .write_all(format!("{}_colors:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
-    for chunk in text_image.foreground_colors.chunks(16) {
-        let mut line = String::new();
-        line += "  .byte ";
-        for (i, a) in chunk.iter().enumerate() {
-            if i != 0 {
-                line += ", ";
-            }
-            line += &format!("${:02x}", u8::from(*a));
-        }
-        line += "\n";
-        writer.write_all(line.as_bytes()).unwrap();
-    }
+    write_asm_colors(&mut writer, &text_image.foreground_colors);
+
     writer
         .write_all(
             format!(
@@ -132,23 +115,40 @@ fn convert_standard_bitmap(args: &Arguments, image: &dyn Image) {
     writer
         .write_all(format!("{}_bitmap:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
-    for chunk in bitmap_image.bitmap.chunks(16) {
-        let mut line = String::new();
-        line += "  .byte ";
-        for (i, a) in chunk.iter().enumerate() {
-            if i != 0 {
-                line += ", ";
-            }
-            line += &format!("${:02x}", a);
-        }
-        line += "\n";
-        writer.write_all(line.as_bytes()).unwrap();
-    }
+    write_asm_bytes(&mut writer, &bitmap_image.bitmap);
 
     writer
         .write_all(format!("{}_colors:\n", args.output_variable_prefix).as_bytes())
         .unwrap();
-    for chunk in bitmap_image.colors.chunks(16) {
+    write_asm_bytes(&mut writer, &bitmap_image.colors_1);
+}
+
+fn convert_standard_bitmap_256(args: &Arguments, image: &dyn Image) {
+    let converter = StandardBitmapMode {
+        double_colors: true,
+        ..StandardBitmapMode::default()
+    };
+    let bitmap_image = converter.convert(image);
+
+    let mut writer = File::create(&args.output_filename).unwrap();
+    writer
+        .write_all(format!("{}_bitmap:\n", args.output_variable_prefix).as_bytes())
+        .unwrap();
+    write_asm_bytes(&mut writer, &bitmap_image.bitmap);
+
+    writer
+        .write_all(format!("{}_colors_1:\n", args.output_variable_prefix).as_bytes())
+        .unwrap();
+    write_asm_bytes(&mut writer, &bitmap_image.colors_1);
+
+    writer
+        .write_all(format!("{}_colors_2:\n", args.output_variable_prefix).as_bytes())
+        .unwrap();
+    write_asm_bytes(&mut writer, &bitmap_image.colors_2);
+}
+
+fn write_asm_bytes(writer: &mut File, colors: &[u8]) {
+    for chunk in colors.chunks(16) {
         let mut line = String::new();
         line += "  .byte ";
         for (i, a) in chunk.iter().enumerate() {
@@ -160,4 +160,9 @@ fn convert_standard_bitmap(args: &Arguments, image: &dyn Image) {
         line += "\n";
         writer.write_all(line.as_bytes()).unwrap();
     }
+}
+
+fn write_asm_colors(writer: &mut File, colors: &[Color]) {
+    let bytes: Vec<u8> = colors.iter().map(|c| u8::from(*c)).collect();
+    write_asm_bytes(writer, &bytes);
 }

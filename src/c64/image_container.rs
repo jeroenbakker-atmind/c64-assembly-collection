@@ -102,5 +102,6 @@ pub struct StandardBitmapImage {
     pub width: usize,
     pub height: usize,
     pub bitmap: Vec<u8>,
-    pub colors: Vec<u8>,
+    pub colors_1: Vec<u8>,
+    pub colors_2: Vec<u8>,
 }

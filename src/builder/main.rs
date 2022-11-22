@@ -87,7 +87,7 @@ fn package_dev() -> Result<()> {
 
     disk.add_files(&[
         (
-            "bin/standard-bitmap.prg",
+            "bin/standard-bitmap2.prg",
             Petscii::from_str("bitmap"),
             FileType::PRG,
         ),

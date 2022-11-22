@@ -1,7 +1,7 @@
 //! Convert image to be used in one of the text or graphics mode of the C64.
 
 use crate::charset::{petscii_to_bits, Charset};
-use crate::colors::{average_color, Color, Histogram, SRGB};
+use crate::colors::{Color, Histogram, SRGB};
 use crate::image_container::{difference, Image, StandardCharacterImage};
 
 use super::ImageConverter;
@@ -102,7 +102,7 @@ impl StandardCharacterMode {
                 let best_match = self.find_best_matching_petscii_char(&bits);
 
                 petscii_chars.push(best_match);
-                let foreground_color = if let Some(c) = average_color(&char_foreground_colors) {
+                let foreground_color = if let Some(c) = SRGB::average(&char_foreground_colors) {
                     Color::from(c)
                 } else {
                     background_color
