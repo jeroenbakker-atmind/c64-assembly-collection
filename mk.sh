@@ -4,7 +4,6 @@ set -e
 # Compile resources.
 RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image.asm --format=standard-text --output-encoding=asm --output-variable-prefix=image
 RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image-bitmap.asm --format=standard-bitmap --output-encoding=asm --output-variable-prefix=image
-RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image-bitmap-256.asm --format=standard-bitmap256 --output-encoding=asm --output-variable-prefix=image
 
 cd src
 dasm sprite.asm -o../bin/sprite.prg
@@ -19,7 +18,6 @@ dasm load-program.asm -o../bin/load-program.prg
 
 dasm standard-text.asm -o../bin/standard-text.prg
 dasm standard-bitmap.asm -o../bin/standard-bitmap.prg
-dasm standard-bitmap-256.asm -o../bin/standard-bitmap2.prg
 cd ..
 
 cargo run --release --bin builder
