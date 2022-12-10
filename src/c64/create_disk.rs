@@ -9,9 +9,8 @@ use cbm::{
     Petscii,
 };
 
-pub fn initialize_disk(name: Petscii, id: Id) -> std::io::Result<D64> {
+pub fn initialize_disk(path: &Path, name: Petscii, id: Id) -> std::io::Result<D64> {
     let geometry = D64::geometry(false);
-    let path = Path::new("demo-disk1.D64");
     File::create(path)?;
     let mut disk = D64::create(path, geometry, false)?;
     disk.write_format(&name, &id)?;

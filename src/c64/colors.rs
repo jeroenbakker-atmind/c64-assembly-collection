@@ -20,6 +20,29 @@ pub enum Color {
     LightGrey,
 }
 
+impl Color {
+    pub fn all() -> [Color; 16] {
+        [
+            Color::Black,
+            Color::White,
+            Color::Red,
+            Color::Cyan,
+            Color::Purple,
+            Color::Green,
+            Color::Blue,
+            Color::Yellow,
+            Color::Orange,
+            Color::Brown,
+            Color::LightRed,
+            Color::DarkGrey,
+            Color::Grey,
+            Color::LightGreen,
+            Color::LightBlue,
+            Color::LightGrey,
+        ]
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct SRGB {
     pub r: u8,

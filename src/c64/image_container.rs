@@ -1,5 +1,5 @@
 use crate::{
-    charset::{petscii_to_bits, Charset},
+    chars::Chars,
     colors::{Color, SRGB},
 };
 
@@ -7,6 +7,37 @@ pub trait Image {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
     fn get_pixel_color(&self, x: usize, y: usize) -> SRGB;
+    fn sub_image(
+        &self,
+        x_start: usize,
+        y_start: usize,
+        width: usize,
+        height: usize,
+    ) -> SRGBImageContainer {
+        let mut colors = Vec::new();
+        let x_end = x_start + width;
+        let y_end = y_start + height;
+        for iy in y_start..y_end {
+            for ix in x_start..x_end {
+                let srgb_color = self.get_pixel_color(ix, iy);
+                colors.push(srgb_color);
+            }
+        }
+        SRGBImageContainer {
+            width,
+            height,
+            buffer: colors,
+        }
+    }
+
+    // TODO: RowView?
+    fn extract_row(&self, y: usize) -> Vec<SRGB> {
+        let mut result = Vec::new();
+        for x in 0..self.width() {
+            result.push(self.get_pixel_color(x, y));
+        }
+        result
+    }
 }
 
 impl Image for Vec<SRGB> {
@@ -63,13 +94,34 @@ impl Image for DefaultImageContainer {
     }
 }
 
+pub struct SRGBImageContainer {
+    pub width: usize,
+    pub height: usize,
+    pub buffer: Vec<SRGB>,
+}
+
+impl Image for SRGBImageContainer {
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+
+    fn get_pixel_color(&self, x: usize, y: usize) -> SRGB {
+        let offset = y * self.width() + x;
+        self.buffer[offset]
+    }
+}
+
 pub struct StandardCharacterImage {
     pub width: usize,
     pub height: usize,
     pub characters: Vec<u8>,
     pub foreground_colors: Vec<Color>,
     pub background_color: Color,
-    pub charset: Charset,
+    pub charset: Chars,
 }
 
 impl Image for StandardCharacterImage {
@@ -85,7 +137,7 @@ impl Image for StandardCharacterImage {
         let char_y = y / 8;
         let char_offset = char_y * self.width + char_x;
         let char_index = self.characters[char_offset];
-        let bits = petscii_to_bits(self.charset, char_index);
+        let bits = Vec::<bool>::from(self.charset.get_char(char_index as usize));
         let char_x_rest = x % 8;
         let char_y_rest = y % 8;
         let bit_offset = char_y_rest * 8 + char_x_rest;

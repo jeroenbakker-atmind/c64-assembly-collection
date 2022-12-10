@@ -1,8 +1,9 @@
 //! Convert image to be used in one of the text or graphics mode of the C64.
 
+use crate::chars::{Char, Chars, StandardCharImage};
 use crate::charset::{petscii_to_bits, Charset};
 use crate::colors::{Color, Histogram, SRGB};
-use crate::image_container::{difference, Image, StandardCharacterImage};
+use crate::image_container::{difference, Image, SRGBImageContainer, StandardCharacterImage};
 
 use super::ImageConverter;
 
@@ -14,6 +15,8 @@ pub enum ConversionQuality {
     EachCharAndForegroundColor,
 
     EachCharAndColor,
+
+    CustomCharAndColor,
 }
 
 impl Default for ConversionQuality {
@@ -117,14 +120,14 @@ impl StandardCharacterMode {
             characters: petscii_chars,
             foreground_colors,
             background_color,
-            charset: self.charset,
+            charset: Chars::from(self.charset),
         }
     }
 
     pub fn find_best_matching_petscii_char_and_color(
         &self,
         background_color: SRGB,
-        input_colors: &Vec<SRGB>,
+        input_colors: &SRGBImageContainer,
         colors_to_check: &[SRGB],
         chars_to_check: &[Vec<bool>],
     ) -> (u8, u8) {
@@ -158,7 +161,7 @@ impl StandardCharacterMode {
             })
             .map(|(color_index, char_index, test_colors)| {
                 let mut distance = 0;
-                for (a, b) in test_colors.iter().zip(input_colors) {
+                for (a, b) in test_colors.iter().zip(&input_colors.buffer) {
                     distance += a.distance(*b);
                 }
                 (color_index, char_index, distance)
@@ -184,25 +187,18 @@ impl StandardCharacterMode {
             all_colors_to_check.push(SRGB::from(color));
         }
         let mut all_chars_to_check = Vec::new();
-        for i in 0..255 {
-            let petscii_bits = petscii_to_bits(self.charset, i);
+        let chars = Chars::from(self.charset);
+        for char_index in 0..255 {
+            let petscii_bits = Vec::<bool>::from(chars.get_char(char_index));
             all_chars_to_check.push(petscii_bits);
         }
 
         for y in 0..height / 8 {
             for x in 0..width / 8 {
-                let mut colors = Vec::new();
-                for iy in 0..8 {
-                    for ix in 0..8 {
-                        let xo = ix + x * 8;
-                        let yo = iy + y * 8;
-                        let srgb_color = image.get_pixel_color(xo, yo);
-                        colors.push(srgb_color);
-                    }
-                }
+                let tile = image.sub_image(x * 8, y * 8, 8, 8);
                 let best_match = self.find_best_matching_petscii_char_and_color(
                     SRGB::from(background_color),
-                    &colors,
+                    &tile,
                     &all_colors_to_check,
                     &all_chars_to_check,
                 );
@@ -217,7 +213,7 @@ impl StandardCharacterMode {
             characters: petscii_chars,
             foreground_colors,
             background_color,
-            charset: self.charset,
+            charset: Chars::from(self.charset),
         }
     }
 
@@ -241,6 +237,101 @@ impl StandardCharacterMode {
             .min_by_key(|result| difference(image, result))
             .unwrap()
     }
+
+    fn generate_char_for(
+        tile_to_match: &SRGBImageContainer,
+        background_color: Color,
+        foreground_color: Color,
+    ) -> StandardCharImage {
+        assert_eq!(tile_to_match.width(), 8);
+        assert_eq!(tile_to_match.height(), 8);
+
+        let mut ch = Char::default();
+        let foreground_srgb = SRGB::from(foreground_color);
+        let background_srgb = SRGB::from(background_color);
+
+        for y in 0..8 {
+            let row = tile_to_match.extract_row(y);
+            let mut row_b = 0_u8;
+            for c in row {
+                let bit = if c.distance(foreground_srgb) < c.distance(background_srgb) {
+                    1
+                } else {
+                    0
+                };
+                row_b = (row_b << 1) | bit;
+            }
+            ch.bytes[y] = row_b;
+        }
+        StandardCharImage::new(ch, foreground_color, background_color)
+    }
+
+    fn extract_custom_char_and_foreground_color_with_background(
+        &self,
+        image: &dyn Image,
+        background_color: Color,
+    ) -> <Self as ImageConverter>::ResultType {
+        let mut char_list = Vec::new();
+        let mut foreground_colors = Vec::new();
+        let mut chars = Chars::default();
+        let height = image.height();
+        let width = image.width();
+
+        let all_colors_to_check = Color::all();
+
+        for y in 0..height / 8 {
+            for x in 0..width / 8 {
+                let tile = image.sub_image(x * 8, y * 8, 8, 8);
+                let best_char = all_colors_to_check
+                    .iter()
+                    .map(|foreground_color| {
+                        StandardCharacterMode::generate_char_for(
+                            &tile,
+                            background_color,
+                            *foreground_color,
+                        )
+                    })
+                    .min_by_key(|ch| difference(&tile, ch))
+                    .unwrap();
+
+                let ch = best_char.get_char();
+                if !chars.contains(ch) {
+                    chars.add_char(ch);
+                }
+                let char_index = chars.index_of(ch).unwrap();
+                char_list.push(char_index);
+                foreground_colors.push(best_char.get_foreground_color());
+            }
+        }
+
+        println!("{:?}, {}", background_color, chars.len());
+        let vicii_char_list = chars.compress(&mut char_list, 256);
+
+        StandardCharacterImage {
+            height: height / 8,
+            width: width / 8,
+            characters: vicii_char_list,
+            foreground_colors,
+            background_color,
+            charset: chars,
+        }
+    }
+
+    fn extract_custom_char_and_color(
+        &self,
+        image: &dyn Image,
+    ) -> <Self as ImageConverter>::ResultType {
+        (0_u8..16)
+            .map(|background_index| Color::from(background_index))
+            .map(|background_color| {
+                self.extract_custom_char_and_foreground_color_with_background(
+                    image,
+                    background_color,
+                )
+            })
+            .min_by_key(|result| difference(image, result))
+            .unwrap()
+    }
 }
 
 impl ImageConverter for StandardCharacterMode {
@@ -255,6 +346,7 @@ impl ImageConverter for StandardCharacterMode {
                 self.extract_each_char_and_foreground_color(input)
             }
             ConversionQuality::EachCharAndColor => self.extract_each_char_and_color(input),
+            ConversionQuality::CustomCharAndColor => self.extract_custom_char_and_color(input),
         }
     }
 }

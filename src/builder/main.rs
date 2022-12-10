@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::{io::Result, path::Path};
 
 use c64::{
     charset::{print_petscii, Charset},
@@ -10,8 +10,11 @@ use cbm::{
 };
 
 fn package_disk1a() -> Result<()> {
-    let mut disk =
-        c64::create_disk::initialize_disk(Petscii::from_str("demo disk 1"), Id::from_bytes(b"1A"))?;
+    let mut disk = c64::create_disk::initialize_disk(
+        Path::new("demo-disk1.D64"),
+        Petscii::from_str("demo disk 1"),
+        Id::from_bytes(b"1A"),
+    )?;
 
     disk.add_files(&[
         (
@@ -39,11 +42,7 @@ fn package_disk1a() -> Result<()> {
             Petscii::from_str("controller"),
             FileType::PRG,
         ),
-        (
-            "bin/sprite.prg",
-            Petscii::from_str("sprite"),
-            FileType::PRG,
-        ),
+        ("bin/sprite.prg", Petscii::from_str("sprite"), FileType::PRG),
         (
             "bin/sprite-duplication.prg",
             Petscii::from_str("sprite dup"),
@@ -60,15 +59,16 @@ fn package_disk1a() -> Result<()> {
             Petscii::from_str("load program"),
             FileType::PRG,
         ),
-        (
-            "bin/dummy.prg",
-            Petscii::from_str("dummy"),
-            FileType::PRG,
-        ),
+        ("bin/dummy.prg", Petscii::from_str("dummy"), FileType::PRG),
         // text mode
         (
             "bin/standard-text.prg",
             Petscii::from_str("standard text"),
+            FileType::PRG,
+        ),
+        (
+            "bin/standard-text-cs.prg",
+            Petscii::from_str("std txt cs"),
             FileType::PRG,
         ),
         // bitmap mode
@@ -82,21 +82,22 @@ fn package_disk1a() -> Result<()> {
 }
 
 fn package_dev() -> Result<()> {
-    let mut disk =
-        c64::create_disk::initialize_disk(Petscii::from_str("development"), Id::from_bytes(b"FYR"))?;
+    let mut disk = c64::create_disk::initialize_disk(
+        Path::new("development.D64"),
+        Petscii::from_str("development"),
+        Id::from_bytes(b"FYR"),
+    )?;
 
-    disk.add_files(&[
-        (
-            "bin/standard-bitmap.prg",
-            Petscii::from_str("bitmap"),
-            FileType::PRG,
-        ),
-    ])?;
+    disk.add_files(&[(
+        "bin/standard-text-cs.prg",
+        Petscii::from_str("text"),
+        FileType::PRG,
+    )])?;
     Ok(())
 }
 
 fn main() -> std::io::Result<()> {
     print_petscii(Charset::Lower, Petscii::from("disk 1a"));
-    package_disk1a()
-    //package_dev()
+    package_disk1a()?;
+    package_dev()
 }

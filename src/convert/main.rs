@@ -6,6 +6,7 @@ use c64::image_converter::{
     ConversionQuality, ImageConverter, StandardBitmapMode, StandardCharacterMode,
 };
 use clap::{Parser, ValueEnum};
+use png::ColorType;
 use std::fs::File;
 use std::io::Write;
 
@@ -13,6 +14,8 @@ use std::io::Write;
 enum ConversionFormat {
     /// Convert image to be used on C64 standard text mode.
     StandardText,
+    /// Convert image to be used on C64 standard text mode, generating a custom charset.
+    StandardTextCustomCharset,
     /// Convert image to be used on C64 standard bitmap mode.
     StandardBitmap,
 }
@@ -56,16 +59,25 @@ fn main() {
     // Read the next frame. An APNG might contain multiple frames.
     let info = reader.next_frame(&mut buf).unwrap();
 
+    let components_per_pixel = if info.color_type == ColorType::Rgba {
+        4
+    } else {
+        3
+    };
+
     let image = DefaultImageContainer {
         width: info.width as usize,
         height: info.height as usize,
 
         buffer: buf.clone(),
-        components_per_pixel: 4,
+        components_per_pixel,
     };
 
     match args.format {
         ConversionFormat::StandardText => convert_standard_text(&args, &image),
+        ConversionFormat::StandardTextCustomCharset => {
+            convert_standard_text_custom_char_set(&args, &image)
+        }
         ConversionFormat::StandardBitmap => convert_standard_bitmap(&args, &image),
     };
 }
@@ -102,6 +114,44 @@ fn convert_standard_text(args: &Arguments, image: &dyn Image) {
         .unwrap();
 }
 
+fn convert_standard_text_custom_char_set(args: &Arguments, image: &dyn Image) {
+    let converter = StandardCharacterMode {
+        quality: ConversionQuality::CustomCharAndColor,
+        ..StandardCharacterMode::default()
+    };
+    let text_image = converter.convert(image);
+    let diff: usize = difference(image, &text_image);
+    println!("{} chars, difference {}", text_image.characters.len(), diff);
+
+    let mut writer = File::create(&args.output_filename).unwrap();
+    writer
+        .write_all(format!("{}_chars:\n", args.output_variable_prefix).as_bytes())
+        .unwrap();
+    write_asm_bytes(&mut writer, &text_image.characters);
+
+    writer
+        .write_all(format!("{}_colors:\n", args.output_variable_prefix).as_bytes())
+        .unwrap();
+    write_asm_colors(&mut writer, &text_image.foreground_colors);
+
+    writer
+        .write_all(
+            format!(
+                "{}_background:\n  .byte ${:02x}\n",
+                args.output_variable_prefix,
+                u8::from(text_image.background_color)
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+
+    writer
+        .write_all(format!("{}_charset:\n", args.output_variable_prefix).as_bytes())
+        .unwrap();
+    let charset_bytes = Vec::<u8>::from(text_image.charset);
+    write_asm_bytes(&mut writer, &charset_bytes);
+}
+
 fn convert_standard_bitmap(args: &Arguments, image: &dyn Image) {
     let converter = StandardBitmapMode {
         ..StandardBitmapMode::default()
@@ -120,8 +170,8 @@ fn convert_standard_bitmap(args: &Arguments, image: &dyn Image) {
     write_asm_bytes(&mut writer, &bitmap_image.colors);
 }
 
-fn write_asm_bytes(writer: &mut File, colors: &[u8]) {
-    for chunk in colors.chunks(16) {
+fn write_asm_bytes(writer: &mut File, bytes: &[u8]) {
+    for chunk in bytes.chunks(16) {
         let mut line = String::new();
         line += "  .byte ";
         for (i, a) in chunk.iter().enumerate() {
