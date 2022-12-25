@@ -89,8 +89,8 @@ fn package_dev() -> Result<()> {
     )?;
 
     disk.add_files(&[(
-        "bin/standard-text-cs.prg",
-        Petscii::from_str("text"),
+        "bin/stripes.prg",
+        Petscii::from_str("stripes"),
         FileType::PRG,
     )])?;
     Ok(())
