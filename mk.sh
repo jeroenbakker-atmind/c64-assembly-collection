@@ -22,6 +22,7 @@ dasm standard-bitmap.asm -o../bin/standard-bitmap.prg
 dasm standard-text-custom.asm -o../bin/standard-text-cs.prg
 
 dasm stripes.asm -o../bin/stripes.prg
+dasm scrolling.asm -o../bin/scrolling.prg
 cd ..
 
 cargo run --release --bin builder
