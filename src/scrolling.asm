@@ -26,8 +26,6 @@
     processor 6502
 
 /* Zero page addressing.  */
-screen_row_offset = $A0
-
 location_map = $90
 location_encoded_tile = $91
 location_decoded_tile = $92
@@ -112,73 +110,107 @@ end:
 
 update_screen:
     lda #$04
-    sta screen_row_offset+1
-
+    sta screen_row_pointer+1
     lda #0
-    sta screen_row_offset
-    lda grid
-    sta current_tile_row
-    lda grid+1
-    sta current_tile_row+1
-    lda grid+2
-    sta current_tile_row+2
-    lda grid+3
-    sta current_tile_row+3
-    jsr update_screen_row
+    sta screen_row_pointer
 
-    lda #40
-    sta screen_row_offset
-    lda grid+4
-    sta current_tile_row
-    lda grid+5
-    sta current_tile_row+1
-    lda grid+6
-    sta current_tile_row+2
-    lda grid+7
-    sta current_tile_row+3
-    jsr update_screen_row
-
-    lda #80
-    sta screen_row_offset
-    lda grid+8
-    sta current_tile_row
-    lda grid+9
-    sta current_tile_row+1
-    lda grid+10
-    sta current_tile_row+2
-    lda grid+11
-    sta current_tile_row+3
-    jsr update_screen_row
-
-    lda #120
-    sta screen_row_offset+0
-    lda grid+12
-    sta current_tile_row
-    lda grid+13
-    sta current_tile_row+1
-    lda grid+14
-    sta current_tile_row+2
-    lda grid+15
-    sta current_tile_row+3
-    jsr update_screen_row
-
+    jsr _update_screen_draw_complete_tile_row
+    jsr _update_screen_draw_complete_tile_row
+    jsr _update_screen_draw_complete_tile_row
+    jsr _update_screen_draw_complete_tile_row
+    jsr _update_screen_draw_complete_tile_row
     rts
 
-update_screen_row:
-    ldy #39
-    ldx #$03
-update_screen_row_1:
-    lda current_tile_row,x
-    sta (screen_row_offset),y
+_update_screen_draw_complete_tile_row:
+    lda #<grid
+    sta tiles_char_pointer
+    lda #>grid
+    sta tiles_char_pointer+1
+    jsr update_screen_row_b
 
-    dex
-    txa
-    and #$03
-    tax
+    lda #<(grid+4)
+    sta tiles_char_pointer
+    lda #>(grid+4)
+    sta tiles_char_pointer+1
+    jsr update_screen_row_b
 
-    dey
-    bpl update_screen_row_1
+    lda #<(grid+8)
+    sta tiles_char_pointer
+    lda #>(grid+8)
+    sta tiles_char_pointer+1
+    jsr update_screen_row_b
 
+    lda #<(grid+12)
+    sta tiles_char_pointer
+    lda #>(grid+12)
+    sta tiles_char_pointer+1
+    jsr update_screen_row_b
+    rts
+
+
+screen_row_pointer = $A0
+tile_ids_row_pointer = $A2
+tiles_char_pointer = $A4
+tile_id_row_char_offset = $A6
+_screen_row_pointer_end_low = $A8
+
+/**
+ * Routine to update a single row on the screen.
+ *
+ * Input:
+ *  - `tile_ids_row_pointer` pointer to the buffer containing tile_ids.
+ *    Pointer should point to the first tile_id for the first
+ *    character on the screen.
+ *  - `tile_id_row_char_offset` number of chars to skip for the first
+ *    drawn tile. Must be 0<=x<=3.
+ *  - `tiles_char_pointer` points to the list of chars that defines
+ *    the chars to for tile_id 0 for this row. This pointer should
+ *    be modified to use the characters for a different row.
+ *    Values can be `grid`, `grid+4`, `grid+8` or `grid+12`.
+ *  - `screen_row_pointer`.
+ *
+ * Output:
+ *  - Draws 40 chars to the screen starting from `screen_row_pointer`.
+ *  - `tile_id_row_char_offset` will be modified and should be re-initialized.
+ *
+ * Future changes:
+ *  - Include copying of color codes.
+ */
+update_screen_row_b:
+    lda screen_row_pointer
+    clc
+    adc #39
+    sta _screen_row_pointer_end_low
+
+_update_screen_row_1:
+
+    ldy #0
+    ldx #0
+    lda (tiles_char_pointer,x)
+    sta (screen_row_pointer),y
+
+
+    /* Are we at the last char, then exit. */
+    lda screen_row_pointer
+    cmp _screen_row_pointer_end_low
+    beq _update_screen_row_finished
+
+    /* move screen_row_pointer to next position. */
+    jsr advance_screen_row_pointer
+    jmp _update_screen_row_1
+
+_update_screen_row_finished
+    jsr advance_screen_row_pointer
+    rts
+
+advance_screen_row_pointer:
+    lda screen_row_pointer
+    clc
+    adc #01
+    sta screen_row_pointer
+    lda screen_row_pointer+1
+    adc #0
+    sta screen_row_pointer+1
     rts
 
 
