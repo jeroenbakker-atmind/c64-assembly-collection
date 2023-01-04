@@ -28,7 +28,6 @@
 /* Zero page addressing.  */
 location_map = $90
 location_encoded_tile = $91
-location_decoded_tile = $92
 location_sub_tile_char = $93
 
 screen_should_be_updated = $94
@@ -67,7 +66,7 @@ irq:
 smooth_hor:
     ldx location_sub_tile_char
     dex
-    bcs mark_update_screen_dec_x
+    bmi mark_update_screen_dec_x
 continue_mark_update_screen:
     txa
     and #7
@@ -88,10 +87,12 @@ skip_update_screen:
     JMP $EA81            ; jump into shorter ROM routine to only restore registers from the stack etc
 
 mark_update_screen_dec_x:
+    lda location_decoded_tile
+    clc
+    adc #1
+    and #3
+    sta location_decoded_tile
     lda #1
-    sbc location_decoded_tile
-    lda #3
-    and location_decoded_tile
     sta screen_should_be_updated
     jmp continue_mark_update_screen
 
@@ -122,24 +123,32 @@ update_screen:
     rts
 
 _update_screen_draw_complete_tile_row:
+    lda location_decoded_tile
+    sta tile_id_row_char_offset
     lda #<grid
     sta tiles_char_pointer
     lda #>grid
     sta tiles_char_pointer+1
     jsr update_screen_row_b
 
+    lda location_decoded_tile
+    sta tile_id_row_char_offset
     lda #<(grid+4)
     sta tiles_char_pointer
     lda #>(grid+4)
     sta tiles_char_pointer+1
     jsr update_screen_row_b
 
+    lda location_decoded_tile
+    sta tile_id_row_char_offset
     lda #<(grid+8)
     sta tiles_char_pointer
     lda #>(grid+8)
     sta tiles_char_pointer+1
     jsr update_screen_row_b
 
+    lda location_decoded_tile
+    sta tile_id_row_char_offset
     lda #<(grid+12)
     sta tiles_char_pointer
     lda #>(grid+12)
@@ -184,10 +193,17 @@ update_screen_row_b:
 
 _update_screen_row_1:
 
+    ldy tile_id_row_char_offset
+    lda (tiles_char_pointer),y
     ldy #0
-    ldx #0
-    lda (tiles_char_pointer,x)
     sta (screen_row_pointer),y
+
+    /* Move offset to next char. Rotate when all chars are read. */
+    lda tile_id_row_char_offset
+    clc
+    adc #1
+    and #3
+    sta tile_id_row_char_offset
 
 
     /* Are we at the last char, then exit. */
@@ -225,3 +241,5 @@ grid:
     .byte 109, 64, 64, 125
 
 
+location_decoded_tile:
+    .byte 0
