@@ -1,5 +1,9 @@
 use c64::{
-    colors::Color, dithering::no_dithering::NoDithering, image_converter::palette_bitmap::convert_to_palette4, image_io::read_png::read_png, palette::Palette4
+    colors::Color,
+    dithering::no_dithering::NoDithering,
+    image_converter::palette_bitmap::convert_to_palette4,
+    image_io::{read_png::read_png, write_png::write_png},
+    palette::Palette4,
 };
 use clap::Parser;
 
@@ -15,6 +19,7 @@ fn main() {
     let image_pal4 = convert_to_palette4(&image, palette, &dithering);
 
     println!("{image_pal4:?}");
+    // write_png("test.png", &image_pal4);
 }
 
 #[derive(Parser, Debug)]
