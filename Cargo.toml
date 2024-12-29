@@ -24,4 +24,8 @@ path="src/builder/main.rs"
 name="convert"
 path="src/convert/main.rs"
 
+[[bin]]
+name="encoder"
+path="src/encoder/main.rs"
+
 

@@ -99,5 +99,6 @@ fn package_dev() -> Result<()> {
 fn main() -> std::io::Result<()> {
     print_petscii(Charset::Lower, Petscii::from("disk 1a"));
     package_disk1a()?;
+    print_petscii(Charset::Lower, Petscii::from("development"));
     package_dev()
 }
