@@ -1,12 +1,12 @@
 extern crate clap;
 
 use c64::colors::Color;
-use c64::image_container::{difference, DefaultImageContainer, Image};
+use c64::image_container::{difference, Image};
 use c64::image_converter::{
     ConversionQuality, ImageConverter, StandardBitmapMode, StandardCharacterMode,
 };
+use c64::image_io::read_png::read_png;
 use clap::{Parser, ValueEnum};
-use png::ColorType;
 use std::fs::File;
 use std::io::Write;
 
@@ -52,26 +52,7 @@ struct Arguments {
 fn main() {
     let args = Arguments::parse();
 
-    let decoder = png::Decoder::new(File::open(&args.input_filename).unwrap());
-    let mut reader = decoder.read_info().unwrap();
-    // Allocate the output buffer.
-    let mut buf = vec![0; reader.output_buffer_size()];
-    // Read the next frame. An APNG might contain multiple frames.
-    let info = reader.next_frame(&mut buf).unwrap();
-
-    let components_per_pixel = if info.color_type == ColorType::Rgba {
-        4
-    } else {
-        3
-    };
-
-    let image = DefaultImageContainer {
-        width: info.width as usize,
-        height: info.height as usize,
-
-        buffer: buf.clone(),
-        components_per_pixel,
-    };
+    let image = read_png(&args.input_filename);
 
     match args.format {
         ConversionFormat::StandardText => convert_standard_text(&args, &image),

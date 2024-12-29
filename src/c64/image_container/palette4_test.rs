@@ -1,4 +1,4 @@
-use crate::{colors::Color, image_container::Palette4BitmapImage, palette::Palette4};
+use crate::{colors::Color, image_container::palette4::Palette4BitmapImage, palette::Palette4};
 
 #[test]
 fn pal4_pixel_encoding() {

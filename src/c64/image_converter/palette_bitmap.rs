@@ -1,9 +1,10 @@
-use crate::{
-    image_container::{Image, Palette4BitmapImage},
-    palette::Palette4,
-};
+use crate::{dithering::Dithering, image_container::{palette4::Palette4BitmapImage, Image}, palette::Palette4};
 
-pub fn convert_to_palette4(image: &dyn Image, palette: Palette4) -> Palette4BitmapImage {
+pub fn convert_to_palette4(
+    image: &dyn Image,
+    palette: Palette4,
+    dithering: &dyn Dithering,
+) -> Palette4BitmapImage {
     assert!(image.width() % 4 == 0);
     assert!(image.height() % 8 == 0);
 
@@ -16,6 +17,7 @@ pub fn convert_to_palette4(image: &dyn Image, palette: Palette4) -> Palette4Bitm
     for y in 0..image.height() {
         for x in 0..image.width() {
             let color = image.get_pixel_color(x, y);
+            let color = dithering.dither(x, y, color);
             let palette_index = result.palette.get_nearest_color_index(color);
             result.set_pixel_palette_index(x, y, palette_index);
         }

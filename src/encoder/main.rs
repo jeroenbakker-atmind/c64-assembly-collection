@@ -1,43 +1,19 @@
-use std::{convert, fs::File};
-
 use c64::{
-    colors::Color,
-    image_container::{DefaultImageContainer, Palette4BitmapImage},
-    image_converter::palette_bitmap::convert_to_palette4,
-    palette::Palette4,
+    colors::Color, dithering::no_dithering::NoDithering, image_converter::palette_bitmap::convert_to_palette4, image_io::read_png::read_png, palette::Palette4
 };
 use clap::Parser;
-use png::ColorType;
 
 fn main() {
     let args = Arguments::parse();
 
-    let decoder = png::Decoder::new(File::open(&args.input_folder).unwrap());
-    let mut reader = decoder.read_info().unwrap();
-    // Allocate the output buffer.
-    let mut buf = vec![0; reader.output_buffer_size()];
-    // Read the next frame. An APNG might contain multiple frames.
-    let info = reader.next_frame(&mut buf).unwrap();
-
-    let components_per_pixel = if info.color_type == ColorType::Rgba {
-        4
-    } else {
-        3
-    };
-
-    let image = DefaultImageContainer {
-        width: info.width as usize,
-        height: info.height as usize,
-
-        buffer: buf.clone(),
-        components_per_pixel,
-    };
-
     let palette = Palette4 {
         colors: [Color::White, Color::Black, Color::Grey, Color::Purple],
     };
+    let dithering = NoDithering {};
 
-    let image_pal4 = convert_to_palette4(&image, palette);
+    let image = read_png(&args.input_folder);
+    let image_pal4 = convert_to_palette4(&image, palette, &dithering);
+
     println!("{image_pal4:?}");
 }
 
