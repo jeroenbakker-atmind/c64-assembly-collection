@@ -1,0 +1,11 @@
+[package]
+name = "c64-dithering"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+c64-colors = {path="../c64-colors"}
+
+[lib]
+name="c64_dithering"
+path="src/lib.rs"

@@ -1,10 +1,9 @@
 use c64::{
-    colors::Color,
-    dithering::no_dithering::NoDithering,
     image_converter::palette_bitmap::convert_to_palette4,
     image_io::{read_png::read_png, write_png::write_png},
-    palette::Palette4,
 };
+use c64_colors::{colors::Color, palette::Palette4};
+use c64_dithering::dithering::no_dithering::NoDithering;
 use clap::Parser;
 
 fn main() {

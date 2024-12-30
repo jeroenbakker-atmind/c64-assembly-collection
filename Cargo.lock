@@ -48,9 +48,31 @@ dependencies = [
 name = "c64"
 version = "0.1.0"
 dependencies = [
+ "c64-charset",
+ "c64-colors",
+ "c64-dithering",
  "cbm",
  "clap 4.0.26",
  "png",
+]
+
+[[package]]
+name = "c64-charset"
+version = "0.1.0"
+dependencies = [
+ "c64-colors",
+ "cbm",
+]
+
+[[package]]
+name = "c64-colors"
+version = "0.1.0"
+
+[[package]]
+name = "c64-dithering"
+version = "0.1.0"
+dependencies = [
+ "c64-colors",
 ]
 
 [[package]]
@@ -126,6 +148,7 @@ name = "convert"
 version = "0.1.0"
 dependencies = [
  "c64",
+ "c64-colors",
  "cbm",
  "clap 4.0.26",
  "png",
@@ -145,6 +168,8 @@ name = "encoder"
 version = "0.1.0"
 dependencies = [
  "c64",
+ "c64-colors",
+ "c64-dithering",
  "cbm",
  "clap 4.0.26",
  "png",

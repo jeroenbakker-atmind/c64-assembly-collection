@@ -9,6 +9,9 @@ edition = "2021"
 cbm="0.1.0"
 png="0.17.7"
 clap={ version = "4.0.26", features = ["derive"] }
+c64-colors = {path="../c64-colors"}
+c64-dithering = {path="../c64-dithering"}
+c64-charset = {path="../c64-charset"}
 
 [lib]
 name="c64"

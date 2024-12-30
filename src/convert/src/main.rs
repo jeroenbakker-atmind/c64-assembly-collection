@@ -1,11 +1,11 @@
 extern crate clap;
 
-use c64::colors::Color;
 use c64::image_container::{difference, Image};
 use c64::image_converter::{
     ConversionQuality, ImageConverter, StandardBitmapMode, StandardCharacterMode,
 };
 use c64::image_io::read_png::read_png;
+use c64_colors::colors::Color;
 use clap::{Parser, ValueEnum};
 use std::fs::File;
 use std::io::Write;

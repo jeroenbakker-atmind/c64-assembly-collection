@@ -1,9 +1,4 @@
-pub mod chars;
-pub mod charset;
-pub mod colors;
 pub mod create_disk;
-pub mod dithering;
 pub mod image_container;
 pub mod image_converter;
 pub mod image_io;
-pub mod palette;

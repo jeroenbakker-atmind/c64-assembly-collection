@@ -1,0 +1,8 @@
+[package]
+name = "c64-charset"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cbm="0.1.0"
+c64-colors={path="../c64-colors"}

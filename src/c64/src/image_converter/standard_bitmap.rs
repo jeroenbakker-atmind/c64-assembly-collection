@@ -1,9 +1,8 @@
 //! Convert image to be used in one of the text or graphics mode of the C64.
 
-use crate::{
-    colors::{Color, SRGB},
-    image_container::{difference, Image, StandardBitmapImage},
-};
+use c64_colors::colors::{Color, SRGB};
+
+use crate::image_container::{difference, Image, StandardBitmapImage};
 
 use super::ImageConverter;
 

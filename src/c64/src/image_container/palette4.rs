@@ -1,4 +1,4 @@
-use crate::{
+use c64_colors::{
     colors::SRGB,
     palette::{Palette4, PaletteIndex},
 };

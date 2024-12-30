@@ -1,4 +1,4 @@
-use crate::colors::SRGB;
+use c64_colors::colors::SRGB;
 
 use super::Dithering;
 
@@ -19,12 +19,7 @@ impl DitheringMask {
 }
 
 impl Dithering for DitheringMask {
-    fn dither(
-        &self,
-        pixel_x: usize,
-        pixel_y: usize,
-        color: crate::colors::SRGB,
-    ) -> crate::colors::SRGB {
+    fn dither(&self, pixel_x: usize, pixel_y: usize, color: SRGB) -> SRGB {
         let dither_x = pixel_x % self.width;
         let dither_y = pixel_y % self.height;
 

@@ -1,4 +1,4 @@
-use crate::colors::SRGB;
+use c64_colors::colors::SRGB;
 
 use super::Dithering;
 

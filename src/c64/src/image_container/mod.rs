@@ -1,9 +1,9 @@
-use crate::{
-    chars::Chars,
-    colors::{Color, SRGB},
-};
+use c64_charset::chars::Chars;
+use c64_colors::colors::{Color, SRGB};
+
 
 pub mod palette4;
+pub mod standard_char;
 
 #[cfg(test)]
 mod palette4_test;
