@@ -2,11 +2,11 @@ use c64_charset::chars::Chars;
 use c64_colors::colors::{Color, SRGB};
 
 
-pub mod palette4;
+pub mod palette4_bitmap;
 pub mod standard_char;
 
 #[cfg(test)]
-mod palette4_test;
+mod palette4_bitmap_test;
 
 pub trait Image {
     fn width(&self) -> usize;

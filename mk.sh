@@ -36,4 +36,4 @@ cd ..
 
 cargo run --release --bin builder
 
-${X64_BIN} ${DISK_IMAGE_PATHcargo run --bin encoder -- --input-folder=resources/cube/0001.png --output-filename cube.enc}
+${X64_BIN} ${DISK_IMAGE_PATH}

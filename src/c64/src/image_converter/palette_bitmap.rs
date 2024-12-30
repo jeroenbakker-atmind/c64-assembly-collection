@@ -1,7 +1,7 @@
 use c64_colors::palette::Palette4;
 use c64_dithering::dithering::Dithering;
 
-use crate::image_container::{palette4::Palette4BitmapImage, Image};
+use crate::image_container::{palette4_bitmap::Palette4BitmapImage, Image};
 
 pub fn convert_to_palette4(
     image: &dyn Image,
