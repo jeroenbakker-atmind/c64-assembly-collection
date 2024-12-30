@@ -1,31 +1,8 @@
-[package]
-name = "c64-assembly-collection"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-default-run="builder"
-
-[dependencies]
-cbm="0.1.0"
-png="0.17.7"
-clap={ version = "4.0.26", features = ["derive"] }
-
-[lib]
-name="c64"
-path="src/c64/lib.rs"
-
-[[bin]]
-name="builder"
-path="src/builder/main.rs"
-
-[[bin]]
-name="convert"
-path="src/convert/main.rs"
-
-[[bin]]
-name="encoder"
-path="src/encoder/main.rs"
-
-
+[workspace]
+members = [
+    "src/c64",
+    "src/encoder",
+    "src/builder",
+    "src/convert"
+]
+resolver="2"

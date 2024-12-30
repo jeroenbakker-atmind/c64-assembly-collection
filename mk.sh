@@ -7,11 +7,14 @@ export DISK_IMAGE_PATH=/Users/jeroen/workspace/c64-assembly-collection/developme
 
 
 # Compile resources.
+: '
 RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image.asm --format=standard-text --output-encoding=asm --output-variable-prefix=image
 RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image-bitmap.asm --format=standard-bitmap --output-encoding=asm --output-variable-prefix=image
 RUST_BACKTRACE=1 cargo run --release --bin convert -- -i=resources/test.png -o=src/temp-test-image-custom.asm --format=standard-text-custom-charset --output-encoding=asm --output-variable-prefix=image
+'
 
 cd src
+: '
 ${DASM_BIN} sprite.asm -o../bin/sprite.prg
 ${DASM_BIN} rasterbar.asm -o../bin/rasterbar.prg
 ${DASM_BIN} sprite-duplication.asm -o../bin/sprite-duplication.prg
@@ -27,10 +30,10 @@ ${DASM_BIN} standard-bitmap.asm -o../bin/standard-bitmap.prg
 ${DASM_BIN} standard-text-custom.asm -o../bin/standard-text-cs.prg
 
 ${DASM_BIN} stripes.asm -o../bin/stripes.prg
+'
 ${DASM_BIN} scrolling.asm -o../bin/scrolling.prg
 cd ..
 
 cargo run --release --bin builder
-cd ..
 
-${X64_BIN} ${DISK_IMAGE_PATH}
+${X64_BIN} ${DISK_IMAGE_PATHcargo run --bin encoder -- --input-folder=resources/cube/0001.png --output-filename cube.enc}

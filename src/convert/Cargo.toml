@@ -1,0 +1,21 @@
+[package]
+name = "convert"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+cbm="0.1.0"
+png="0.17.7"
+clap={ version = "4.0.26", features = ["derive"] }
+c64={ path = "../c64" }
+
+
+[[bin]]
+name="convert"
+path="src/main.rs"
+
+
+
