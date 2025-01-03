@@ -86,8 +86,8 @@ fn package_dev() -> Result<()> {
     )?;
 
     disk.add_files(&[(
-        "bin/scrolling.prg",
-        Petscii::from_str("scrolling"),
+        "bin/engine.prg",
+        Petscii::from_str("engine"),
         FileType::PRG,
     )])?;
     Ok(())
