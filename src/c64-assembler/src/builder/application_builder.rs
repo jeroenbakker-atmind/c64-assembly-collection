@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use crate::memory::{
     define::{Define, Value},
+    label::AddressReference,
     Address,
 };
 
-use super::module_builder::ModuleBuilder;
+use super::{finalize::finalize, module_builder::ModuleBuilder};
 
 pub struct ApplicationBuilder {
     pub(crate) name: String,
@@ -56,11 +57,14 @@ impl ApplicationBuilder {
 
     pub fn define_address(&mut self, name: &str, address: Address) -> &mut Self {
         self.address_lookup.insert(name.to_string(), address);
-        self.defines.push(Define {
-            name: name.to_string(),
-            value: Value::Address(address),
-        });
+        self.defines
+            .push(Define::new(name, Value::Address(address)));
         self
+    }
+
+    pub fn add_vic20(&mut self) -> &mut Self {
+        self.define_address("VIC20_BORDER_COLOR", 0xD020)
+            .define_address("VIC20_BACKGROUND_COLOR", 0xD021)
     }
 
     pub fn main_module(&mut self) -> &mut ModuleBuilder {
@@ -69,5 +73,22 @@ impl ApplicationBuilder {
 
     pub fn module(&mut self, name: &str) -> &mut ModuleBuilder {
         self.modules.get_mut(0).unwrap()
+    }
+
+    pub fn finalize(&mut self) {
+        finalize(self);
+    }
+
+    pub fn address(&self, address_reference: &AddressReference) -> Address {
+        self.address_lookup.get(&address_reference.name).unwrap() + address_reference.offset
+    }
+}
+
+impl ApplicationBuilder {
+    pub(crate) fn define_mut(&mut self, define_name: &String) -> &mut Define {
+        self.defines
+            .iter_mut()
+            .find(|define| &define.name == define_name)
+            .unwrap()
     }
 }

@@ -1,5 +1,3 @@
-use std::time::{Instant, SystemTime};
-
 use crate::{
     builder::{
         application_builder::ApplicationBuilder, instruction_builder::InstructionBuilder,
@@ -9,6 +7,7 @@ use crate::{
     memory::{
         address_mode::AddressMode,
         define::{Define, Value},
+        user_count::UserCount,
     },
 };
 
@@ -38,8 +37,13 @@ impl Generator for DasmGenerator {
         ));
         self.line(format!("; NOTE: This file is generated, do not modify"));
         self.line_new();
+        self.line(format!("  processor 6502"));
+        self.line_new();
+
         for define in &application.defines {
-            self.add_define(define);
+            if !define.user_empty() {
+                self.add_define(define);
+            }
         }
         self.line_new();
         self.line(format!("  org ${:04X}", application.entry_point));
@@ -127,6 +131,7 @@ impl DasmGenerator {
         }
     }
 }
+
 impl DasmGenerator {
     fn add_define(&mut self, define: &Define) {
         let mut line = vec![];
@@ -139,6 +144,7 @@ impl DasmGenerator {
         self.line(line.join(" "));
     }
 }
+
 impl DasmGenerator {
     fn line(&mut self, line: String) {
         self.output.push(line);

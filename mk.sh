@@ -31,8 +31,8 @@ ${DASM_BIN} standard-text-custom.asm -o../bin/standard-text-cs.prg
 
 ${DASM_BIN} stripes.asm -o../bin/stripes.prg
 ${DASM_BIN} scrolling.asm -o../bin/scrolling.prg
-'
 ${DASM_BIN} engine.asm -o../bin/engine.prg
+'
 cd ..
 
 cargo run --release --bin builder

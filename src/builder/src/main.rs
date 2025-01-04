@@ -1,3 +1,5 @@
+mod generated_application;
+
 use std::{io::Result, path::Path};
 
 use c64::create_disk::PackageDisk;
@@ -5,6 +7,7 @@ use cbm::{
     disk::{directory::FileType, Id},
     Petscii,
 };
+use generated_application::create_generated_application;
 
 fn package_disk1a() -> Result<()> {
     let mut disk = c64::create_disk::initialize_disk(
@@ -85,11 +88,12 @@ fn package_dev() -> Result<()> {
         Id::from_bytes(b"FYR"),
     )?;
 
-    disk.add_files(&[(
-        "bin/engine.prg",
-        Petscii::from_str("engine"),
+    disk.add_bytes(
+        &create_generated_application(),
+        Petscii::from_str("generated"),
         FileType::PRG,
-    )])?;
+    )?;
+
     Ok(())
 }
 

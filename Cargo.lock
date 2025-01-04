@@ -39,6 +39,7 @@ name = "builder"
 version = "0.1.0"
 dependencies = [
  "c64",
+ "c64-assembler",
  "cbm",
  "clap 4.0.26",
  "png",
