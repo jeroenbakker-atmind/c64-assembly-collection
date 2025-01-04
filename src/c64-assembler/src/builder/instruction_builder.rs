@@ -3,7 +3,7 @@ use crate::{
     memory::address_mode::AddressMode,
 };
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct InstructionBuilder {
     pub(crate) instructions: Vec<Instruction>,
 }
@@ -50,5 +50,21 @@ impl InstructionBuilder {
             .comments
             .push(comment.to_string());
         self
+    }
+
+    pub fn add_basic_header(&mut self) -> &mut Self {
+        /* Basic line header */
+        self.raw(&[0x00, 0x0c, 0x08])
+            .comment("New basic line")
+            /* 10 SYS 2062 */
+            .raw(&[0x0a, 0x00, 0x9e, 0x20, 0x32, 0x30, 0x36, 0x32])
+            .comment("10 SYS 2062")
+            /* Basic line heaer */
+            .raw(&[0x00, 0x00, 0x00])
+            .comment("End basic program")
+    }
+
+    pub fn finalize(&self) -> InstructionBuilder {
+        self.clone()
     }
 }

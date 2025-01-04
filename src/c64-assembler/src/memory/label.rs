@@ -5,6 +5,7 @@ pub struct Label {
     pub address: Address,
 }
 
+#[derive(Clone)]
 pub struct AddressReference {
     pub name: String,
     pub offset: Address,

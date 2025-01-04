@@ -1,5 +1,6 @@
 use super::label::AddressReference;
 
+#[derive(Clone)]
 pub enum AddressMode {
     Implied,
     Immediate(u8),

@@ -8,6 +8,7 @@ use crate::memory::{
 
 use super::{finalize::finalize, module_builder::ModuleBuilder};
 
+#[derive(Clone)]
 pub struct ApplicationBuilder {
     pub(crate) name: String,
     pub(crate) entry_point: Address,
@@ -20,8 +21,8 @@ impl Default for ApplicationBuilder {
     fn default() -> Self {
         Self {
             name: String::default(),
-            entry_point: Default::default(),
-            modules: vec![ModuleBuilder::with_name("main")],
+            entry_point: 0x0800,
+            modules: vec![],
             defines: vec![],
             address_lookup: HashMap::default(),
         }
@@ -34,24 +35,7 @@ impl ApplicationBuilder {
         self
     }
     pub fn entry_point(&mut self, entry_point: Address) -> &mut Self {
-        assert!(self.entry_point == 0);
         self.entry_point = entry_point;
-        self
-    }
-
-    pub fn basic_header(&mut self) -> &mut Self {
-        self.entry_point(0x0800)
-            .main_module()
-            .instructions()
-            /* Basic line header */
-            .raw(&[0x00, 0x0c, 0x08])
-            .comment("New basic line")
-            /* 10 SYS 2062 */
-            .raw(&[0x0a, 0x00, 0x9e, 0x20, 0x32, 0x30, 0x36, 0x32])
-            .comment("10 SYS 2062")
-            /* Basic line heaer */
-            .raw(&[0x00, 0x00, 0x00])
-            .comment("End basic program");
         self
     }
 
@@ -67,16 +51,14 @@ impl ApplicationBuilder {
             .define_address("VIC20_BACKGROUND_COLOR", 0xD021)
     }
 
-    pub fn main_module(&mut self) -> &mut ModuleBuilder {
-        self.module("main")
+    pub fn add_module(&mut self, module: ModuleBuilder) -> &mut Self {
+        self.modules.push(module);
+        self
     }
 
-    pub fn module(&mut self, name: &str) -> &mut ModuleBuilder {
-        self.modules.get_mut(0).unwrap()
-    }
-
-    pub fn finalize(&mut self) {
+    pub fn finalize(&mut self) -> ApplicationBuilder {
         finalize(self);
+        self.clone()
     }
 
     pub fn address(&self, address_reference: &AddressReference) -> Address {

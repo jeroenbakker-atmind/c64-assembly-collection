@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub enum Operation {
     LoadAccumulator,
     StoreAccumulator,

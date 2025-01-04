@@ -1,5 +1,6 @@
 use super::{user_count::UserCount, Address};
 
+#[derive(Clone)]
 pub struct Define {
     pub name: String,
     pub value: Value,
@@ -15,6 +16,7 @@ impl Define {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum Value {
     Address(Address),
 }
