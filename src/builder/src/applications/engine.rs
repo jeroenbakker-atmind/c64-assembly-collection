@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
 use c64_assembler::{
     builder::{
-        application_builder::ApplicationBuilder, instruction_builder::InstructionBuilder,
-        module_builder::ModuleBuilder,
+        application_builder::ApplicationBuilder, function_builder::FunctionBuilder,
+        instruction_builder::InstructionBuilder, module_builder::ModuleBuilder,
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
 };
@@ -25,7 +23,25 @@ pub fn engine_application() -> Vec<u8> {
                 )
                 .finalize(),
         )
-        .add_module(ModuleBuilder::default().name("engine").finalize())
+        .add_module(
+            ModuleBuilder::default()
+                .name("engine")
+                .function(
+                    FunctionBuilder::default()
+                        .name("engine_init")
+                        .instructions(
+                            InstructionBuilder::default()
+                                .lda_imm_low("engine_data")
+                                .sta_addr("CURRENT_PTR")
+                                .lda_imm_high("engine_data")
+                                .sta_addr_offs("CURRENT_PTR", 1)
+                                .rts()
+                                .finalize(),
+                        )
+                        .finalize(),
+                )
+                .finalize(),
+        )
         .add_module(
             ModuleBuilder::default()
                 .name("engine_data")

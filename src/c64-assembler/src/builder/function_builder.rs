@@ -1,13 +1,12 @@
-use super::{function_builder::FunctionBuilder, instruction_builder::InstructionBuilder};
+use super::instruction_builder::InstructionBuilder;
 
 #[derive(Default, Clone)]
-pub struct ModuleBuilder {
+pub struct FunctionBuilder {
     pub(crate) name: String,
     pub(crate) instructions: InstructionBuilder,
-    pub(crate) functions: Vec<FunctionBuilder>,
 }
 
-impl ModuleBuilder {
+impl FunctionBuilder {
     pub fn name(&mut self, name: &str) -> &mut Self {
         self.name = name.to_string();
         self
@@ -15,10 +14,6 @@ impl ModuleBuilder {
 
     pub fn instructions(&mut self, instructions: InstructionBuilder) -> &mut Self {
         self.instructions = instructions;
-        self
-    }
-    pub fn function(&mut self, function: FunctionBuilder) -> &mut Self {
-        self.functions.push(function);
         self
     }
 

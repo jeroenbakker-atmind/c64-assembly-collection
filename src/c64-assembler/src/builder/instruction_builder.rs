@@ -3,6 +3,7 @@ use crate::{
     memory::{
         address_mode::{AddressMode, Immediate},
         label::AddressReference,
+        Address,
     },
 };
 
@@ -27,6 +28,18 @@ impl InstructionBuilder {
     pub fn lda_imm(&mut self, byte: u8) -> &mut Self {
         self.lda(AddressMode::Immediate(Immediate::Byte(byte)))
     }
+    pub fn lda_imm_low(&mut self, address: &str) -> &mut Self {
+        self.lda(AddressMode::Immediate(Immediate::Low(
+            AddressReference::new(address),
+        )));
+        self
+    }
+    pub fn lda_imm_high(&mut self, address: &str) -> &mut Self {
+        self.lda(AddressMode::Immediate(Immediate::High(
+            AddressReference::new(address),
+        )));
+        self
+    }
 
     fn sta(&mut self, address_mode: AddressMode) -> &mut Self {
         self.add_instruction(Operation::STA, address_mode);
@@ -35,6 +48,11 @@ impl InstructionBuilder {
 
     pub fn sta_addr(&mut self, name: &str) -> &mut Self {
         self.sta(AddressMode::Absolute(AddressReference::new(name)))
+    }
+    pub fn sta_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
+        self.sta(AddressMode::Absolute(AddressReference::with_offset(
+            name, offset,
+        )))
     }
 
     pub fn rts(&mut self) -> &mut Self {

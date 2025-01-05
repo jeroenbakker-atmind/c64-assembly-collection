@@ -17,5 +17,10 @@ impl AddressReference {
             offset: 0,
         }
     }
+    pub fn with_offset(name: &str, offset: Address) -> AddressReference {
+        AddressReference {
+            name: name.to_string(),
+            offset: offset,
+        }
+    }
 }
-
