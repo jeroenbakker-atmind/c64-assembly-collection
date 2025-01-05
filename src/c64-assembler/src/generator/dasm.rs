@@ -5,9 +5,10 @@ use crate::{
     },
     instruction::operation::Operation,
     memory::{
-        address_mode::AddressMode,
+        address_mode::{AddressMode, Immediate},
         define::{Define, Value},
         user_count::UserCount,
+        ZeroPage,
     },
 };
 
@@ -80,7 +81,7 @@ impl DasmGenerator {
         for instruction in &instructions.instructions {
             let mut line = vec![];
             match (&instruction.operation, &instruction.address_mode) {
-                (Operation::Return, AddressMode::Implied) => self.line(format!("  rts")),
+                (Operation::RTS, AddressMode::Implied) => self.line(format!("  rts")),
                 (Operation::Raw(bytes), AddressMode::Implied) => {
                     line.push(format!("  byte ${:02X}", bytes[0]));
                     for i in 1..bytes.len() {
@@ -92,10 +93,10 @@ impl DasmGenerator {
                     line.push(format!("{}:", label));
                 }
 
-                (Operation::LoadAccumulator, AddressMode::Immediate(byte)) => {
+                (Operation::LDA, AddressMode::Immediate(Immediate::Byte(byte))) => {
                     line.push(format!("  lda #${:02X}", byte));
                 }
-                (Operation::StoreAccumulator, AddressMode::Absolute(address_ref)) => {
+                (Operation::STA, AddressMode::Absolute(address_ref)) => {
                     line.push(format!("  sta {}", address_ref.name));
                 }
 
@@ -139,6 +140,7 @@ impl DasmGenerator {
         line.push("=".to_string());
         match &define.value {
             Value::Address(address) => line.push(format!("${:04X}", address)),
+            Value::Zeropage(address) => line.push(format!("${:02X}", address.low())),
         }
 
         self.line(line.join(" "));

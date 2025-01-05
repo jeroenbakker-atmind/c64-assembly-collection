@@ -1,13 +1,13 @@
-mod generated_application;
+mod applications;
 
 use std::{io::Result, path::Path};
 
+use applications::{engine::engine_application, set_black_border::set_black_border_application};
 use c64::create_disk::PackageDisk;
 use cbm::{
     disk::{directory::FileType, Id},
     Petscii,
 };
-use generated_application::create_generated_application;
 
 fn package_disk1a() -> Result<()> {
     let mut disk = c64::create_disk::initialize_disk(
@@ -89,7 +89,12 @@ fn package_dev() -> Result<()> {
     )?;
 
     disk.add_bytes(
-        &create_generated_application(),
+        &engine_application(),
+        Petscii::from_str("engine"),
+        FileType::PRG,
+    )?;
+    disk.add_bytes(
+        &set_black_border_application(),
         Petscii::from_str("generated"),
         FileType::PRG,
     )?;

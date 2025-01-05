@@ -6,7 +6,6 @@ use crate::{
         module_builder::ModuleBuilder,
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
-    memory::{address_mode::AddressMode, label::AddressReference},
 };
 
 fn test_application() -> ApplicationBuilder {
@@ -20,12 +19,10 @@ fn test_application() -> ApplicationBuilder {
                     InstructionBuilder::default()
                         .add_basic_header()
                         .label("main_entry_point")
-                        .load_accumulator(AddressMode::Immediate(0))
+                        .lda_imm(0x00)
                         .comment("Load black color")
-                        .store_accumulator(AddressMode::Absolute(AddressReference::new(
-                            "VIC20_BORDER_COLOR",
-                        )))
-                        .return_to_caller()
+                        .sta_addr("VIC20_BORDER_COLOR")
+                        .rts()
                         .finalize(),
                 )
                 .finalize(),

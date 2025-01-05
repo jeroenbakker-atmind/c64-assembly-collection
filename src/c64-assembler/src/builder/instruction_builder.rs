@@ -1,6 +1,9 @@
 use crate::{
     instruction::{operation::Operation, Instruction},
-    memory::address_mode::AddressMode,
+    memory::{
+        address_mode::{AddressMode, Immediate},
+        label::AddressReference,
+    },
 };
 
 #[derive(Default, Clone)]
@@ -17,18 +20,25 @@ impl InstructionBuilder {
         });
     }
 
-    pub fn load_accumulator(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::LoadAccumulator, address_mode);
+    fn lda(&mut self, address_mode: AddressMode) -> &mut Self {
+        self.add_instruction(Operation::LDA, address_mode);
+        self
+    }
+    pub fn lda_imm(&mut self, byte: u8) -> &mut Self {
+        self.lda(AddressMode::Immediate(Immediate::Byte(byte)))
+    }
+
+    fn sta(&mut self, address_mode: AddressMode) -> &mut Self {
+        self.add_instruction(Operation::STA, address_mode);
         self
     }
 
-    pub fn store_accumulator(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::StoreAccumulator, address_mode);
-        self
+    pub fn sta_addr(&mut self, name: &str) -> &mut Self {
+        self.sta(AddressMode::Absolute(AddressReference::new(name)))
     }
 
-    pub fn return_to_caller(&mut self) -> &mut Self {
-        self.add_instruction(Operation::Return, AddressMode::Implied);
+    pub fn rts(&mut self) -> &mut Self {
+        self.add_instruction(Operation::RTS, AddressMode::Implied);
         self
     }
 

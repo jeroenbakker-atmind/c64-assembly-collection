@@ -4,12 +4,11 @@ use c64_assembler::{
         module_builder::ModuleBuilder,
     },
     generator::{program::ProgramGenerator, Generator},
-    memory::{address_mode::AddressMode, label::AddressReference},
 };
 
-pub fn create_generated_application() -> Vec<u8> {
+pub fn set_black_border_application() -> Vec<u8> {
     let application = ApplicationBuilder::default()
-        .name("test build dasm")
+        .name("Set black border")
         .add_vic20()
         .add_module(
             ModuleBuilder::default()
@@ -18,12 +17,10 @@ pub fn create_generated_application() -> Vec<u8> {
                     InstructionBuilder::default()
                         .add_basic_header()
                         .label("main_entry_point")
-                        .load_accumulator(AddressMode::Immediate(0))
+                        .lda_imm(0x00)
                         .comment("Load black color")
-                        .store_accumulator(AddressMode::Absolute(AddressReference::new(
-                            "VIC20_BORDER_COLOR",
-                        )))
-                        .return_to_caller()
+                        .sta_addr("VIC20_BORDER_COLOR")
+                        .rts()
                         .finalize(),
                 )
                 .finalize(),

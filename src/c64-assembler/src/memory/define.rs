@@ -19,6 +19,7 @@ impl Define {
 #[derive(Copy, Clone)]
 pub enum Value {
     Address(Address),
+    Zeropage(Address),
 }
 
 impl UserCount for Define {

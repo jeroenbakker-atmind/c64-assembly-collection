@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::memory::{
     define::{Define, Value},
     label::AddressReference,
-    Address,
+    Address, ZeroPage,
 };
 
 use super::{finalize::finalize, module_builder::ModuleBuilder};
@@ -40,6 +40,14 @@ impl ApplicationBuilder {
     }
 
     pub fn define_address(&mut self, name: &str, address: Address) -> &mut Self {
+        self.address_lookup.insert(name.to_string(), address);
+        self.defines
+            .push(Define::new(name, Value::Address(address)));
+        self
+    }
+
+    pub fn define_zeropage(&mut self, name: &str, address: Address) -> &mut Self {
+        assert!(address.is_zeropage());
         self.address_lookup.insert(name.to_string(), address);
         self.defines
             .push(Define::new(name, Value::Address(address)));
