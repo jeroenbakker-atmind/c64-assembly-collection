@@ -32,6 +32,9 @@ impl Generator for ProgramGenerator {
 impl ProgramGenerator {
     fn generate_module(&mut self, application: &ApplicationBuilder, module: &ModuleBuilder) {
         self.generate_instructions(application, &module.instructions);
+        for function in &module.functions {
+            self.generate_instructions(application, &function.instructions);
+        }
     }
 
     fn generate_instructions(

@@ -1,8 +1,9 @@
 use crate::{
     builder::{
-        application_builder::ApplicationBuilder, function_builder::FunctionBuilder, instruction_builder::InstructionBuilder, module_builder::ModuleBuilder
+        application_builder::ApplicationBuilder, function_builder::FunctionBuilder,
+        instruction_builder::InstructionBuilder, module_builder::ModuleBuilder,
     },
-    instruction::operation::Operation,
+    instruction::operation::{self, Operation},
     memory::{
         address_mode::{AddressMode, Immediate},
         define::{Define, Value},
@@ -76,7 +77,9 @@ impl DasmGenerator {
     fn function(&mut self, application: &ApplicationBuilder, function: &FunctionBuilder) {
         self.line_new();
         self.line(format!(
-            ";  --- Function begin: {} ---", function.name.to_uppercase()));
+            ";  --- Function begin: {} ---",
+            function.name.to_uppercase()
+        ));
         self.line(format!("{}:", function.name));
         self.instructions(application, &function.instructions);
 
@@ -94,56 +97,58 @@ impl DasmGenerator {
         instructions: &InstructionBuilder,
     ) {
         for instruction in &instructions.instructions {
-            let mut line:Vec<String> = vec![];
+            let mut line: Vec<String> = vec![];
+            if let Operation::Label(_) = &instruction.operation {
+                self.line_new();
+            } else {
+                line.push("  ".to_string());
+            }
             match &instruction.operation {
                 Operation::ADC => todo!(),
                 Operation::AND => todo!(),
                 Operation::ASL => todo!(),
                 Operation::BCC => todo!(),
                 Operation::BCS => todo!(),
-                Operation::LDA =>  {
-                    line.push("  ".to_string());
+                Operation::LDA => {
                     line.push("lda".to_string());
                 }
                 Operation::STA => {
-                    line.push("  ".to_string());
-                line.push("sta".to_string());
+                    line.push("sta".to_string());
                 }
                 Operation::JMP => todo!(),
                 Operation::JSR => todo!(),
                 Operation::SEC => todo!(),
                 Operation::CLC => todo!(),
                 Operation::RTS => {
-                    line.push("  ".to_string());
                     line.push("rts".to_string());
                 }
                 Operation::Raw(bytes) => {
-                    line.push(format!("  byte ${:02X}", bytes[0]));
+                    line.push(format!("byte ${:02X}", bytes[0]));
                     for i in 1..bytes.len() {
                         line.push(format!(", ${:02X}", bytes[i]));
                     }
                 }
                 Operation::Label(label) => {
-                    self.line_new();
                     line.push(format!("{}:", label));
                 }
             }
 
             match &instruction.address_mode {
                 AddressMode::Implied => {}
-                AddressMode::Immediate(immediate) => {
-                    match immediate {
-                        Immediate::Byte(byte) => line.push(format!(" {byte:02X}")),
-                        Immediate::Low(address_reference) =>
-                            line.push(format!(" #<{}", address_reference.name)),
-                        Immediate::High(address_reference) => line.push(format!(" #>{}", address_reference.name))
+                AddressMode::Immediate(immediate) => match immediate {
+                    Immediate::Byte(byte) => line.push(format!(" {byte:02X}")),
+                    Immediate::Low(address_reference) => {
+                        line.push(format!(" #<{}", address_reference.name))
+                    }
+                    Immediate::High(address_reference) => {
+                        line.push(format!(" #>{}", address_reference.name))
                     }
                 },
-                AddressMode::Absolute(address_reference) |
-                AddressMode::AbsoluteX(address_reference) |
-                AddressMode::AbsoluteY(address_reference) |
-                AddressMode::IndexedIndirect(address_reference) |
-                AddressMode::IndirectIndexed(address_reference) => {
+                AddressMode::Absolute(address_reference)
+                | AddressMode::AbsoluteX(address_reference)
+                | AddressMode::AbsoluteY(address_reference)
+                | AddressMode::IndexedIndirect(address_reference)
+                | AddressMode::IndirectIndexed(address_reference) => {
                     line.push(format!(" {}", address_reference.name));
                 }
             }
