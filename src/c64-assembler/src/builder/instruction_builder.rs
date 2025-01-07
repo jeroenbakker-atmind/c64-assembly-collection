@@ -54,7 +54,13 @@ impl InstructionBuilder {
             name, offset,
         )))
     }
-
+    fn jsr(&mut self, address_mode: AddressMode) -> &mut Self {
+        self.add_instruction(Operation::JSR, address_mode);
+        self
+    }
+    pub fn jsr_addr(&mut self, name: &str) -> &mut Self {
+        self.jsr(AddressMode::Absolute(AddressReference::new(name)))
+    }
     pub fn rts(&mut self) -> &mut Self {
         self.add_instruction(Operation::RTS, AddressMode::Implied);
         self

@@ -116,7 +116,7 @@ impl DasmGenerator {
                     line.push("sta".to_string());
                 }
                 Operation::JMP => todo!(),
-                Operation::JSR => todo!(),
+                Operation::JSR => line.push("jsr".to_string()),
                 Operation::SEC => todo!(),
                 Operation::CLC => todo!(),
                 Operation::RTS => {
