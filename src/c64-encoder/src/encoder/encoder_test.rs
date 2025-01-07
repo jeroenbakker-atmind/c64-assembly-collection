@@ -25,4 +25,3 @@ fn encode() {
     println!("{encoded_demo:?}");
     assert_eq!(9, encoded_demo.len());
 }
-

@@ -1,9 +1,12 @@
+use crate::memory::user_count::UserCount;
+
 use super::instruction_builder::InstructionBuilder;
 
 #[derive(Default, Clone)]
 pub struct FunctionBuilder {
     pub(crate) name: String,
     pub(crate) instructions: InstructionBuilder,
+    user_count: usize,
 }
 
 impl FunctionBuilder {
@@ -19,5 +22,15 @@ impl FunctionBuilder {
 
     pub fn finalize(&self) -> Self {
         self.clone()
+    }
+}
+
+impl UserCount for FunctionBuilder {
+    fn user_increase(&mut self) {
+        self.user_count += 1;
+    }
+
+    fn user_count(&self) -> usize {
+        self.user_count
     }
 }

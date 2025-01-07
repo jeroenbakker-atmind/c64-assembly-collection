@@ -1,7 +1,6 @@
 use c64_charset::chars::Chars;
 use c64_colors::colors::{Color, SRGB};
 
-
 pub mod palette4_bitmap;
 pub mod standard_char;
 
