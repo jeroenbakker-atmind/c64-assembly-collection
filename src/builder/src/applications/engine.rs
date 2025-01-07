@@ -62,5 +62,23 @@ pub fn engine_application() -> Vec<u8> {
         )
         .finalize();
     println!("{}", DasmGenerator::default().generate(application.clone()));
-    ProgramGenerator::default().generate(application)
+    
+    let result = ProgramGenerator::default().generate(application);
+    let mut address = 0x0800;
+    result.chunks(16).for_each(|chunk| {
+        let mut line = Vec::new();
+
+        line.push(format!("{:04X}: ", address));
+        address += 16;
+
+        chunk.chunks(4).for_each(|chunk| {
+            chunk.iter().for_each(|byte| {
+                line.push(format!("{:02X}", byte));
+            });
+            line.push("".to_string());
+        });
+        println!("{}", line.join(" ").trim_end());
+    });
+
+    result
 }
