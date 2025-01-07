@@ -95,20 +95,22 @@ fn update_label_addresses(application: &mut ApplicationBuilder) {
     let mut function_addresses = HashMap::<String, Address>::default();
     let mut current_address = application.entry_point;
 
-    let mut update_label_addresses_instructions = |instructions: &InstructionBuilder| {
-        for instruction in &instructions.instructions {
-            if let Operation::Label(label) = &instruction.operation {
-                label_addresses.insert(label.clone(), application.entry_point);
+    let mut update_label_addresses_instructions =
+        |current_address: &mut Address, instructions: &InstructionBuilder| {
+            for instruction in &instructions.instructions {
+                if let Operation::Label(label) = &instruction.operation {
+                    label_addresses.insert(label.clone(), *current_address);
+                }
+                let byte_size = instruction.byte_size(application);
+                *current_address += byte_size;
             }
-            current_address += instruction.byte_size(application);
-        }
-    };
+        };
 
     for module in &application.modules {
-        update_label_addresses_instructions(&module.instructions);
+        update_label_addresses_instructions(&mut current_address, &module.instructions);
         for function in &module.functions {
-            function_addresses.insert(function.name.clone(), application.entry_point);
-            update_label_addresses_instructions(&function.instructions);
+            function_addresses.insert(function.name.clone(), current_address);
+            update_label_addresses_instructions(&mut current_address, &function.instructions);
         }
     }
 

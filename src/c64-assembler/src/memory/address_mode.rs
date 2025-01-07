@@ -1,6 +1,6 @@
 use super::label::AddressReference;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum AddressMode {
     Implied,
     Immediate(Immediate),
@@ -11,7 +11,7 @@ pub enum AddressMode {
     IndirectIndexed(AddressReference),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Immediate {
     Byte(u8),
     Low(AddressReference),

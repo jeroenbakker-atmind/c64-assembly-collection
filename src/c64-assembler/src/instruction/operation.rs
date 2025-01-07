@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Operation {
     /// Add Memory to Accumulator with Carry
     ADC,

@@ -3,7 +3,7 @@ use crate::{
         application_builder::ApplicationBuilder, function_builder::FunctionBuilder,
         instruction_builder::InstructionBuilder, module_builder::ModuleBuilder,
     },
-    instruction::operation::{self, Operation},
+    instruction::operation::Operation,
     memory::{
         address_mode::{AddressMode, Immediate},
         define::{Define, Value},
@@ -93,7 +93,7 @@ impl DasmGenerator {
 impl DasmGenerator {
     fn instructions(
         &mut self,
-        application: &ApplicationBuilder,
+        _application: &ApplicationBuilder,
         instructions: &InstructionBuilder,
     ) {
         for instruction in &instructions.instructions {
@@ -150,6 +150,9 @@ impl DasmGenerator {
                 | AddressMode::IndexedIndirect(address_reference)
                 | AddressMode::IndirectIndexed(address_reference) => {
                     line.push(format!(" {}", address_reference.name));
+                    if address_reference.offset != 0 {
+                        line.push(format!("+{}", address_reference.offset));
+                    }
                 }
             }
 

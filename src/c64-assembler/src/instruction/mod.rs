@@ -24,20 +24,26 @@ fn is_zeropage(application: &ApplicationBuilder, address_reference: &AddressRefe
 impl Instruction {
     /// Total number of bytes this instruction occupies on a 6502.
     pub fn byte_size(&self, application: &ApplicationBuilder) -> u16 {
-        match &self.address_mode {
-            AddressMode::Implied => 1,
-            AddressMode::Immediate(_immediate) => 2,
-            AddressMode::Absolute(address_reference)
-            | AddressMode::AbsoluteX(address_reference)
-            | AddressMode::AbsoluteY(address_reference) => {
-                if is_zeropage(application, address_reference) {
-                    2
-                } else {
-                    3
+        if let Operation::Raw(bytes) = &self.operation {
+            bytes.len() as u16
+        } else if let Operation::Label(_) = &self.operation {
+            0
+        } else {
+            match &self.address_mode {
+                AddressMode::Implied => 1,
+                AddressMode::Immediate(_immediate) => 2,
+                AddressMode::Absolute(address_reference)
+                | AddressMode::AbsoluteX(address_reference)
+                | AddressMode::AbsoluteY(address_reference) => {
+                    if is_zeropage(application, address_reference) {
+                        2
+                    } else {
+                        3
+                    }
                 }
+                AddressMode::IndexedIndirect(_address_reference)
+                | AddressMode::IndirectIndexed(_address_reference) => 2,
             }
-            AddressMode::IndexedIndirect(_address_reference)
-            | AddressMode::IndirectIndexed(_address_reference) => 2,
         }
     }
 }

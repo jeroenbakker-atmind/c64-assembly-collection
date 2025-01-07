@@ -33,6 +33,7 @@ ${DASM_BIN} stripes.asm -o../bin/stripes.prg
 ${DASM_BIN} scrolling.asm -o../bin/scrolling.prg
 ${DASM_BIN} engine.asm -o../bin/engine.prg
 '
+${DASM_BIN} engine_gen.asm -o../bin/engine_gen.prg
 cd ..
 
 cargo run --release --bin builder

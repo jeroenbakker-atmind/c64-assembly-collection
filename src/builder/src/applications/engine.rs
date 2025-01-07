@@ -18,7 +18,7 @@ pub fn engine_application() -> Vec<u8> {
                     InstructionBuilder::default()
                         .add_basic_header()
                         .label("main_entry_point")
-                        .jsr_addr("engine_init")
+                        .jsr_addr("engine__init")
                         .rts()
                         .finalize(),
                 )
@@ -29,7 +29,7 @@ pub fn engine_application() -> Vec<u8> {
                 .name("engine")
                 .function(
                     FunctionBuilder::default()
-                        .name("engine_init")
+                        .name("engine__init")
                         .instructions(
                             InstructionBuilder::default()
                                 .lda_imm_low("engine_data")
@@ -65,7 +65,7 @@ pub fn engine_application() -> Vec<u8> {
     println!("{}", DasmGenerator::default().generate(application.clone()));
 
     let result = ProgramGenerator::default().generate(application);
-    let mut address = 0x0800;
+    let mut address = 0;
     result.chunks(16).for_each(|chunk| {
         let mut line = Vec::new();
 
