@@ -36,6 +36,8 @@ pub fn engine_application() -> Vec<u8> {
                                 .sta_addr("CURRENT_PTR")
                                 .lda_imm_high("engine_data")
                                 .sta_addr_offs("CURRENT_PTR", 1)
+                                .lda_imm(2).comment("Advance the pointer with 2 bytes.")
+                                .comment("Number of frames is only needed when reading directly from disk.")
                                 .rts()
                                 .finalize(),
                         )

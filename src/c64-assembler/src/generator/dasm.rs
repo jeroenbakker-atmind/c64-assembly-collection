@@ -136,7 +136,7 @@ impl DasmGenerator {
             match &instruction.address_mode {
                 AddressMode::Implied => {}
                 AddressMode::Immediate(immediate) => match immediate {
-                    Immediate::Byte(byte) => line.push(format!(" {byte:02X}")),
+                    Immediate::Byte(byte) => line.push(format!(" #${byte:02X}")),
                     Immediate::Low(address_reference) => {
                         line.push(format!(" #<{}", address_reference.name))
                     }
