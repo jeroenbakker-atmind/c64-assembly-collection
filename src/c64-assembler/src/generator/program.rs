@@ -77,6 +77,7 @@ impl ProgramGenerator {
         const STA_ZEROPAGE_X: u8 = 0x95;
         const STA_INDEXED_INDIRECT: u8 = 0x81;
         const STA_INDIRECT_INDEXED: u8 = 0x91;
+        const JSR_ABSOLUTE: u8 = 0x20;
         const RTS: u8 = 0x60;
 
         match &instruction.operation {
@@ -133,7 +134,18 @@ impl ProgramGenerator {
             Operation::BCC => todo!(),
             Operation::BCS => todo!(),
             Operation::JMP => todo!(),
-            Operation::JSR => todo!(),
+            Operation::JSR => self.with_absolute(
+                application,
+                &instruction.address_mode,
+                UNUSED,
+                JSR_ABSOLUTE,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+            ),
             Operation::SEC => todo!(),
             Operation::CLC => todo!(),
         }
@@ -167,7 +179,7 @@ impl ProgramGenerator {
             }
             AddressMode::Absolute(address_reference) => {
                 let address = application.address(address_reference);
-                if address.is_zeropage() {
+                if zeropage != 0x00 && address.is_zeropage() {
                     self.add_u8(zeropage);
                     self.add_u8(application.address(address_reference).low());
                 } else {
@@ -177,7 +189,7 @@ impl ProgramGenerator {
             }
             AddressMode::AbsoluteX(address_reference) => {
                 let address = application.address(address_reference);
-                if address.is_zeropage() {
+                if zeropage_x != 0x00 && address.is_zeropage() {
                     self.add_u8(zeropage_x);
                     self.add_u8(address.low());
                 } else {
