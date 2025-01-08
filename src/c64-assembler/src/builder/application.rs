@@ -72,7 +72,7 @@ impl ApplicationBuilder {
             .define_address("VIC20_BACKGROUND_COLOR", 0xD021)
     }
 
-    pub fn add_module(&mut self, module: Module) -> &mut Self {
+    pub fn module(&mut self, module: Module) -> &mut Self {
         self.application.modules.push(module);
         self
     }

@@ -1,7 +1,6 @@
 use c64_assembler::{
     builder::{
-        application::ApplicationBuilder, instruction::InstructionBuilder,
-        module::ModuleBuilder,
+        application::ApplicationBuilder, instruction::InstructionBuilder, module::ModuleBuilder,
     },
     generator::{program::ProgramGenerator, Generator},
 };
@@ -10,7 +9,7 @@ pub fn set_black_border_application() -> Vec<u8> {
     let application = ApplicationBuilder::default()
         .name("Set black border")
         .add_vic20()
-        .add_module(
+        .module(
             ModuleBuilder::default()
                 .name("main")
                 .instructions(

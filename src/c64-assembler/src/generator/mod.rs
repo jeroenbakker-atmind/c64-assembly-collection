@@ -1,4 +1,4 @@
-use crate::builder::application::{Application};
+use crate::builder::application::Application;
 
 pub mod dasm;
 pub mod program;

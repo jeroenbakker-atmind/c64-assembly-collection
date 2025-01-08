@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use crate::{
     builder::{
         application::{Application, ApplicationBuilder},
@@ -13,7 +11,7 @@ fn test_application() -> Application {
     ApplicationBuilder::default()
         .name("test build dasm")
         .add_vic20()
-        .add_module(
+        .module(
             ModuleBuilder::default()
                 .name("main")
                 .instructions(

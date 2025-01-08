@@ -28,7 +28,7 @@ pub fn engine_application() -> Vec<u8> {
         .name("Engine")
         .add_vic20()
         .define_zeropage("CURRENT_PTR", 0xFE)
-        .add_module(
+        .module(
             ModuleBuilder::default()
                 .name("main")
                 .instructions(
@@ -41,7 +41,7 @@ pub fn engine_application() -> Vec<u8> {
                 )
                 .finalize(),
         )
-        .add_module(
+        .module(
             ModuleBuilder::default()
                 .name("engine")
                 .function(
@@ -69,7 +69,7 @@ pub fn engine_application() -> Vec<u8> {
                 )
                 .finalize(),
         )
-        .add_module(ModuleBuilder::default().name("engine__current_ptr").function(
+        .module(ModuleBuilder::default().name("engine__current_ptr").function(
             FunctionBuilder::default().name("engine__current_ptr__advance")
             .doc(&[
                 "Advance current pointer with accumulator",
@@ -87,7 +87,7 @@ pub fn engine_application() -> Vec<u8> {
                     .sta_addr_offs("CURRENT_PTR", 1)
                     .rts()
                 .finalize()).finalize()).finalize())
-        .add_module(
+        .module(
             engine_data
         )
         .finalize();
