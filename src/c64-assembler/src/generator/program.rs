@@ -380,8 +380,9 @@ impl ProgramGenerator {
             AddressMode::Relative(address_reference) => {
                 self.add_u8(relative);
                 let address = application.address(address_reference);
-                // TODO: keep track of current address. (or store in instruction.)
-                let next_instruction = address + 2;
+                let current_instruction =
+                    application.entry_point + self.output.len() as Address - 2;
+                let next_instruction = current_instruction + 2;
                 let relative_address = (address as i32 - next_instruction as i32) as i8;
                 self.add_u8(relative_address as u8);
             }
