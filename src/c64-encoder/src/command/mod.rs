@@ -12,6 +12,7 @@ const FILL_VIDEO_MEMORY: u8 = 1;
 const SET_PALETTE4: u8 = 2;
 const SET_BORDER_COLOR: u8 = 3;
 
+#[derive(Debug, Clone)]
 pub enum Command {
     FillVideoMemory(FillVideoMemory),
     SetPalette4(SetPalette4),

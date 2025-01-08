@@ -5,21 +5,18 @@ use c64_assembler::{
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
 };
+use c64_colors::colors::Color;
+use c64_encoder::builder::{demo::DemoBuilder, frame::FrameBuilder};
 
 pub fn engine_application() -> Vec<u8> {
+    let data= DemoBuilder::default().frame(FrameBuilder::default().set_border_color(Color::Black).build()).build();
+
     let engine_data = ModuleBuilder::default()
         .name("engine_data")
         .instructions(
             InstructionBuilder::default()
                 .label("engine_data")
-                .raw(&[0x01, 0x00])
-                .comment("Data contains one frame")
-                .label("engine_data__frame_1")
-                .raw(&[0x01, 0x00])
-                .comment("Frame contains one command")
-                .label("engine_data__frame_1__command_1")
-                .raw(&[0x03, 0x00])
-                .comment("Set border color to black")
+                .raw(&data)
                 .finalize(),
         )
         .finalize();

@@ -9,12 +9,13 @@ pub struct DemoBuilder {
 }
 
 impl DemoBuilder {
-    pub fn new_frame(&mut self) -> &mut FrameBuilder {
-        self.frames.push(FrameBuilder::default());
-        self.frames.last_mut().unwrap()
+    pub fn frame(&mut self, frame: FrameBuilder) ->&mut Self{
+        self.frames.push(frame);
+        self
     }
 
-    pub fn build(self) -> Vec<u8> {
+
+    pub fn build(&self) -> Vec<u8> {
         let mut result = Vec::new();
         result.resize(self.byte_size(), 0);
         self.encode(result.as_mut_slice());

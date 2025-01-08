@@ -1,5 +1,6 @@
 use crate::encoder::{writer::Writer, Encoder};
 
+#[derive(Copy, Clone, Debug)]
 pub struct FillVideoMemory {
     pub pixel_data: u8,
 }

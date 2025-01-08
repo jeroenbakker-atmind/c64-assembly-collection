@@ -95,7 +95,7 @@ fn package_dev() -> Result<()> {
     )?;
     disk.add_bytes(
         &set_black_border_application(),
-        Petscii::from_str("generated"),
+        Petscii::from_str("set black border"),
         FileType::PRG,
     )?;
 
@@ -103,6 +103,6 @@ fn package_dev() -> Result<()> {
 }
 
 fn main() -> std::io::Result<()> {
-    package_disk1a()?;
+    //package_disk1a()?;
     package_dev()
 }

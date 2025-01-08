@@ -2,6 +2,7 @@ use c64_colors::colors::Color;
 
 use crate::encoder::{writer::Writer, Encoder};
 
+#[derive(Copy, Clone, Debug)]
 pub struct SetPalette4 {
     pub palette: [Color; 4],
 }
