@@ -66,6 +66,23 @@ impl InstructionBuilder {
         self
     }
 
+    fn adc(&mut self, address_mode: AddressMode) -> &mut Self {
+        self.add_instruction(Operation::ADC, address_mode);
+        self
+    }
+    pub fn adc_addr(&mut self, name: &str) -> &mut Self {
+        self.adc(AddressMode::Absolute(AddressReference::new(name)))
+    }
+    pub fn adc_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
+        self.adc(AddressMode::Absolute(AddressReference::with_offset(
+            name, offset,
+        )))
+    }
+    pub fn clc(&mut self) -> &mut Self {
+        self.add_instruction(Operation::CLC, AddressMode::Implied);
+        self
+    }
+
     pub fn raw(&mut self, data: &[u8]) -> &mut Self {
         self.add_instruction(Operation::Raw(Vec::from(data)), AddressMode::Implied);
         self

@@ -104,24 +104,19 @@ impl DasmGenerator {
                 line.push("  ".to_string());
             }
             match &instruction.operation {
-                Operation::ADC => todo!(),
-                Operation::AND => todo!(),
-                Operation::ASL => todo!(),
-                Operation::BCC => todo!(),
-                Operation::BCS => todo!(),
-                Operation::LDA => {
-                    line.push("lda".to_string());
-                }
-                Operation::STA => {
-                    line.push("sta".to_string());
-                }
-                Operation::JMP => todo!(),
+                Operation::ADC => line.push("adc".to_string()),
+                Operation::AND => line.push("and".to_string()),
+                Operation::ASL => line.push("asl".to_string()),
+                Operation::BCC => line.push("bcc".to_string()),
+                Operation::BCS => line.push("bcs".to_string()),
+                Operation::LDA => line.push("lda".to_string()),
+                Operation::STA => line.push("sta".to_string()),
+                Operation::JMP => line.push("jmp".to_string()),
                 Operation::JSR => line.push("jsr".to_string()),
-                Operation::SEC => todo!(),
-                Operation::CLC => todo!(),
-                Operation::RTS => {
-                    line.push("rts".to_string());
-                }
+                Operation::SEC => line.push("sec".to_string()),
+                Operation::CLC => line.push("clc".to_string()),
+                Operation::RTS => line.push("rts".to_string()),
+
                 Operation::Raw(bytes) => {
                     line.push(format!("byte ${:02X}", bytes[0]));
                     for i in 1..bytes.len() {

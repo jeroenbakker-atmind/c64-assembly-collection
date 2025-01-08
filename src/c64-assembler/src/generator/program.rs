@@ -79,6 +79,7 @@ impl ProgramGenerator {
         const STA_INDIRECT_INDEXED: u8 = 0x91;
         const JSR_ABSOLUTE: u8 = 0x20;
         const RTS: u8 = 0x60;
+        const CLC: u8 = 0x18;
 
         match &instruction.operation {
             Operation::ADC => {
@@ -147,7 +148,7 @@ impl ProgramGenerator {
                 UNUSED,
             ),
             Operation::SEC => todo!(),
-            Operation::CLC => todo!(),
+            Operation::CLC => self.add_u8(CLC),
         }
     }
 

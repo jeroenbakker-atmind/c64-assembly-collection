@@ -38,6 +38,7 @@ pub fn engine_application() -> Vec<u8> {
                                 .sta_addr_offs("CURRENT_PTR", 1)
                                 .lda_imm(2).comment("Advance the pointer with 2 bytes.")
                                 .comment("Number of frames is only needed when reading directly from disk.")
+                                .jsr_addr("engine__current_ptr__advance")
                                 .rts()
                                 .finalize(),
                         )
@@ -45,6 +46,11 @@ pub fn engine_application() -> Vec<u8> {
                 )
                 .finalize(),
         )
+        .add_module(ModuleBuilder::default().name("engine__current_ptr").function(
+            FunctionBuilder::default().name("engine__current_ptr__advance").instructions(
+                InstructionBuilder::default()
+                .clc().adc_addr("CURRENT_PTR").sta_addr("CURRENT_PTR").lda_imm(0x00).adc_addr_offs("CURRENT_PTR", 1).sta_addr_offs("CURRENT_PTR", 1).rts()
+                .finalize()).finalize()).finalize())
         .add_module(
             ModuleBuilder::default()
                 .name("engine_data")
