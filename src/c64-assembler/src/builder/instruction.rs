@@ -45,6 +45,32 @@ impl InstructionBuilder {
         )));
         self
     }
+    pub fn lda_addr(&mut self, address: &str) -> &mut Self {
+        self.lda(AddressMode::Absolute(AddressReference::new(address)))
+    }
+    pub fn lda_ind_y(&mut self, address: &str) -> &mut Self {
+        self.lda(AddressMode::IndirectIndexed(AddressReference::new(address)))
+    }
+
+    fn ldy(&mut self, address_mode: AddressMode) -> &mut Self {
+        self.add_instruction(Operation::LDY, address_mode);
+        self
+    }
+    pub fn ldy_imm(&mut self, byte: u8) -> &mut Self {
+        self.ldy(AddressMode::Immediate(Immediate::Byte(byte)))
+    }
+    pub fn ldy_imm_low(&mut self, address: &str) -> &mut Self {
+        self.ldy(AddressMode::Immediate(Immediate::Low(
+            AddressReference::new(address),
+        )));
+        self
+    }
+    pub fn ldy_imm_high(&mut self, address: &str) -> &mut Self {
+        self.ldy(AddressMode::Immediate(Immediate::High(
+            AddressReference::new(address),
+        )));
+        self
+    }
 
     fn sta(&mut self, address_mode: AddressMode) -> &mut Self {
         self.add_instruction(Operation::STA, address_mode);

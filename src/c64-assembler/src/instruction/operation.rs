@@ -13,6 +13,7 @@ pub enum Operation {
 
     /// Load accumulator
     LDA,
+    LDY,
     /// Store accumulator
     STA,
     /// Jump

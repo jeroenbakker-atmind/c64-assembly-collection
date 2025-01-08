@@ -24,6 +24,44 @@ pub fn engine_application() -> Vec<u8> {
         )
         .finalize();
 
+    let set_border_color = ModuleBuilder::default()
+        .name("set_border_color")
+        .function(
+            FunctionBuilder::default()
+                .name("set_border_color__process")
+                .instructions(
+                    InstructionBuilder::default()
+                        .ldy_imm(1)
+                        .lda_ind_y("CURRENT_PTR")
+                        .sta_addr("set_border_color__data")
+                        .lda_imm(2)
+                        .jsr_addr("engine__current_ptr__advance")
+                        .rts()
+                        .finalize(),
+                )
+                .finalize(),
+        )
+        .function(
+            FunctionBuilder::default()
+                .name("set_border_color__vblank")
+                .instructions(
+                    InstructionBuilder::default()
+                        .lda_addr("set_border_color__data")
+                        .sta_addr("VIC20_BORDER_COLOR")
+                        .rts()
+                        .finalize(),
+                )
+                .finalize(),
+        )
+        .instructions(
+            InstructionBuilder::default()
+                .label("set_border_color__data")
+                .comment("Border color to set at the next vblank")
+                .raw(&[0x00])
+                .finalize(),
+        )
+        .finalize();
+
     let application = ApplicationBuilder::default()
         .name("Engine")
         .add_vic20()
@@ -87,6 +125,7 @@ pub fn engine_application() -> Vec<u8> {
                     .sta_addr_offs("CURRENT_PTR", 1)
                     .rts()
                 .finalize()).finalize()).finalize())
+        .module(set_border_color)
         .module(
             engine_data
         )

@@ -109,6 +109,7 @@ impl DasmGenerator {
                 Operation::BCC => line.push("bcc".to_string()),
                 Operation::BCS => line.push("bcs".to_string()),
                 Operation::LDA => line.push("lda".to_string()),
+                Operation::LDY => line.push("ldy".to_string()),
                 Operation::STA => line.push("sta".to_string()),
                 Operation::JMP => line.push("jmp".to_string()),
                 Operation::JSR => line.push("jsr".to_string()),
@@ -140,13 +141,25 @@ impl DasmGenerator {
                 },
                 AddressMode::Absolute(address_reference)
                 | AddressMode::AbsoluteX(address_reference)
-                | AddressMode::AbsoluteY(address_reference)
-                | AddressMode::IndexedIndirect(address_reference)
-                | AddressMode::IndirectIndexed(address_reference) => {
+                | AddressMode::AbsoluteY(address_reference) => {
                     line.push(format!(" {}", address_reference.name));
                     if address_reference.offset != 0 {
                         line.push(format!("+{}", address_reference.offset));
                     }
+                }
+                AddressMode::IndexedIndirect(address_reference) => {
+                    line.push(format!(" ({}", address_reference.name));
+                    if address_reference.offset != 0 {
+                        line.push(format!("+{}", address_reference.offset));
+                    }
+                    line.push("),x".to_string());
+                }
+                AddressMode::IndirectIndexed(address_reference) => {
+                    line.push(format!(" ({}", address_reference.name));
+                    if address_reference.offset != 0 {
+                        line.push(format!("+{}", address_reference.offset));
+                    }
+                    line.push("),y".to_string());
                 }
             }
 

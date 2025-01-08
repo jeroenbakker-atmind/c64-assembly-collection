@@ -59,6 +59,11 @@ impl ProgramGenerator {
         const LDA_ZEROPAGE_X: u8 = 0xB5;
         const LDA_INDEXED_INDIRECT: u8 = 0xA1;
         const LDA_INDIRECT_INDEXED: u8 = 0xB1;
+        const LDY_IMMEDIATE: u8 = 0xA0;
+        const LDY_ABSOLUTE: u8 = 0xAC;
+        const LDY_ABSOLUTE_X: u8 = 0xBC;
+        const LDY_ZEROPAGE: u8 = 0xA4;
+        const LDY_ZEROPAGE_X: u8 = 0xB4;
         const STA_ABSOLUTE: u8 = 0x8D;
         const STA_ABSOLUTE_X: u8 = 0x9D;
         const STA_ABSOLUTE_Y: u8 = 0x99;
@@ -97,6 +102,21 @@ impl ProgramGenerator {
                     LDA_ZEROPAGE_X,
                     LDA_INDEXED_INDIRECT,
                     LDA_INDIRECT_INDEXED,
+                );
+            }
+
+            Operation::LDY => {
+                self.with_absolute(
+                    application,
+                    &instruction.address_mode,
+                    LDY_IMMEDIATE,
+                    LDY_ABSOLUTE,
+                    LDY_ABSOLUTE_X,
+                    UNUSED,
+                    LDY_ZEROPAGE,
+                    LDY_ZEROPAGE_X,
+                    UNUSED,
+                    UNUSED,
                 );
             }
 
