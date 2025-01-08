@@ -1,8 +1,5 @@
 use crate::{
-    builder::{
-        application_builder::ApplicationBuilder, instruction_builder::InstructionBuilder,
-        module_builder::ModuleBuilder,
-    },
+    builder::{application::Application, instruction::Instructions, module::Module},
     instruction::{operation::Operation, Instruction},
     memory::{
         address_mode::{AddressMode, Immediate},
@@ -20,7 +17,7 @@ pub struct ProgramGenerator {
 impl Generator for ProgramGenerator {
     type Output = Vec<u8>;
 
-    fn generate(mut self, application: ApplicationBuilder) -> Self::Output {
+    fn generate(mut self, application: Application) -> Self::Output {
         self.add_u16(application.entry_point);
         for module in &application.modules {
             self.generate_module(&application, module);
@@ -30,28 +27,20 @@ impl Generator for ProgramGenerator {
 }
 
 impl ProgramGenerator {
-    fn generate_module(&mut self, application: &ApplicationBuilder, module: &ModuleBuilder) {
+    fn generate_module(&mut self, application: &Application, module: &Module) {
         self.generate_instructions(application, &module.instructions);
         for function in &module.functions {
             self.generate_instructions(application, &function.instructions);
         }
     }
 
-    fn generate_instructions(
-        &mut self,
-        application: &ApplicationBuilder,
-        instructions: &InstructionBuilder,
-    ) {
+    fn generate_instructions(&mut self, application: &Application, instructions: &Instructions) {
         for instruction in &instructions.instructions {
             self.generate_instruction(application, instruction);
         }
     }
 
-    fn generate_instruction(
-        &mut self,
-        application: &ApplicationBuilder,
-        instruction: &Instruction,
-    ) {
+    fn generate_instruction(&mut self, application: &Application, instruction: &Instruction) {
         // Use https://www.c64-wiki.com/wiki/
         const UNUSED: u8 = 0x00;
         const ADC_IMMEDIATE: u8 = 0x69;
@@ -154,7 +143,7 @@ impl ProgramGenerator {
 
     fn with_absolute(
         &mut self,
-        application: &ApplicationBuilder,
+        application: &Application,
         address_mode: &AddressMode,
         immediate: u8,
         absolute: u8,

@@ -1,7 +1,7 @@
 use c64_assembler::{
     builder::{
-        application_builder::ApplicationBuilder, instruction_builder::InstructionBuilder,
-        module_builder::ModuleBuilder,
+        application::ApplicationBuilder, instruction::InstructionBuilder,
+        module::ModuleBuilder,
     },
     generator::{program::ProgramGenerator, Generator},
 };

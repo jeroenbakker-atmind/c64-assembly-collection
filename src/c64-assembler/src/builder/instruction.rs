@@ -8,13 +8,18 @@ use crate::{
 };
 
 #[derive(Default, Clone)]
+pub struct Instructions {
+    pub instructions: Vec<Instruction>,
+}
+
+#[derive(Default, Clone)]
 pub struct InstructionBuilder {
-    pub(crate) instructions: Vec<Instruction>,
+    instructions: Instructions,
 }
 
 impl InstructionBuilder {
     fn add_instruction(&mut self, operation: Operation, address_mode: AddressMode) {
-        self.instructions.push(Instruction {
+        self.instructions.instructions.push(Instruction {
             operation,
             address_mode,
             comments: vec![],
@@ -96,6 +101,7 @@ impl InstructionBuilder {
     /// Add a comment to the last instruction.
     pub fn comment(&mut self, comment: &str) -> &mut Self {
         self.instructions
+            .instructions
             .last_mut()
             .unwrap()
             .comments
@@ -115,7 +121,7 @@ impl InstructionBuilder {
             .comment("End basic program")
     }
 
-    pub fn finalize(&self) -> InstructionBuilder {
-        self.clone()
+    pub fn finalize(&self) -> Instructions {
+        self.instructions.clone()
     }
 }

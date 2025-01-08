@@ -1,5 +1,5 @@
-pub mod application_builder;
+pub mod application;
 pub mod finalize;
-pub mod function_builder;
-pub mod instruction_builder;
-pub mod module_builder;
+pub mod function;
+pub mod instruction;
+pub mod module;

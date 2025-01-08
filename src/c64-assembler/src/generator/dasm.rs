@@ -1,7 +1,6 @@
 use crate::{
     builder::{
-        application_builder::ApplicationBuilder, function_builder::FunctionBuilder,
-        instruction_builder::InstructionBuilder, module_builder::ModuleBuilder,
+        application::Application, function::Function, instruction::Instructions, module::Module,
     },
     instruction::operation::Operation,
     memory::{
@@ -23,7 +22,7 @@ impl Default for DasmGenerator {
     fn default() -> Self {
         DasmGenerator {
             output: Vec::<String>::default(),
-            comment_column: 60,
+            comment_column: 25,
         }
     }
 }
@@ -31,7 +30,7 @@ impl Default for DasmGenerator {
 impl Generator for DasmGenerator {
     type Output = String;
 
-    fn generate(mut self, application: ApplicationBuilder) -> Self::Output {
+    fn generate(mut self, application: Application) -> Self::Output {
         self.line(format!(
             "; --- Application: {} ---",
             application.name.to_uppercase()
@@ -58,7 +57,7 @@ impl Generator for DasmGenerator {
 }
 
 impl DasmGenerator {
-    fn module(&mut self, application: &ApplicationBuilder, module: &ModuleBuilder) {
+    fn module(&mut self, application: &Application, module: &Module) {
         self.line_new();
         self.line(format!(
             "; --- Module begin: {} ---",
@@ -74,12 +73,16 @@ impl DasmGenerator {
         ));
     }
 
-    fn function(&mut self, application: &ApplicationBuilder, function: &FunctionBuilder) {
+    fn function(&mut self, application: &Application, function: &Function) {
         self.line_new();
         self.line(format!(
             ";  --- Function begin: {} ---",
             function.name.to_uppercase()
         ));
+        self.line_new();
+        for d in &function.documentation {
+            self.line(format!("; {}", d));
+        }
         self.line(format!("{}:", function.name));
         self.instructions(application, &function.instructions);
 
@@ -91,11 +94,7 @@ impl DasmGenerator {
 }
 
 impl DasmGenerator {
-    fn instructions(
-        &mut self,
-        _application: &ApplicationBuilder,
-        instructions: &InstructionBuilder,
-    ) {
+    fn instructions(&mut self, _application: &Application, instructions: &Instructions) {
         for instruction in &instructions.instructions {
             let mut line: Vec<String> = vec![];
             if let Operation::Label(_) = &instruction.operation {

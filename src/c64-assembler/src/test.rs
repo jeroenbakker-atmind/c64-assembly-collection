@@ -2,13 +2,14 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{
     builder::{
-        application_builder::ApplicationBuilder, instruction_builder::InstructionBuilder,
-        module_builder::ModuleBuilder,
+        application::{Application, ApplicationBuilder},
+        instruction::InstructionBuilder,
+        module::ModuleBuilder,
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
 };
 
-fn test_application() -> ApplicationBuilder {
+fn test_application() -> Application {
     ApplicationBuilder::default()
         .name("test build dasm")
         .add_vic20()

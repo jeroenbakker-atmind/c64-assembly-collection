@@ -9,15 +9,15 @@ use crate::{
     },
 };
 
-use super::{application_builder::ApplicationBuilder, instruction_builder::InstructionBuilder};
+use super::{application::Application, instruction::Instructions};
 
-pub fn finalize(application: &mut ApplicationBuilder) {
+pub fn finalize(application: &mut Application) {
     defines_update_user_count(application);
     functions_update_user_count(application);
     update_label_addresses(application);
 }
 
-fn defines_update_user_count(application: &mut ApplicationBuilder) {
+fn defines_update_user_count(application: &mut Application) {
     let mut define_users = HashMap::new();
     for define in &application.defines {
         let user_count = count_users(application, &define.name);
@@ -34,7 +34,7 @@ fn defines_update_user_count(application: &mut ApplicationBuilder) {
     }
 }
 
-fn functions_update_user_count(application: &mut ApplicationBuilder) {
+fn functions_update_user_count(application: &mut Application) {
     let mut function_users = HashMap::new();
     for module in &application.modules {
         for function in &module.functions {
@@ -56,7 +56,7 @@ fn functions_update_user_count(application: &mut ApplicationBuilder) {
     }
 }
 
-fn count_users(application: &ApplicationBuilder, name: &String) -> usize {
+fn count_users(application: &Application, name: &String) -> usize {
     let mut result = 0;
     for module in &application.modules {
         result += count_users_instructions(&module.instructions, name);
@@ -67,7 +67,7 @@ fn count_users(application: &ApplicationBuilder, name: &String) -> usize {
     result
 }
 
-fn count_users_instructions(instructions: &InstructionBuilder, name: &String) -> usize {
+fn count_users_instructions(instructions: &Instructions, name: &String) -> usize {
     let mut result = 0;
     for instruction in &instructions.instructions {
         match &instruction.address_mode {
@@ -90,13 +90,13 @@ fn count_users_instructions(instructions: &InstructionBuilder, name: &String) ->
     result
 }
 
-fn update_label_addresses(application: &mut ApplicationBuilder) {
+fn update_label_addresses(application: &mut Application) {
     let mut label_addresses = HashMap::<String, Address>::default();
     let mut function_addresses = HashMap::<String, Address>::default();
     let mut current_address = application.entry_point;
 
     let mut update_label_addresses_instructions =
-        |current_address: &mut Address, instructions: &InstructionBuilder| {
+        |current_address: &mut Address, instructions: &Instructions| {
             for instruction in &instructions.instructions {
                 if let Operation::Label(label) = &instruction.operation {
                     label_addresses.insert(label.clone(), *current_address);

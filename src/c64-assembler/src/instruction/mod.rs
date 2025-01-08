@@ -1,6 +1,6 @@
 use operation::Operation;
 
-use crate::builder::application_builder::ApplicationBuilder;
+use crate::builder::application::Application;
 use crate::memory::address_mode::AddressMode;
 use crate::memory::label::AddressReference;
 use crate::memory::ZeroPage;
@@ -13,7 +13,7 @@ pub struct Instruction {
     pub comments: Vec<String>,
 }
 
-fn is_zeropage(application: &ApplicationBuilder, address_reference: &AddressReference) -> bool {
+fn is_zeropage(application: &Application, address_reference: &AddressReference) -> bool {
     if let Some(address) = application.address_lookup.get(&address_reference.name) {
         address.is_zeropage()
     } else {
@@ -23,7 +23,7 @@ fn is_zeropage(application: &ApplicationBuilder, address_reference: &AddressRefe
 
 impl Instruction {
     /// Total number of bytes this instruction occupies on a 6502.
-    pub fn byte_size(&self, application: &ApplicationBuilder) -> u16 {
+    pub fn byte_size(&self, application: &Application) -> u16 {
         if let Operation::Raw(bytes) = &self.operation {
             bytes.len() as u16
         } else if let Operation::Label(_) = &self.operation {

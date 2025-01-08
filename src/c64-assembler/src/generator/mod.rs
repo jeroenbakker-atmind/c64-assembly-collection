@@ -1,9 +1,9 @@
-use crate::builder::application_builder::ApplicationBuilder;
+use crate::builder::application::{Application};
 
 pub mod dasm;
 pub mod program;
 
 pub trait Generator {
     type Output;
-    fn generate(self, application: ApplicationBuilder) -> Self::Output;
+    fn generate(self, application: Application) -> Self::Output;
 }

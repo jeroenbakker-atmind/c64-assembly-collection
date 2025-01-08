@@ -1,12 +1,29 @@
 use c64_assembler::{
     builder::{
-        application_builder::ApplicationBuilder, function_builder::FunctionBuilder,
-        instruction_builder::InstructionBuilder, module_builder::ModuleBuilder,
+        application::ApplicationBuilder, function::FunctionBuilder,
+        instruction::InstructionBuilder, module::ModuleBuilder,
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
 };
 
 pub fn engine_application() -> Vec<u8> {
+    let engine_data = ModuleBuilder::default()
+        .name("engine_data")
+        .instructions(
+            InstructionBuilder::default()
+                .label("engine_data")
+                .raw(&[0x01, 0x00])
+                .comment("Data contains one frame")
+                .label("engine_data__frame_1")
+                .raw(&[0x01, 0x00])
+                .comment("Frame contains one command")
+                .label("engine_data__frame_1__command_1")
+                .raw(&[0x03, 0x00])
+                .comment("Set border color to black")
+                .finalize(),
+        )
+        .finalize();
+
     let application = ApplicationBuilder::default()
         .name("Engine")
         .add_vic20()
@@ -30,6 +47,12 @@ pub fn engine_application() -> Vec<u8> {
                 .function(
                     FunctionBuilder::default()
                         .name("engine__init")
+                        .doc(&[
+                            "Initialize the engine.",
+                            "",
+                            " - assumes engine data is stored at 'engine-data'",
+                            " - sets the current pointer to the first frame"
+                            ])
                         .instructions(
                             InstructionBuilder::default()
                                 .lda_imm_low("engine_data")
@@ -47,27 +70,25 @@ pub fn engine_application() -> Vec<u8> {
                 .finalize(),
         )
         .add_module(ModuleBuilder::default().name("engine__current_ptr").function(
-            FunctionBuilder::default().name("engine__current_ptr__advance").instructions(
+            FunctionBuilder::default().name("engine__current_ptr__advance")
+            .doc(&[
+                "Advance current pointer with accumulator",
+                "",
+                "Advance the pointer stored at CURRENT_PTR with the value stored in the accumulator.",
+                "The accumulator is number of bytes to advance."
+            ])
+            .instructions(
                 InstructionBuilder::default()
-                .clc().adc_addr("CURRENT_PTR").sta_addr("CURRENT_PTR").lda_imm(0x00).adc_addr_offs("CURRENT_PTR", 1).sta_addr_offs("CURRENT_PTR", 1).rts()
+                    .clc()
+                    .adc_addr("CURRENT_PTR")
+                    .sta_addr("CURRENT_PTR")
+                    .lda_imm(0x00)
+                    .adc_addr_offs("CURRENT_PTR", 1)
+                    .sta_addr_offs("CURRENT_PTR", 1)
+                    .rts()
                 .finalize()).finalize()).finalize())
         .add_module(
-            ModuleBuilder::default()
-                .name("engine_data")
-                .instructions(
-                    InstructionBuilder::default()
-                        .label("engine_data")
-                        .raw(&[0x01, 0x00])
-                        .comment("Data contains one frame")
-                        .label("engine_data__frame_1")
-                        .raw(&[0x01, 0x00])
-                        .comment("Frame contains one command")
-                        .label("engine_data__frame_1__command_1")
-                        .raw(&[0x03, 0x00])
-                        .comment("Set border color to black")
-                        .finalize(),
-                )
-                .finalize(),
+            engine_data
         )
         .finalize();
     println!("{}", DasmGenerator::default().generate(application.clone()));
