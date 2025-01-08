@@ -9,7 +9,13 @@ use c64_colors::colors::Color;
 use c64_encoder::builder::{demo::DemoBuilder, frame::FrameBuilder};
 
 pub fn engine_application() -> Vec<u8> {
-    let data= DemoBuilder::default().frame(FrameBuilder::default().set_border_color(Color::Black).build()).build();
+    let data = DemoBuilder::default()
+        .frame(
+            FrameBuilder::default()
+                .set_border_color(Color::Black)
+                .build(),
+        )
+        .build();
 
     let engine_data = ModuleBuilder::default()
         .name("engine_data")
@@ -104,6 +110,7 @@ pub fn engine_application() -> Vec<u8> {
                 )
                 .finalize(),
         )
+
         .module(ModuleBuilder::default().name("engine__current_ptr").function(
             FunctionBuilder::default().name("engine__current_ptr__advance")
             .doc(&[
@@ -122,10 +129,50 @@ pub fn engine_application() -> Vec<u8> {
                     .sta_addr_offs("CURRENT_PTR", 1)
                     .rts()
                 .finalize()).finalize()).finalize())
+
+        .module(ModuleBuilder::default()
+            .name("engine__commands_left")
+            .instructions(InstructionBuilder::default().label("engine__commands_left").comment("Number of commands left to process in the current frame.").comment("When 0 the frame is finished processing").raw(&[0x00;2]).finalize())
+            .function(FunctionBuilder::default()
+                .name("engine__commands_left__init")
+                .instructions(InstructionBuilder::default()
+                    .ldy_imm(0x00)
+                    .lda_ind_y("CURRENT_PTR")
+                    .sta_addr("engine__commands_left")
+                    .iny()
+                    .lda_ind_y("CURRENT_PTR")
+                    .sta_addr_offs("engine__commands_left", 1)
+                    .rts()
+                    .finalize())
+                .finalize())
+            .function(FunctionBuilder::default()
+                .name("engine__commands_left__decrease")
+                .instructions(InstructionBuilder::default()
+                    .clc()
+                    .lda_addr("engine__commands_left")
+                    .sbc_imm(0x00)
+                    .sta_addr("engine__commands_left")
+                    .lda_addr_offs("engine__commands_left", 1)
+                    .sbc_imm(0x00)
+                    .sta_addr_offs("engine__commands_left", 1)
+                    .rts()
+                    .finalize())
+                .finalize())
+            .function(FunctionBuilder::default()
+                .name("engine__commands_left__is_zero")
+                .instructions(InstructionBuilder::default()
+                    .lda_imm(0x00)
+                    .cmp_addr("engine__commands_left")
+                    .bne_addr("engine__commands_left__is_zero__exit")
+                    .cmp_addr_offs("engine__commands_left", 1)
+                    .label("engine__commands_left__is_zero__exit")
+                    .rts()
+                    .finalize())
+                .finalize())
+            .finalize())
+
         .module(set_border_color)
-        .module(
-            engine_data
-        )
+        .module(engine_data)
         .finalize();
     println!("{}", DasmGenerator::default().generate(application.clone()));
 

@@ -76,7 +76,7 @@ impl DasmGenerator {
     fn function(&mut self, application: &Application, function: &Function) {
         self.line_new();
         self.line(format!(
-            ";  --- Function begin: {} ---",
+            "; --- Function begin: {} ---",
             function.name.to_uppercase()
         ));
         self.line_new();
@@ -182,7 +182,8 @@ impl DasmGenerator {
                 },
                 AddressMode::Absolute(address_reference)
                 | AddressMode::AbsoluteX(address_reference)
-                | AddressMode::AbsoluteY(address_reference) => {
+                | AddressMode::AbsoluteY(address_reference)
+                | AddressMode::Relative(address_reference) => {
                     line.push(format!(" {}", address_reference.name));
                     if address_reference.offset != 0 {
                         line.push(format!("+{}", address_reference.offset));
@@ -203,7 +204,6 @@ impl DasmGenerator {
                     line.push("),y".to_string());
                 }
                 AddressMode::Accumulator => line.push(" A".to_string()),
-                AddressMode::Relative(address_reference) => todo!(),
             }
 
             if instruction.comments.is_empty() {

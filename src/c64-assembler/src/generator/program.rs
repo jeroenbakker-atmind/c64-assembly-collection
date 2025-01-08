@@ -278,12 +278,12 @@ impl ProgramGenerator {
                 UNUSED,
                 UNUSED,
             ),
-            Operation::SEC => todo!(),
+            Operation::SEC => self.add_u8(SEC),
             Operation::CLC => self.add_u8(CLC),
             Operation::BEQ => todo!(),
             Operation::BIT => todo!(),
             Operation::BMI => todo!(),
-            Operation::BNE => todo!(),
+            Operation::BNE => self.with_relative(application, &instruction.address_mode, BNE),
             Operation::BPL => todo!(),
             Operation::BRK => todo!(),
             Operation::BVC => todo!(),
@@ -291,16 +291,49 @@ impl ProgramGenerator {
             Operation::CLD => todo!(),
             Operation::CLI => todo!(),
             Operation::CLV => todo!(),
-            Operation::CMP => todo!(),
-            Operation::CPX => todo!(),
-            Operation::CPY => todo!(),
+            Operation::CMP => self.with_absolute(
+                application,
+                &instruction.address_mode,
+                CMP_IMMEDIATE,
+                CMP_ABSOLUTE,
+                CMP_ABSOLUTE_X,
+                CMP_ABSOLUTE_Y,
+                CMP_ZEROPAGE,
+                CMP_ZEROPAGE_X,
+                UNUSED,
+                UNUSED,
+            ),
+            Operation::CPX => self.with_absolute(
+                application,
+                &instruction.address_mode,
+                CPX_IMMEDIATE,
+                CPX_ABSOLUTE,
+                UNUSED,
+                UNUSED,
+                CPX_ZEROPAGE,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+            ),
+            Operation::CPY => self.with_absolute(
+                application,
+                &instruction.address_mode,
+                CPY_IMMEDIATE,
+                CPY_ABSOLUTE,
+                UNUSED,
+                UNUSED,
+                CPY_ZEROPAGE,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+            ),
             Operation::DEC => todo!(),
-            Operation::DEX => todo!(),
-            Operation::DEY => todo!(),
+            Operation::DEX => self.add_u8(DEX),
+            Operation::DEY => self.add_u8(DEY),
             Operation::EOR => todo!(),
             Operation::INC => todo!(),
-            Operation::INX => todo!(),
-            Operation::INY => todo!(),
+            Operation::INX => self.add_u8(INX),
+            Operation::INY => self.add_u8(INY),
             Operation::LDX => todo!(),
             Operation::LSR => todo!(),
             Operation::NOP => todo!(),
@@ -312,7 +345,18 @@ impl ProgramGenerator {
             Operation::ROL => todo!(),
             Operation::ROR => todo!(),
             Operation::RTI => todo!(),
-            Operation::SBC => todo!(),
+            Operation::SBC => self.with_absolute(
+                application,
+                &instruction.address_mode,
+                SBC_IMMEDIATE,
+                SBC_ABSOLUTE,
+                SBC_ABSOLUTE_X,
+                SBC_ABSOLUTE_Y,
+                SBC_ZEROPAGE,
+                SBC_ZEROPAGE_X,
+                SBC_INDEXED_INDIRECT,
+                SBC_INDIRECT_INDEXED,
+            ),
             Operation::SED => todo!(),
             Operation::SEI => todo!(),
             Operation::STX => todo!(),
@@ -326,6 +370,24 @@ impl ProgramGenerator {
         }
     }
 
+    fn with_relative(
+        &mut self,
+        application: &Application,
+        address_mode: &AddressMode,
+        relative: u8,
+    ) {
+        match address_mode {
+            AddressMode::Relative(address_reference) => {
+                self.add_u8(relative);
+                let address = application.address(address_reference);
+                // TODO: keep track of current address. (or store in instruction.)
+                let next_instruction = address + 2;
+                let relative_address = (address as i32 - next_instruction as i32) as i8;
+                self.add_u8(relative_address as u8);
+            }
+            _ => unreachable!(),
+        }
+    }
     fn with_absolute(
         &mut self,
         application: &Application,
