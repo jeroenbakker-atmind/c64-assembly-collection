@@ -3,10 +3,12 @@ use super::label::AddressReference;
 #[derive(Clone, Debug)]
 pub enum AddressMode {
     Implied,
+    Accumulator,
     Immediate(Immediate),
     Absolute(AddressReference),
     AbsoluteX(AddressReference),
     AbsoluteY(AddressReference),
+    Relative(AddressReference),
     IndexedIndirect(AddressReference),
     IndirectIndexed(AddressReference),
 }

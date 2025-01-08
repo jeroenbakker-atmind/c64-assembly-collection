@@ -30,8 +30,8 @@ impl Instruction {
             0
         } else {
             match &self.address_mode {
-                AddressMode::Implied => 1,
-                AddressMode::Immediate(_immediate) => 2,
+                AddressMode::Implied | AddressMode::Accumulator => 1,
+                AddressMode::Relative(_) | AddressMode::Immediate(_) => 2,
                 AddressMode::Absolute(address_reference)
                 | AddressMode::AbsoluteX(address_reference)
                 | AddressMode::AbsoluteY(address_reference) => {

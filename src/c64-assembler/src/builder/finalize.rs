@@ -77,14 +77,17 @@ fn count_users_instructions(instructions: &Instructions, name: &String) -> usize
             | AddressMode::IndexedIndirect(address_reference)
             | AddressMode::IndirectIndexed(address_reference)
             | AddressMode::Immediate(Immediate::Low(address_reference))
-            | AddressMode::Immediate(Immediate::High(address_reference)) => {
+            | AddressMode::Immediate(Immediate::High(address_reference))
+            | AddressMode::Relative(address_reference) => {
                 if &address_reference.name == name {
                     result += 1;
                 }
             }
 
-            crate::memory::address_mode::AddressMode::Immediate(Immediate::Byte(_))
-            | crate::memory::address_mode::AddressMode::Implied => {}
+            AddressMode::Immediate(Immediate::Byte(_))
+            | crate::memory::address_mode::AddressMode::Implied
+            | AddressMode::Accumulator => {}
+            AddressMode::Implied => todo!(),
         }
     }
     result
