@@ -1,7 +1,9 @@
 use c64_assembler::{
     builder::{
-        application::{Application, ApplicationBuilder}, function::FunctionBuilder,
-        instruction::InstructionBuilder, module::ModuleBuilder,
+        application::{Application, ApplicationBuilder},
+        function::FunctionBuilder,
+        instruction::InstructionBuilder,
+        module::ModuleBuilder,
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
 };
@@ -11,8 +13,17 @@ use c64_encoder::builder::{demo::DemoBuilder, frame::FrameBuilder};
 #[test]
 pub fn test() {
     use c64_assembler_macro::application;
-    let application = application!(name="", entry_point=0x0800);
-    
+    let application = application!(
+        name = "",
+        entry_point = 0x0800,
+        modules = [module!(
+            name = "main",
+            basic_header = false,
+            instructions = [],
+            functions = []
+        )]
+    );
+
     println!("{}", DasmGenerator::default().generate(application));
 }
 
