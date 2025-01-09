@@ -4,5 +4,5 @@ members = [
     "src/encoder",
     "src/builder",
     "src/convert"
-, "src/c64-dithering", "src/c64-colors", "src/c64-charset", "src/c64-encoder", "src/c64-assembler"]
+, "src/c64-dithering", "src/c64-colors", "src/c64-charset", "src/c64-encoder", "src/c64-assembler", "src/c64-assembler-macro"]
 resolver="2"

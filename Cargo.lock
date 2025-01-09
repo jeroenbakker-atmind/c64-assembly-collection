@@ -40,6 +40,7 @@ version = "0.1.0"
 dependencies = [
  "c64",
  "c64-assembler",
+ "c64-assembler-macro",
  "c64-colors",
  "c64-encoder",
  "cbm",
@@ -61,6 +62,10 @@ dependencies = [
 
 [[package]]
 name = "c64-assembler"
+version = "0.1.0"
+
+[[package]]
+name = "c64-assembler-macro"
 version = "0.1.0"
 
 [[package]]
