@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Instructions {
     pub instructions: Vec<Instruction>,
 }
