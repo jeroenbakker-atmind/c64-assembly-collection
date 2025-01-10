@@ -14,14 +14,21 @@ use c64_encoder::builder::{demo::DemoBuilder, frame::FrameBuilder};
 pub fn test() {
     use c64_assembler_macro::application;
     let application = application!(
-        name = "",
+        name = "My demo",
         entry_point = 0x0800,
-        modules = [module!(
+        include_vic20_defines
+        module!(
             name = "main",
-            basic_header = false,
-            instructions = [],
-            functions = []
-        )]
+            instructions = [
+                include_basic_header
+
+                main_entry_point:
+                    lda #$00
+                    rts
+            ],
+            function!(
+            )
+        )
     );
 
     println!("{}", DasmGenerator::default().generate(application));
