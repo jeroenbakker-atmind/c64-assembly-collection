@@ -205,15 +205,32 @@ mod lda {
             instructions!(lda test,x),
             Operation::LDA,
             AddressMode::AbsoluteX(AddressReference::new("test")),
-            );
-            }
-    /*
+        );
+    }
     #[test]
     fn lda_addr_y() {
         test_first(
             instructions!(lda test,y),
             Operation::LDA,
             AddressMode::AbsoluteY(AddressReference::new("test")),
+        );
+    }
+    /*
+    #[test]
+    fn lda_ind_x() {
+        test_first(
+            instructions!(lda(test, x)),
+            Operation::LDA,
+            AddressMode::IndexedIndirect(AddressReference::new("test")),
+        );
+    }
+
+    #[test]
+    fn lda_ind_y() {
+        test_first(
+            instructions!(lda(test), y),
+            Operation::LDA,
+            AddressMode::IndirectIndexed(AddressReference::new("test")),
         );
     }
     */

@@ -146,8 +146,17 @@ impl InstructionBuilder {
             address, offset,
         )))
     }
+    pub fn lda_addr_x(&mut self, address: &str) -> &mut Self {
+        self.lda(AddressMode::AbsoluteX(AddressReference::new(address)))
+    }
+    pub fn lda_addr_y(&mut self, address: &str) -> &mut Self {
+        self.lda(AddressMode::AbsoluteY(AddressReference::new(address)))
+    }
     pub fn lda_ind_y(&mut self, address: &str) -> &mut Self {
         self.lda(AddressMode::IndirectIndexed(AddressReference::new(address)))
+    }
+    pub fn lda_ind_x(&mut self, address: &str) -> &mut Self {
+        self.lda(AddressMode::IndexedIndirect(AddressReference::new(address)))
     }
 
     fn ldy(&mut self, address_mode: AddressMode) -> &mut Self {

@@ -153,8 +153,8 @@ fn build_address_mode_absolute(line: &mut Vec<String>, tokens: &[TokenTree]) -> 
             num_tokens = 3;
         }
         if p.as_char() == ',' {
-            if let Some(TokenTree::Literal(l)) = tokens.get(2) {
-                index = l.to_string();
+            if let Some(TokenTree::Ident(identifier)) = tokens.get(2) {
+                index = identifier.to_string();
             }
             num_tokens = 3;
         }
@@ -163,7 +163,6 @@ fn build_address_mode_absolute(line: &mut Vec<String>, tokens: &[TokenTree]) -> 
         line.push(format!("_offs"));
     }
     if !index.is_empty() {
-        panic!();
         line.push(format!("_{}", index));
     }
 
@@ -175,6 +174,7 @@ fn build_address_mode_absolute(line: &mut Vec<String>, tokens: &[TokenTree]) -> 
     line.push(format!(")"));
     num_tokens
 }
+
 fn build_address_mode_indirect(line: &mut Vec<String>, tokens: &[TokenTree]) -> usize {
     0
 }
@@ -231,6 +231,9 @@ fn build_instructions(input: TokenStream) -> String {
     let tokens = input.into_iter().collect::<Vec<TokenTree>>();
     let mut sub_start = 0;
     for i in 0..tokens.len() {
+        if i < sub_start {
+            continue;
+        }
         let token = &tokens[i];
         if let TokenTree::Ident(identifier) = token {
             let name = identifier.to_string();
@@ -244,7 +247,7 @@ fn build_instructions(input: TokenStream) -> String {
                     line.push(format!("    .{name}"));
                     let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..]);
                     lines.push(line.join(""));
-                    sub_start = i + 1;
+                    sub_start = i + 1 + add_tokens_parsed;
                 }
 
                 "brk" | "cld" | "cli" | "clv" | "dex" | "dey" | "inx" | "iny" | "nop" | "pha"
