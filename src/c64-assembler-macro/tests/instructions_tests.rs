@@ -28,6 +28,113 @@ macro_rules! implied_test {
     };
 }
 
+macro_rules! immediate_absolute_indirect_test {
+    ($op:ident, $OP:ident) => {
+        mod $op {
+            use c64_assembler::{
+                instruction::operation::Operation,
+                memory::{
+                    address_mode::{AddressMode, Immediate},
+                    label::AddressReference,
+                },
+            };
+            use c64_assembler_macro::instructions;
+
+            use crate::test_first;
+            const OP: Operation = Operation::$OP;
+    #[test]
+    fn imm() {
+        test_first(
+            instructions!($op #99),
+            OP,
+            AddressMode::Immediate(Immediate::Byte(99)),
+        );
+        /*
+        test_first(
+            instructions!($op #$99),
+            OP,
+            AddressMode::Immediate(Immediate::Byte(153)),
+        )
+        */
+    }
+
+    #[test]
+    fn imm_low() {
+        test_first(
+            instructions!($op #<test),
+            OP,
+            AddressMode::Immediate(Immediate::Low(AddressReference::new("test"))),
+        );
+    }
+
+    #[test]
+    fn imm_high() {
+        test_first(
+            instructions!($op #>test),
+            OP,
+            AddressMode::Immediate(Immediate::High(AddressReference::new("test"))),
+        );
+    }
+
+    #[test]
+    fn addr() {
+        test_first(
+            instructions!($op test),
+            OP,
+            AddressMode::Absolute(AddressReference::new("test")),
+        );
+    }
+    #[test]
+    fn addr_offs() {
+        test_first(
+            instructions!($op test+1),
+            OP,
+            AddressMode::Absolute(AddressReference::with_offset("test", 1)),
+        );
+    }
+    #[test]
+    fn addr_x() {
+        test_first(
+            instructions!($op test,x),
+            OP,
+            AddressMode::AbsoluteX(AddressReference::new("test")),
+        );
+    }
+    #[test]
+    fn addr_y() {
+        test_first(
+            instructions!($op test,y),
+            OP,
+            AddressMode::AbsoluteY(AddressReference::new("test")),
+        );
+    }
+
+    #[test]
+    fn ind_x() {
+        /*
+        test_first(
+            instructions!($op (test),x),
+            OP,
+            AddressMode::IndirectIndexed(AddressReference::new("test")),
+        );
+        */
+    }
+
+    #[test]
+    fn ind_y() {
+        /*
+        test_first(
+            instructions!($op (test,y)),
+            OP,
+            AddressMode::IndexedIndirect(AddressReference::new("test")),
+        );
+        */
+    }
+
+        }
+    };
+}
+
 implied_test!(brk, BRK);
 implied_test!(cld, CLD);
 implied_test!(cli, CLI);
@@ -53,198 +160,5 @@ implied_test!(tya, TYA);
 implied_test!(clc, CLC);
 implied_test!(rts, RTS);
 
-mod adc {
-    use c64_assembler::{
-        instruction::operation::Operation,
-        memory::{
-            address_mode::{AddressMode, Immediate},
-            label::AddressReference,
-        },
-    };
-    use c64_assembler_macro::instructions;
-
-    use crate::test_first;
-    const OP: Operation = Operation::ADC;
-
-    #[test]
-    fn adc_imm() {
-        test_first(
-            instructions!(adc #99),
-            OP,
-            AddressMode::Immediate(Immediate::Byte(99)),
-        );
-        test_first(
-            instructions!(adc #$99),
-            OP,
-            AddressMode::Immediate(Immediate::Byte(153)),
-        )
-    }
-
-    #[test]
-    fn adc_imm_low() {
-        test_first(
-            instructions!(adc #<test),
-            OP,
-            AddressMode::Immediate(Immediate::Low(AddressReference::new("test"))),
-        );
-    }
-
-    #[test]
-    fn adc_imm_high() {
-        test_first(
-            instructions!(adc #>test),
-            OP,
-            AddressMode::Immediate(Immediate::High(AddressReference::new("test"))),
-        );
-    }
-
-    #[test]
-    fn adc_addr() {
-        test_first(
-            instructions!(adc test),
-            OP,
-            AddressMode::Absolute(AddressReference::new("test")),
-        );
-    }
-    #[test]
-    fn adc_addr_offs() {
-        test_first(
-            instructions!(adc test+1),
-            OP,
-            AddressMode::Absolute(AddressReference::with_offset("test", 1)),
-        );
-    }
-    #[test]
-    fn adc_addr_x() {
-        test_first(
-            instructions!(adc test,x),
-            OP,
-            AddressMode::AbsoluteX(AddressReference::new("test")),
-        );
-    }
-    #[test]
-    fn adc_addr_y() {
-        test_first(
-            instructions!(adc test,y),
-            OP,
-            AddressMode::AbsoluteY(AddressReference::new("test")),
-        );
-    }
-    /*
-    #[test]
-    fn adc_ind_x() {
-        test_first(
-            instructions!(adc(test, x)),
-            OP,
-            AddressMode::IndexedIndirect(AddressReference::new("test")),
-        );
-    }
-
-    #[test]
-    fn adc_ind_y() {
-        test_first(
-            instructions!(adc(test), y),
-            OP,
-            AddressMode::IndirectIndexed(AddressReference::new("test")),
-        );
-    }
-    */
-}
-
-mod lda {
-    use c64_assembler::{
-        instruction::operation::Operation,
-        memory::{
-            address_mode::{AddressMode, Immediate},
-            label::AddressReference,
-        },
-    };
-    use c64_assembler_macro::instructions;
-
-    use crate::test_first;
-    const OP: Operation = Operation::LDA;
-
-    #[test]
-    fn lda_imm() {
-        test_first(
-            instructions!(lda #99),
-            OP,
-            AddressMode::Immediate(Immediate::Byte(99)),
-        );
-        test_first(
-            instructions!(lda #$99),
-            OP,
-            AddressMode::Immediate(Immediate::Byte(153)),
-        )
-    }
-
-    #[test]
-    fn lda_imm_low() {
-        test_first(
-            instructions!(lda #<test),
-            OP,
-            AddressMode::Immediate(Immediate::Low(AddressReference::new("test"))),
-        );
-    }
-
-    #[test]
-    fn lda_imm_high() {
-        test_first(
-            instructions!(lda #>test),
-            OP,
-            AddressMode::Immediate(Immediate::High(AddressReference::new("test"))),
-        );
-    }
-
-    #[test]
-    fn lda_addr() {
-        test_first(
-            instructions!(lda test),
-            OP,
-            AddressMode::Absolute(AddressReference::new("test")),
-        );
-    }
-    #[test]
-    fn lda_addr_offs() {
-        test_first(
-            instructions!(lda test+1),
-            OP,
-            AddressMode::Absolute(AddressReference::with_offset("test", 1)),
-        );
-    }
-    #[test]
-    fn lda_addr_x() {
-        test_first(
-            instructions!(lda test,x),
-            OP,
-            AddressMode::AbsoluteX(AddressReference::new("test")),
-        );
-    }
-    #[test]
-    fn lda_addr_y() {
-        test_first(
-            instructions!(lda test,y),
-            OP,
-            AddressMode::AbsoluteY(AddressReference::new("test")),
-        );
-    }
-    /*
-    #[test]
-    fn lda_ind_x() {
-        test_first(
-            instructions!(lda(test, x)),
-            OP,
-            AddressMode::IndexedIndirect(AddressReference::new("test")),
-        );
-    }
-
-    #[test]
-    fn lda_ind_y() {
-        test_first(
-            instructions!(lda(test), y),
-            OP,
-            AddressMode::IndirectIndexed(AddressReference::new("test")),
-        );
-    }
-    */
-}
+immediate_absolute_indirect_test!(adc, ADC);
+immediate_absolute_indirect_test!(lda, LDA);
