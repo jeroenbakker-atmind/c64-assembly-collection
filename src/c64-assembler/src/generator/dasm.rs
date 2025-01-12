@@ -153,6 +153,7 @@ impl DasmGenerator {
                 Operation::PHP => line.push("php".to_string()),
                 Operation::PLA => line.push("pla".to_string()),
                 Operation::PLP => line.push("plp".to_string()),
+                Operation::PSR => line.push("psr".to_string()),
                 Operation::ROL => line.push("rol".to_string()),
                 Operation::ROR => line.push("ror".to_string()),
                 Operation::RTI => line.push("rti".to_string()),

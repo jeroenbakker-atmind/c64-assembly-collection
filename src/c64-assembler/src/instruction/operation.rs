@@ -1,4 +1,4 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub enum Operation {
     /// Add Memory to Accumulator with Carry
     ADC,
@@ -33,12 +33,14 @@ pub enum Operation {
     INY,
     LDX,
     LSR,
+    #[default]
     NOP,
     ORA,
     PHA,
     PHP,
     PLA,
     PLP,
+    PSR,
     ROL,
     ROR,
     RTI,

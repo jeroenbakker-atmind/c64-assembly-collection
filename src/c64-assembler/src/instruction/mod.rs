@@ -6,7 +6,7 @@ use crate::memory::label::AddressReference;
 use crate::memory::ZeroPage;
 pub mod operation;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Instruction {
     pub operation: Operation,
     pub address_mode: AddressMode,

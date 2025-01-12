@@ -10,63 +10,6 @@ use c64_assembler::{
 use c64_colors::colors::Color;
 use c64_encoder::builder::{demo::DemoBuilder, frame::FrameBuilder};
 
-#[test]
-pub fn test_application() {
-    use c64_assembler_macro::application;
-    let application = application!(
-        name = "My demo"
-        entry_point = 0x0800
-        include_vic20_defines
-        module!(
-            name = "main"
-            instructions!(
-                include_basic_header
-
-            main_entry_point:
-                lda #$00
-                rts
-            )
-            function!(
-                name = "test_function"
-                instructions!(
-                    rts
-                )
-            )
-        )
-    );
-
-    println!("{}", DasmGenerator::default().generate(application));
-}
-
-#[test]
-pub fn test_application2() {
-    use c64_assembler_macro::{application, function};
-    let function = function!(
-        name = "test_function"
-        instructions!(
-            rts
-        )
-    );
-    let application = application!(
-        name = "My demo"
-        entry_point = 0x0800
-        include_vic20_defines
-        module!(
-            name = "main"
-            instructions!(
-                include_basic_header
-
-            main_entry_point:
-                lda #$00
-                rts
-            )
-            function!(function)
-        )
-    );
-
-    println!("{}", DasmGenerator::default().generate(application));
-}
-
 pub fn engine_application() -> Vec<u8> {
     let data = DemoBuilder::default()
         .frame(

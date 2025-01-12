@@ -278,6 +278,7 @@ impl ProgramGenerator {
                 UNUSED,
                 UNUSED,
             ),
+            Operation::PSR => self.add_u8(PSR),
             Operation::SEC => self.add_u8(SEC),
             Operation::CLC => self.add_u8(CLC),
             Operation::BEQ => todo!(),

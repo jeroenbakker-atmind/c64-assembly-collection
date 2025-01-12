@@ -26,6 +26,99 @@ impl InstructionBuilder {
         });
     }
 
+    pub fn brk(&mut self) -> &mut Self {
+        self.add_instruction(Operation::BRK, AddressMode::Implied);
+        self
+    }
+    pub fn cld(&mut self) -> &mut Self {
+        self.add_instruction(Operation::CLD, AddressMode::Implied);
+        self
+    }
+    pub fn cli(&mut self) -> &mut Self {
+        self.add_instruction(Operation::CLI, AddressMode::Implied);
+        self
+    }
+    pub fn clv(&mut self) -> &mut Self {
+        self.add_instruction(Operation::CLV, AddressMode::Implied);
+        self
+    }
+    pub fn dex(&mut self) -> &mut Self {
+        self.add_instruction(Operation::DEX, AddressMode::Implied);
+        self
+    }
+    pub fn dey(&mut self) -> &mut Self {
+        self.add_instruction(Operation::DEY, AddressMode::Implied);
+        self
+    }
+    pub fn inx(&mut self) -> &mut Self {
+        self.add_instruction(Operation::INX, AddressMode::Implied);
+        self
+    }
+    pub fn iny(&mut self) -> &mut Self {
+        self.add_instruction(Operation::INY, AddressMode::Implied);
+        self
+    }
+    pub fn nop(&mut self) -> &mut Self {
+        self.add_instruction(Operation::NOP, AddressMode::Implied);
+        self
+    }
+    pub fn pha(&mut self) -> &mut Self {
+        self.add_instruction(Operation::PHA, AddressMode::Implied);
+        self
+    }
+    pub fn psr(&mut self) -> &mut Self {
+        self.add_instruction(Operation::PSR, AddressMode::Implied);
+        self
+    }
+    pub fn pla(&mut self) -> &mut Self {
+        self.add_instruction(Operation::PLA, AddressMode::Implied);
+        self
+    }
+    pub fn plp(&mut self) -> &mut Self {
+        self.add_instruction(Operation::PLP, AddressMode::Implied);
+        self
+    }
+    pub fn rti(&mut self) -> &mut Self {
+        self.add_instruction(Operation::RTI, AddressMode::Implied);
+        self
+    }
+    pub fn sed(&mut self) -> &mut Self {
+        self.add_instruction(Operation::SED, AddressMode::Implied);
+        self
+    }
+    pub fn sei(&mut self) -> &mut Self {
+        self.add_instruction(Operation::SEI, AddressMode::Implied);
+        self
+    }
+    pub fn tax(&mut self) -> &mut Self {
+        self.add_instruction(Operation::TAX, AddressMode::Implied);
+        self
+    }
+    pub fn tay(&mut self) -> &mut Self {
+        self.add_instruction(Operation::TAY, AddressMode::Implied);
+        self
+    }
+    pub fn tsx(&mut self) -> &mut Self {
+        self.add_instruction(Operation::TSX, AddressMode::Implied);
+        self
+    }
+    pub fn txa(&mut self) -> &mut Self {
+        self.add_instruction(Operation::TXA, AddressMode::Implied);
+        self
+    }
+    pub fn txs(&mut self) -> &mut Self {
+        self.add_instruction(Operation::TXS, AddressMode::Implied);
+        self
+    }
+    pub fn tya(&mut self) -> &mut Self {
+        self.add_instruction(Operation::TYA, AddressMode::Implied);
+        self
+    }
+    pub fn clc(&mut self) -> &mut Self {
+        self.add_instruction(Operation::CLC, AddressMode::Implied);
+        self
+    }
+
     fn lda(&mut self, address_mode: AddressMode) -> &mut Self {
         self.add_instruction(Operation::LDA, address_mode);
         self
@@ -179,27 +272,6 @@ impl InstructionBuilder {
         self.sbc(AddressMode::Absolute(AddressReference::with_offset(
             name, offset,
         )))
-    }
-    pub fn clc(&mut self) -> &mut Self {
-        self.add_instruction(Operation::CLC, AddressMode::Implied);
-        self
-    }
-
-    pub fn dex(&mut self) -> &mut Self {
-        self.add_instruction(Operation::DEX, AddressMode::Implied);
-        self
-    }
-    pub fn dey(&mut self) -> &mut Self {
-        self.add_instruction(Operation::DEY, AddressMode::Implied);
-        self
-    }
-    pub fn inx(&mut self) -> &mut Self {
-        self.add_instruction(Operation::INX, AddressMode::Implied);
-        self
-    }
-    pub fn iny(&mut self) -> &mut Self {
-        self.add_instruction(Operation::INY, AddressMode::Implied);
-        self
     }
 
     pub fn raw(&mut self, data: &[u8]) -> &mut Self {

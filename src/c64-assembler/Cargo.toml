@@ -1,6 +1,12 @@
 [package]
 name = "c64-assembler"
 version = "0.1.0"
+authors = ["Jeroen Bakker <jeroen@atmind.nl"]
+description = "Commodore 64 assembler, outputs directly to .PRG or Dasm source code"
+repository = "https://github.com/jeroenbakker-atmind/c64-assembly-collection"
+licence = "GPL-2.0-or-later"
+keywords = ["retro", "c64", "6502"]
+categories = ["compilers", "development-tools"]
 edition = "2021"
 
 [dependencies]
