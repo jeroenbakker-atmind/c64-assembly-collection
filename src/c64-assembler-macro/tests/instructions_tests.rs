@@ -19,124 +19,136 @@ fn label() {
     );
 }
 
-#[test]
-fn brk() {
-    test_first(instructions!(brk), Operation::BRK, AddressMode::Implied);
+macro_rules! implied_test {
+    ($op:ident, $OP:ident) => {
+        #[test]
+        fn $op() {
+            test_first(instructions!($op), Operation::$OP, AddressMode::Implied);
+        }
+    };
 }
 
-#[test]
-fn cld() {
-    test_first(instructions!(cld), Operation::CLD, AddressMode::Implied);
-}
+implied_test!(brk, BRK);
+implied_test!(cld, CLD);
+implied_test!(cli, CLI);
+implied_test!(clv, CLV);
+implied_test!(dex, DEX);
+implied_test!(dey, DEY);
+implied_test!(inx, INX);
+implied_test!(iny, INY);
+implied_test!(nop, NOP);
+implied_test!(pha, PHA);
+implied_test!(psr, PSR);
+implied_test!(pla, PLA);
+implied_test!(plp, PLP);
+implied_test!(rti, RTI);
+implied_test!(sed, SED);
+implied_test!(sei, SEI);
+implied_test!(tax, TAX);
+implied_test!(tay, TAY);
+implied_test!(tsx, TSX);
+implied_test!(txs, TXS);
+implied_test!(txa, TXA);
+implied_test!(tya, TYA);
+implied_test!(clc, CLC);
+implied_test!(rts, RTS);
 
-#[test]
-fn cli() {
-    test_first(instructions!(cli), Operation::CLI, AddressMode::Implied);
-}
+mod adc {
+    use c64_assembler::{
+        instruction::operation::Operation,
+        memory::{
+            address_mode::{AddressMode, Immediate},
+            label::AddressReference,
+        },
+    };
+    use c64_assembler_macro::instructions;
 
-#[test]
-fn clv() {
-    test_first(instructions!(clv), Operation::CLV, AddressMode::Implied);
-}
+    use crate::test_first;
+    const OP: Operation = Operation::ADC;
 
-#[test]
-fn dex() {
-    test_first(instructions!(dex), Operation::DEX, AddressMode::Implied);
-}
+    #[test]
+    fn adc_imm() {
+        test_first(
+            instructions!(adc #99),
+            OP,
+            AddressMode::Immediate(Immediate::Byte(99)),
+        );
+        test_first(
+            instructions!(adc #$99),
+            OP,
+            AddressMode::Immediate(Immediate::Byte(153)),
+        )
+    }
 
-#[test]
-fn dey() {
-    test_first(instructions!(dey), Operation::DEY, AddressMode::Implied);
-}
+    #[test]
+    fn adc_imm_low() {
+        test_first(
+            instructions!(adc #<test),
+            OP,
+            AddressMode::Immediate(Immediate::Low(AddressReference::new("test"))),
+        );
+    }
 
-#[test]
-fn inx() {
-    test_first(instructions!(inx), Operation::INX, AddressMode::Implied);
-}
+    #[test]
+    fn adc_imm_high() {
+        test_first(
+            instructions!(adc #>test),
+            OP,
+            AddressMode::Immediate(Immediate::High(AddressReference::new("test"))),
+        );
+    }
 
-#[test]
-fn iny() {
-    test_first(instructions!(iny), Operation::INY, AddressMode::Implied);
-}
+    #[test]
+    fn adc_addr() {
+        test_first(
+            instructions!(adc test),
+            OP,
+            AddressMode::Absolute(AddressReference::new("test")),
+        );
+    }
+    #[test]
+    fn adc_addr_offs() {
+        test_first(
+            instructions!(adc test+1),
+            OP,
+            AddressMode::Absolute(AddressReference::with_offset("test", 1)),
+        );
+    }
+    #[test]
+    fn adc_addr_x() {
+        test_first(
+            instructions!(adc test,x),
+            OP,
+            AddressMode::AbsoluteX(AddressReference::new("test")),
+        );
+    }
+    #[test]
+    fn adc_addr_y() {
+        test_first(
+            instructions!(adc test,y),
+            OP,
+            AddressMode::AbsoluteY(AddressReference::new("test")),
+        );
+    }
+    /*
+    #[test]
+    fn adc_ind_x() {
+        test_first(
+            instructions!(adc(test, x)),
+            OP,
+            AddressMode::IndexedIndirect(AddressReference::new("test")),
+        );
+    }
 
-#[test]
-fn nop() {
-    test_first(instructions!(nop), Operation::NOP, AddressMode::Implied);
-}
-
-#[test]
-fn pha() {
-    test_first(instructions!(pha), Operation::PHA, AddressMode::Implied);
-}
-
-#[test]
-fn psr() {
-    test_first(instructions!(psr), Operation::PSR, AddressMode::Implied);
-}
-
-#[test]
-fn pla() {
-    test_first(instructions!(pla), Operation::PLA, AddressMode::Implied);
-}
-
-#[test]
-fn plp() {
-    test_first(instructions!(plp), Operation::PLP, AddressMode::Implied);
-}
-
-#[test]
-fn rti() {
-    test_first(instructions!(rti), Operation::RTI, AddressMode::Implied);
-}
-
-#[test]
-fn sed() {
-    test_first(instructions!(sed), Operation::SED, AddressMode::Implied);
-}
-
-#[test]
-fn sei() {
-    test_first(instructions!(sei), Operation::SEI, AddressMode::Implied);
-}
-
-#[test]
-fn tax() {
-    test_first(instructions!(tax), Operation::TAX, AddressMode::Implied);
-}
-
-#[test]
-fn tay() {
-    test_first(instructions!(tay), Operation::TAY, AddressMode::Implied);
-}
-
-#[test]
-fn tsx() {
-    test_first(instructions!(tsx), Operation::TSX, AddressMode::Implied);
-}
-
-#[test]
-fn txa() {
-    test_first(instructions!(txa), Operation::TXA, AddressMode::Implied);
-}
-
-#[test]
-fn txs() {
-    test_first(instructions!(txs), Operation::TXS, AddressMode::Implied);
-}
-
-#[test]
-fn tya() {
-    test_first(instructions!(tya), Operation::TYA, AddressMode::Implied);
-}
-
-#[test]
-fn clc() {
-    test_first(instructions!(clc), Operation::CLC, AddressMode::Implied);
-}
-
-#[test]
-fn rts() {
-    test_first(instructions!(rts), Operation::RTS, AddressMode::Implied);
+    #[test]
+    fn adc_ind_y() {
+        test_first(
+            instructions!(adc(test), y),
+            OP,
+            AddressMode::IndirectIndexed(AddressReference::new("test")),
+        );
+    }
+    */
 }
 
 mod lda {
@@ -150,17 +162,18 @@ mod lda {
     use c64_assembler_macro::instructions;
 
     use crate::test_first;
+    const OP: Operation = Operation::LDA;
 
     #[test]
     fn lda_imm() {
         test_first(
             instructions!(lda #99),
-            Operation::LDA,
+            OP,
             AddressMode::Immediate(Immediate::Byte(99)),
         );
         test_first(
             instructions!(lda #$99),
-            Operation::LDA,
+            OP,
             AddressMode::Immediate(Immediate::Byte(153)),
         )
     }
@@ -169,7 +182,7 @@ mod lda {
     fn lda_imm_low() {
         test_first(
             instructions!(lda #<test),
-            Operation::LDA,
+            OP,
             AddressMode::Immediate(Immediate::Low(AddressReference::new("test"))),
         );
     }
@@ -178,7 +191,7 @@ mod lda {
     fn lda_imm_high() {
         test_first(
             instructions!(lda #>test),
-            Operation::LDA,
+            OP,
             AddressMode::Immediate(Immediate::High(AddressReference::new("test"))),
         );
     }
@@ -187,7 +200,7 @@ mod lda {
     fn lda_addr() {
         test_first(
             instructions!(lda test),
-            Operation::LDA,
+            OP,
             AddressMode::Absolute(AddressReference::new("test")),
         );
     }
@@ -195,7 +208,7 @@ mod lda {
     fn lda_addr_offs() {
         test_first(
             instructions!(lda test+1),
-            Operation::LDA,
+            OP,
             AddressMode::Absolute(AddressReference::with_offset("test", 1)),
         );
     }
@@ -203,7 +216,7 @@ mod lda {
     fn lda_addr_x() {
         test_first(
             instructions!(lda test,x),
-            Operation::LDA,
+            OP,
             AddressMode::AbsoluteX(AddressReference::new("test")),
         );
     }
@@ -211,7 +224,7 @@ mod lda {
     fn lda_addr_y() {
         test_first(
             instructions!(lda test,y),
-            Operation::LDA,
+            OP,
             AddressMode::AbsoluteY(AddressReference::new("test")),
         );
     }
@@ -220,7 +233,7 @@ mod lda {
     fn lda_ind_x() {
         test_first(
             instructions!(lda(test, x)),
-            Operation::LDA,
+            OP,
             AddressMode::IndexedIndirect(AddressReference::new("test")),
         );
     }
@@ -229,7 +242,7 @@ mod lda {
     fn lda_ind_y() {
         test_first(
             instructions!(lda(test), y),
-            Operation::LDA,
+            OP,
             AddressMode::IndirectIndexed(AddressReference::new("test")),
         );
     }

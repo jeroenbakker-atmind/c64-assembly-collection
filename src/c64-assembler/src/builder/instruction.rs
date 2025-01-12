@@ -208,6 +208,21 @@ impl InstructionBuilder {
         self.add_instruction(Operation::ADC, address_mode);
         self
     }
+    pub fn adc_imm(&mut self, byte: u8) -> &mut Self {
+        self.adc(AddressMode::Immediate(Immediate::Byte(byte)))
+    }
+    pub fn adc_imm_low(&mut self, address: &str) -> &mut Self {
+        self.adc(AddressMode::Immediate(Immediate::Low(
+            AddressReference::new(address),
+        )));
+        self
+    }
+    pub fn adc_imm_high(&mut self, address: &str) -> &mut Self {
+        self.adc(AddressMode::Immediate(Immediate::High(
+            AddressReference::new(address),
+        )));
+        self
+    }
     pub fn adc_addr(&mut self, name: &str) -> &mut Self {
         self.adc(AddressMode::Absolute(AddressReference::new(name)))
     }
@@ -215,6 +230,12 @@ impl InstructionBuilder {
         self.adc(AddressMode::Absolute(AddressReference::with_offset(
             name, offset,
         )))
+    }
+    pub fn adc_addr_x(&mut self, name: &str) -> &mut Self {
+        self.adc(AddressMode::AbsoluteX(AddressReference::new(name)))
+    }
+    pub fn adc_addr_y(&mut self, name: &str) -> &mut Self {
+        self.adc(AddressMode::AbsoluteY(AddressReference::new(name)))
     }
 
     fn cmp(&mut self, address_mode: AddressMode) -> &mut Self {

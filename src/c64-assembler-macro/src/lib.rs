@@ -242,6 +242,7 @@ fn build_instructions(input: TokenStream) -> String {
                     lines.push("    .add_basic_header()".to_string());
                     sub_start = i + 1;
                 }
+                "adc"|
                 "lda" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
