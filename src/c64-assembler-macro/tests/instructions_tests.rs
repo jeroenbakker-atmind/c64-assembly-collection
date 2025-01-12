@@ -161,4 +161,5 @@ implied_test!(clc, CLC);
 implied_test!(rts, RTS);
 
 immediate_absolute_indirect_test!(adc, ADC);
+// immediate_absolute_indirect_test!(and, AND);
 immediate_absolute_indirect_test!(lda, LDA);
