@@ -28,6 +28,19 @@ macro_rules! implied_test {
     };
 }
 
+macro_rules! _accumulator_test {
+    ($op:ident) => {
+    #[test]
+    fn acc() {
+        test_first(
+            instructions!($op a),
+            OP,
+            AddressMode::Accumulator,
+        );
+    }
+    }
+}
+
 macro_rules! _immediate_test{
     ($op:ident) => {
     #[test]
@@ -66,7 +79,32 @@ macro_rules! _immediate_test{
     }
 }
 
-macro_rules! _absolute_test {
+macro_rules! __absolute_x_test {
+    ($op:ident) => {
+    #[test]
+    fn addr_x() {
+        test_first(
+            instructions!($op test,x),
+            OP,
+            AddressMode::AbsoluteX(AddressReference::new("test")),
+        );
+    }
+    }
+}
+macro_rules! __absolute_y_test {
+    ($op:ident) => {
+    #[test]
+    fn addr_y() {
+        test_first(
+            instructions!($op test,y),
+            OP,
+            AddressMode::AbsoluteY(AddressReference::new("test")),
+        );
+    }
+    }
+}
+
+macro_rules! __absolute_test {
     ($op:ident) => {
     #[test]
     fn addr() {
@@ -84,66 +122,65 @@ macro_rules! _absolute_test {
             AddressMode::Absolute(AddressReference::with_offset("test", 1)),
         );
     }
-    #[test]
-    fn addr_x() {
-        test_first(
-            instructions!($op test,x),
-            OP,
-            AddressMode::AbsoluteX(AddressReference::new("test")),
-        );
-    }
-    #[test]
-    fn addr_y() {
-        test_first(
-            instructions!($op test,y),
-            OP,
-            AddressMode::AbsoluteY(AddressReference::new("test")),
-        );
-    }
-
-
     }
 }
+
+macro_rules! _absolute_x_test {
+    ($op:ident) => {
+        __absolute_test!($op);
+        __absolute_x_test!($op);
+    };
+}
+macro_rules! _absolute_y_test {
+    ($op:ident) => {
+        __absolute_test!($op);
+        __absolute_y_test!($op);
+    };
+}
+macro_rules! _absolute_test {
+    ($op:ident) => {
+        __absolute_test!($op);
+        __absolute_x_test!($op);
+        __absolute_y_test!($op);
+    };
+}
+
 macro_rules! _indirect_test {
     ($op:ident) => {
-    #[test]
-    fn ind_x() {
-        /*
-        test_first(
-            instructions!($op (test),x),
-            OP,
-            AddressMode::IndirectIndexed(AddressReference::new("test")),
-        );
-        */
-    }
+        #[test]
+        fn ind_x() {
+            /*
+            test_first(
+                instructions!($op (test),x),
+                OP,
+                AddressMode::IndirectIndexed(AddressReference::new("test")),
+            );
+            */
+        }
 
-    #[test]
-    fn ind_y() {
-        /*
-        test_first(
-            instructions!($op (test,y)),
-            OP,
-            AddressMode::IndexedIndirect(AddressReference::new("test")),
-        );
-        */
-    }
-    }    
+        #[test]
+        fn ind_y() {
+            /*
+            test_first(
+                instructions!($op (test,y)),
+                OP,
+                AddressMode::IndexedIndirect(AddressReference::new("test")),
+            );
+            */
+        }
+    };
 }
 macro_rules! _module_header {
     ($OP:ident) => {
-            use c64_assembler::{
-                instruction::operation::Operation,
-                memory::{
-                    address_mode::*,
-                    label::AddressReference,
-                },
-            };
-            use c64_assembler_macro::instructions;
+        use c64_assembler::{
+            instruction::operation::Operation,
+            memory::{address_mode::*, label::AddressReference},
+        };
+        use c64_assembler_macro::instructions;
 
-            use crate::test_first;
-            const OP: Operation = Operation::$OP;
-
-    }
+        use crate::test_first;
+        const OP: Operation = Operation::$OP;
+    };
 }
 
 macro_rules! immediate_absolute_indirect_test {
@@ -163,6 +200,16 @@ macro_rules! absolute_indirect_test {
             _module_header!($OP);
             _absolute_test!($op);
             _indirect_test!($op);
+        }
+    };
+}
+
+macro_rules! accumulator_absolute_x {
+    ($op:ident, $OP:ident) => {
+        mod $op {
+            _module_header!($OP);
+            _accumulator_test!($op);
+            _absolute_x_test!($op);
         }
     };
 }
@@ -194,5 +241,6 @@ implied_test!(rts, RTS);
 
 immediate_absolute_indirect_test!(adc, ADC);
 // immediate_absolute_indirect_test!(and, AND);
+accumulator_absolute_x!(asl, ASL);
 immediate_absolute_indirect_test!(lda, LDA);
 absolute_indirect_test!(sta, STA);

@@ -122,7 +122,14 @@ fn build_function(input: TokenStream) -> String {
     lines.join("\n")
 }
 
-fn build_address_mode(line: &mut Vec<String>, tokens: &[TokenTree], allow_immediate:bool, allow_indirect:bool, allow_absolute:bool) -> usize {
+fn build_address_mode(
+    line: &mut Vec<String>,
+    tokens: &[TokenTree],
+    allow_immediate: bool,
+    allow_accumulator: bool,
+    allow_absolute: bool,
+    allow_indirect: bool,
+) -> usize {
     match tokens.first().unwrap() {
         TokenTree::Punct(punct) => {
             if punct.to_string() == "#" {
@@ -135,12 +142,21 @@ fn build_address_mode(line: &mut Vec<String>, tokens: &[TokenTree], allow_immedi
             }
         }
         TokenTree::Ident(ident) => {
+            if ident.to_string() == "a".to_string() {
+                assert!(allow_accumulator);
+                return build_address_mode_accumulator(line, &tokens);
+            }
             assert!(allow_absolute);
-            return build_address_mode_absolute(line, &tokens)
+            return build_address_mode_absolute(line, &tokens);
         }
         _ => todo!(),
     }
     0
+}
+
+fn build_address_mode_accumulator(line: &mut Vec<String>, _tokens: &[TokenTree]) -> usize {
+    line.push("_acc()".to_string());
+    return 1;
 }
 
 fn build_address_mode_absolute(line: &mut Vec<String>, tokens: &[TokenTree]) -> usize {
@@ -251,10 +267,19 @@ fn build_instructions(input: TokenStream) -> String {
                     sub_start = i + 1;
                 }
 
+                "asl" => {
+                    let mut line = Vec::default();
+                    line.push(format!("    .{name}"));
+                    let add_tokens_parsed =
+                        build_address_mode(&mut line, &tokens[i + 1..], false, true, true, false);
+                    lines.push(line.join(""));
+                    sub_start = i + 1 + add_tokens_parsed;
+                }
                 "adc" | "and" | "lda" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
-                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], true, true, true);
+                    let add_tokens_parsed =
+                        build_address_mode(&mut line, &tokens[i + 1..], true, false, true, true);
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }
@@ -262,7 +287,8 @@ fn build_instructions(input: TokenStream) -> String {
                 "sta" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
-                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], false, true, true);
+                    let add_tokens_parsed =
+                        build_address_mode(&mut line, &tokens[i + 1..], false, false, true, true);
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }

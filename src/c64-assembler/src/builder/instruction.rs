@@ -26,6 +26,25 @@ impl InstructionBuilder {
         });
     }
 
+    fn asl(&mut self, address_mode: AddressMode) -> &mut Self {
+        self.add_instruction(Operation::ASL, address_mode);
+        self
+    }
+    pub fn asl_acc(&mut self) -> &mut Self {
+        self.asl(AddressMode::Accumulator)
+    }
+    pub fn asl_addr(&mut self, address: &str) -> &mut Self {
+        self.asl(AddressMode::Absolute(AddressReference::new(address)))
+    }
+    pub fn asl_addr_offs(&mut self, address: &str, offset: Address) -> &mut Self {
+        self.asl(AddressMode::Absolute(AddressReference::with_offset(
+            address, offset,
+        )))
+    }
+    pub fn asl_addr_x(&mut self, address: &str) -> &mut Self {
+        self.asl(AddressMode::AbsoluteX(AddressReference::new(address)))
+    }
+
     pub fn brk(&mut self) -> &mut Self {
         self.add_instruction(Operation::BRK, AddressMode::Implied);
         self
@@ -198,7 +217,7 @@ impl InstructionBuilder {
     pub fn sta_addr_y(&mut self, name: &str) -> &mut Self {
         self.sta(AddressMode::AbsoluteY(AddressReference::new(name)))
     }
-    
+
     fn jsr(&mut self, address_mode: AddressMode) -> &mut Self {
         self.add_instruction(Operation::JSR, address_mode);
         self
