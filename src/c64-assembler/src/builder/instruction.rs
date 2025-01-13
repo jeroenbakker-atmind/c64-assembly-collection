@@ -28,6 +28,8 @@ macro_rules! add {
 
 macro_rules! implied {
     ($function_name:ident, $operation:ident) => {
+        /// Record a new operation to the instruction list.
+        #[doc = "Records a new operation to the instruction list."]
         pub fn $function_name(&mut self) -> &mut Self {
             self.add_instruction(Operation::$operation, AddressMode::Implied);
             self
@@ -113,11 +115,48 @@ impl InstructionBuilder {
             comments: vec![],
         });
     }
+    add!(adc, ADC);
+    imm!(adc_imm, adc_imm_low, adc_imm_high, adc);
+    addr!(adc_addr, adc_addr_offs, adc);
+    addr_x!(adc_addr_x, adc);
+    addr_y!(adc_addr_y, adc);
+    ind_x!(adc_ind_x, adc);
+    ind_y!(adc_ind_y, adc);
+
+    add!(and, AND);
+    imm!(and_imm, and_imm_low, and_imm_high, adc);
+    addr!(and_addr, and_addr_offs, and);
+    addr_x!(and_addr_x, and);
+    addr_y!(and_addy_y, and);
+    ind_x!(and_ind_x, and);
+    ind_y!(and_ind_y, and);
 
     add!(asl, ASL);
     acc!(asl_acc, asl);
     addr!(asl_addr, asl_addr_offs, asl);
     addr_x!(asl_addr_x, asl);
+
+    add!(bcc, BCC);
+    addr!(bcc_addr, bcc_addr_offs, bcc);
+
+    add!(bcs, BCS);
+    addr!(bcs_addr, bcs_addr_offs, bcs);
+
+    add!(beq, BEQ);
+    addr!(beq_addr, beq_addr_offs, beq);
+
+    add!(bit, BIT);
+    addr!(bit_addr, bit_addr_offs, bit);
+
+    add!(bmi, BMI);
+    addr!(bmi_addr, bmi_addr_offs, bmi);
+
+    add!(bne, BNE);
+    addr!(bne_addr, bne_addr_offs, bne);
+
+    add!(bpl, BPL);
+    addr!(bpl_addr, bpl_addr_offs, bpl);
+
     implied!(brk, BRK);
     implied!(cld, CLD);
     implied!(cli, CLI);
@@ -157,19 +196,12 @@ impl InstructionBuilder {
     addr_y!(sta_addr_y, sta);
     add!(jsr, JSR);
     addr!(jsr_addr, jsr_addr_offs, jsr);
-    add!(adc, ADC);
-    imm!(adc_imm, adc_imm_low, adc_imm_high, adc);
-    addr!(adc_addr, adc_addr_offs, adc);
-    addr_x!(adc_addr_x, adc);
-    addr_y!(adc_addr_y, adc);
     add!(cmp, CMP);
     addr!(cmp_addr, cmp_addr_offs, cmp);
     add!(cpy, CPY);
     addr!(cpy_addr, cpy_addr_offs, cpy);
     add!(cpx, CPX);
     addr!(cpx_addr, cpx_addr_offs, cpx);
-    add!(bne, BNE);
-    addr!(bne_addr, bne_addr_offs, bne);
     add!(sbc, SBC);
     imm!(sbc_imm, sbc_imm_low, sbc_imm_high, sbc);
     addr!(sbc_addr, sbc_addr_offs, sbc);
