@@ -17,6 +17,62 @@ pub struct InstructionBuilder {
     instructions: Instructions,
 }
 
+macro_rules! private_add {
+    ($function_name:ident, $operation:ident) => {
+        fn $function_name(&mut self, address_mode: AddressMode) -> &mut Self {
+            self.add_instruction(Operation::$operation, address_mode);
+            self
+        }
+    };
+}
+
+macro_rules! implied {
+    ($function_name:ident, $operation:ident) => {
+        pub fn $function_name(&mut self) -> &mut Self {
+            self.add_instruction(Operation::$operation, AddressMode::Implied);
+            self
+        }
+    };
+}
+macro_rules! acc {
+    ($function_name:ident, $add:ident) => {
+        pub fn $function_name(&mut self) -> &mut Self {
+            self.$add(AddressMode::Accumulator)
+        }
+    };
+}
+macro_rules! addr {
+    ($function_name:ident, $add:ident) => {
+        pub fn $function_name(&mut self, address: &str) -> &mut Self {
+            self.$add(AddressMode::Absolute(AddressReference::new(address)))
+        }
+    };
+}
+
+macro_rules! addr_offs {
+    ($function_name:ident, $add:ident) => {
+        pub fn $function_name(&mut self, address: &str, offset: Address) -> &mut Self {
+            self.$add(AddressMode::Absolute(AddressReference::with_offset(
+                address, offset,
+            )))
+        }
+    };
+}
+macro_rules! addr_x {
+    ($function_name:ident, $add:ident) => {
+        pub fn $function_name(&mut self, address: &str) -> &mut Self {
+            self.$add(AddressMode::AbsoluteX(AddressReference::new(address)))
+        }
+    };
+}
+macro_rules! addr_y {
+    ($function_name:ident, $add:ident) => {
+        pub fn $function_name(&mut self, address: &str) -> &mut Self {
+            self.$add(AddressMode::AbsoluteY(AddressReference::new(address)))
+        }
+    };
+}
+
 impl InstructionBuilder {
     fn add_instruction(&mut self, operation: Operation, address_mode: AddressMode) {
         self.instructions.instructions.push(Instruction {
@@ -26,117 +82,35 @@ impl InstructionBuilder {
         });
     }
 
-    fn asl(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::ASL, address_mode);
-        self
-    }
-    pub fn asl_acc(&mut self) -> &mut Self {
-        self.asl(AddressMode::Accumulator)
-    }
-    pub fn asl_addr(&mut self, address: &str) -> &mut Self {
-        self.asl(AddressMode::Absolute(AddressReference::new(address)))
-    }
-    pub fn asl_addr_offs(&mut self, address: &str, offset: Address) -> &mut Self {
-        self.asl(AddressMode::Absolute(AddressReference::with_offset(
-            address, offset,
-        )))
-    }
-    pub fn asl_addr_x(&mut self, address: &str) -> &mut Self {
-        self.asl(AddressMode::AbsoluteX(AddressReference::new(address)))
-    }
-
-    pub fn brk(&mut self) -> &mut Self {
-        self.add_instruction(Operation::BRK, AddressMode::Implied);
-        self
-    }
-    pub fn cld(&mut self) -> &mut Self {
-        self.add_instruction(Operation::CLD, AddressMode::Implied);
-        self
-    }
-    pub fn cli(&mut self) -> &mut Self {
-        self.add_instruction(Operation::CLI, AddressMode::Implied);
-        self
-    }
-    pub fn clv(&mut self) -> &mut Self {
-        self.add_instruction(Operation::CLV, AddressMode::Implied);
-        self
-    }
-    pub fn dex(&mut self) -> &mut Self {
-        self.add_instruction(Operation::DEX, AddressMode::Implied);
-        self
-    }
-    pub fn dey(&mut self) -> &mut Self {
-        self.add_instruction(Operation::DEY, AddressMode::Implied);
-        self
-    }
-    pub fn inx(&mut self) -> &mut Self {
-        self.add_instruction(Operation::INX, AddressMode::Implied);
-        self
-    }
-    pub fn iny(&mut self) -> &mut Self {
-        self.add_instruction(Operation::INY, AddressMode::Implied);
-        self
-    }
-    pub fn nop(&mut self) -> &mut Self {
-        self.add_instruction(Operation::NOP, AddressMode::Implied);
-        self
-    }
-    pub fn pha(&mut self) -> &mut Self {
-        self.add_instruction(Operation::PHA, AddressMode::Implied);
-        self
-    }
-    pub fn psr(&mut self) -> &mut Self {
-        self.add_instruction(Operation::PSR, AddressMode::Implied);
-        self
-    }
-    pub fn pla(&mut self) -> &mut Self {
-        self.add_instruction(Operation::PLA, AddressMode::Implied);
-        self
-    }
-    pub fn plp(&mut self) -> &mut Self {
-        self.add_instruction(Operation::PLP, AddressMode::Implied);
-        self
-    }
-    pub fn rti(&mut self) -> &mut Self {
-        self.add_instruction(Operation::RTI, AddressMode::Implied);
-        self
-    }
-    pub fn sed(&mut self) -> &mut Self {
-        self.add_instruction(Operation::SED, AddressMode::Implied);
-        self
-    }
-    pub fn sei(&mut self) -> &mut Self {
-        self.add_instruction(Operation::SEI, AddressMode::Implied);
-        self
-    }
-    pub fn tax(&mut self) -> &mut Self {
-        self.add_instruction(Operation::TAX, AddressMode::Implied);
-        self
-    }
-    pub fn tay(&mut self) -> &mut Self {
-        self.add_instruction(Operation::TAY, AddressMode::Implied);
-        self
-    }
-    pub fn tsx(&mut self) -> &mut Self {
-        self.add_instruction(Operation::TSX, AddressMode::Implied);
-        self
-    }
-    pub fn txa(&mut self) -> &mut Self {
-        self.add_instruction(Operation::TXA, AddressMode::Implied);
-        self
-    }
-    pub fn txs(&mut self) -> &mut Self {
-        self.add_instruction(Operation::TXS, AddressMode::Implied);
-        self
-    }
-    pub fn tya(&mut self) -> &mut Self {
-        self.add_instruction(Operation::TYA, AddressMode::Implied);
-        self
-    }
-    pub fn clc(&mut self) -> &mut Self {
-        self.add_instruction(Operation::CLC, AddressMode::Implied);
-        self
-    }
+    private_add!(asl, ASL);
+    acc!(asl_acc, asl);
+    addr!(asl_addr, asl);
+    addr_offs!(asl_addr_offs, asl);
+    addr_x!(asl_addr_x, asl);
+    implied!(brk, BRK);
+    implied!(cld, CLD);
+    implied!(cli, CLI);
+    implied!(clv, CLV);
+    implied!(dex, DEX);
+    implied!(dey, DEY);
+    implied!(inx, INX);
+    implied!(iny, INY);
+    implied!(nop, NOP);
+    implied!(pha, PHA);
+    implied!(psr, PSR);
+    implied!(pla, PLA);
+    implied!(plp, PLP);
+    implied!(rti, RTI);
+    implied!(sed, SED);
+    implied!(sei, SEI);
+    implied!(tax, TAX);
+    implied!(tay, TAY);
+    implied!(tsx, TSX);
+    implied!(txa, TXA);
+    implied!(txs, TXS);
+    implied!(tya, TYA);
+    implied!(clc, CLC);
+    implied!(rts, RTS);
 
     fn lda(&mut self, address_mode: AddressMode) -> &mut Self {
         self.add_instruction(Operation::LDA, address_mode);
@@ -224,10 +198,6 @@ impl InstructionBuilder {
     }
     pub fn jsr_addr(&mut self, name: &str) -> &mut Self {
         self.jsr(AddressMode::Absolute(AddressReference::new(name)))
-    }
-    pub fn rts(&mut self) -> &mut Self {
-        self.add_instruction(Operation::RTS, AddressMode::Implied);
-        self
     }
 
     fn adc(&mut self, address_mode: AddressMode) -> &mut Self {
