@@ -47,7 +47,10 @@ pub fn application(input: TokenStream) -> TokenStream {
     }
     lines.push("    .finalize()".to_string());
     lines.push("}".to_string());
-    println!("{:#?}", lines.join("\n"));
+
+    for line in &lines {
+        println!("{}", line);
+    }
     lines.join("\n").parse().unwrap()
 }
 
@@ -119,17 +122,22 @@ fn build_function(input: TokenStream) -> String {
     lines.join("\n")
 }
 
-fn build_address_mode(line: &mut Vec<String>, tokens: &[TokenTree]) -> usize {
+fn build_address_mode(line: &mut Vec<String>, tokens: &[TokenTree], allow_immediate:bool, allow_indirect:bool, allow_absolute:bool) -> usize {
     match tokens.first().unwrap() {
         TokenTree::Punct(punct) => {
             if punct.to_string() == "#" {
+                assert!(allow_immediate);
                 return build_address_mode_imm(line, &tokens[1..]) + 1;
             }
             if punct.to_string() == "(" {
+                assert!(allow_indirect);
                 return build_address_mode_indirect(line, &tokens[1..]) + 1;
             }
         }
-        TokenTree::Ident(ident) => return build_address_mode_absolute(line, &tokens),
+        TokenTree::Ident(ident) => {
+            assert!(allow_absolute);
+            return build_address_mode_absolute(line, &tokens)
+        }
         _ => todo!(),
     }
     0
@@ -246,7 +254,15 @@ fn build_instructions(input: TokenStream) -> String {
                 "adc" | "and" | "lda" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
-                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..]);
+                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], true, true, true);
+                    lines.push(line.join(""));
+                    sub_start = i + 1 + add_tokens_parsed;
+                }
+
+                "sta" => {
+                    let mut line = Vec::default();
+                    line.push(format!("    .{name}"));
+                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], false, true, true);
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }

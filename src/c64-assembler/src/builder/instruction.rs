@@ -192,6 +192,13 @@ impl InstructionBuilder {
             name, offset,
         )))
     }
+    pub fn sta_addr_x(&mut self, name: &str) -> &mut Self {
+        self.sta(AddressMode::AbsoluteX(AddressReference::new(name)))
+    }
+    pub fn sta_addr_y(&mut self, name: &str) -> &mut Self {
+        self.sta(AddressMode::AbsoluteY(AddressReference::new(name)))
+    }
+    
     fn jsr(&mut self, address_mode: AddressMode) -> &mut Self {
         self.add_instruction(Operation::JSR, address_mode);
         self

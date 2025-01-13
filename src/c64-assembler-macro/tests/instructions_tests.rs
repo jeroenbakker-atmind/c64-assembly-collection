@@ -28,20 +28,8 @@ macro_rules! implied_test {
     };
 }
 
-macro_rules! immediate_absolute_indirect_test {
-    ($op:ident, $OP:ident) => {
-        mod $op {
-            use c64_assembler::{
-                instruction::operation::Operation,
-                memory::{
-                    address_mode::{AddressMode, Immediate},
-                    label::AddressReference,
-                },
-            };
-            use c64_assembler_macro::instructions;
-
-            use crate::test_first;
-            const OP: Operation = Operation::$OP;
+macro_rules! _immediate_test{
+    ($op:ident) => {
     #[test]
     fn imm() {
         test_first(
@@ -75,7 +63,11 @@ macro_rules! immediate_absolute_indirect_test {
             AddressMode::Immediate(Immediate::High(AddressReference::new("test"))),
         );
     }
+    }
+}
 
+macro_rules! _absolute_test {
+    ($op:ident) => {
     #[test]
     fn addr() {
         test_first(
@@ -109,6 +101,11 @@ macro_rules! immediate_absolute_indirect_test {
         );
     }
 
+
+    }
+}
+macro_rules! _indirect_test {
+    ($op:ident) => {
     #[test]
     fn ind_x() {
         /*
@@ -130,7 +127,42 @@ macro_rules! immediate_absolute_indirect_test {
         );
         */
     }
+    }    
+}
+macro_rules! _module_header {
+    ($OP:ident) => {
+            use c64_assembler::{
+                instruction::operation::Operation,
+                memory::{
+                    address_mode::*,
+                    label::AddressReference,
+                },
+            };
+            use c64_assembler_macro::instructions;
 
+            use crate::test_first;
+            const OP: Operation = Operation::$OP;
+
+    }
+}
+
+macro_rules! immediate_absolute_indirect_test {
+    ($op:ident, $OP:ident) => {
+        mod $op {
+            _module_header!($OP);
+            _immediate_test!($op);
+            _absolute_test!($op);
+            _indirect_test!($op);
+        }
+    };
+}
+
+macro_rules! absolute_indirect_test {
+    ($op:ident, $OP:ident) => {
+        mod $op {
+            _module_header!($OP);
+            _absolute_test!($op);
+            _indirect_test!($op);
         }
     };
 }
@@ -163,3 +195,4 @@ implied_test!(rts, RTS);
 immediate_absolute_indirect_test!(adc, ADC);
 // immediate_absolute_indirect_test!(and, AND);
 immediate_absolute_indirect_test!(lda, LDA);
+absolute_indirect_test!(sta, STA);
