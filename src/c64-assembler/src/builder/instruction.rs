@@ -17,7 +17,7 @@ pub struct InstructionBuilder {
     instructions: Instructions,
 }
 
-macro_rules! private_add {
+macro_rules! add {
     ($function_name:ident, $operation:ident) => {
         fn $function_name(&mut self, address_mode: AddressMode) -> &mut Self {
             self.add_instruction(Operation::$operation, address_mode);
@@ -34,6 +34,25 @@ macro_rules! implied {
         }
     };
 }
+
+macro_rules! imm {
+    ($function_name:ident, $function_name_low:ident, $function_name_high:ident, $add:ident) => {
+        pub fn $function_name(&mut self, byte: u8) -> &mut Self {
+            self.$add(AddressMode::Immediate(Immediate::Byte(byte)))
+        }
+        pub fn $function_name_low(&mut self, address_name: &str) -> &mut Self {
+            self.$add(AddressMode::Immediate(Immediate::Low(
+                AddressReference::new(address_name),
+            )))
+        }
+        pub fn $function_name_high(&mut self, address_name: &str) -> &mut Self {
+            self.$add(AddressMode::Immediate(Immediate::High(
+                AddressReference::new(address_name),
+            )))
+        }
+    };
+}
+
 macro_rules! acc {
     ($function_name:ident, $add:ident) => {
         pub fn $function_name(&mut self) -> &mut Self {
@@ -42,22 +61,18 @@ macro_rules! acc {
     };
 }
 macro_rules! addr {
-    ($function_name:ident, $add:ident) => {
+    ($function_name:ident, $function_name_offset:ident, $add:ident) => {
         pub fn $function_name(&mut self, address: &str) -> &mut Self {
             self.$add(AddressMode::Absolute(AddressReference::new(address)))
         }
-    };
-}
-
-macro_rules! addr_offs {
-    ($function_name:ident, $add:ident) => {
-        pub fn $function_name(&mut self, address: &str, offset: Address) -> &mut Self {
+        pub fn $function_name_offset(&mut self, address: &str, offset: Address) -> &mut Self {
             self.$add(AddressMode::Absolute(AddressReference::with_offset(
                 address, offset,
             )))
         }
     };
 }
+
 macro_rules! addr_x {
     ($function_name:ident, $add:ident) => {
         pub fn $function_name(&mut self, address: &str) -> &mut Self {
@@ -65,10 +80,27 @@ macro_rules! addr_x {
         }
     };
 }
+
 macro_rules! addr_y {
     ($function_name:ident, $add:ident) => {
         pub fn $function_name(&mut self, address: &str) -> &mut Self {
             self.$add(AddressMode::AbsoluteY(AddressReference::new(address)))
+        }
+    };
+}
+
+macro_rules! ind_x {
+    ($function_name:ident, $add:ident) => {
+        pub fn $function_name(&mut self, address: &str) -> &mut Self {
+            self.$add(AddressMode::IndexedIndirect(AddressReference::new(address)))
+        }
+    };
+}
+
+macro_rules! ind_y {
+    ($function_name:ident, $add:ident) => {
+        pub fn $function_name(&mut self, address: &str) -> &mut Self {
+            self.$add(AddressMode::IndirectIndexed(AddressReference::new(address)))
         }
     };
 }
@@ -82,10 +114,9 @@ impl InstructionBuilder {
         });
     }
 
-    private_add!(asl, ASL);
+    add!(asl, ASL);
     acc!(asl_acc, asl);
-    addr!(asl_addr, asl);
-    addr_offs!(asl_addr_offs, asl);
+    addr!(asl_addr, asl_addr_offs, asl);
     addr_x!(asl_addr_x, asl);
     implied!(brk, BRK);
     implied!(cld, CLD);
@@ -111,194 +142,37 @@ impl InstructionBuilder {
     implied!(tya, TYA);
     implied!(clc, CLC);
     implied!(rts, RTS);
-
-    fn lda(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::LDA, address_mode);
-        self
-    }
-    pub fn lda_imm(&mut self, byte: u8) -> &mut Self {
-        self.lda(AddressMode::Immediate(Immediate::Byte(byte)))
-    }
-    pub fn lda_imm_low(&mut self, address: &str) -> &mut Self {
-        self.lda(AddressMode::Immediate(Immediate::Low(
-            AddressReference::new(address),
-        )));
-        self
-    }
-    pub fn lda_imm_high(&mut self, address: &str) -> &mut Self {
-        self.lda(AddressMode::Immediate(Immediate::High(
-            AddressReference::new(address),
-        )));
-        self
-    }
-    pub fn lda_addr(&mut self, address: &str) -> &mut Self {
-        self.lda(AddressMode::Absolute(AddressReference::new(address)))
-    }
-    pub fn lda_addr_offs(&mut self, address: &str, offset: Address) -> &mut Self {
-        self.lda(AddressMode::Absolute(AddressReference::with_offset(
-            address, offset,
-        )))
-    }
-    pub fn lda_addr_x(&mut self, address: &str) -> &mut Self {
-        self.lda(AddressMode::AbsoluteX(AddressReference::new(address)))
-    }
-    pub fn lda_addr_y(&mut self, address: &str) -> &mut Self {
-        self.lda(AddressMode::AbsoluteY(AddressReference::new(address)))
-    }
-    pub fn lda_ind_y(&mut self, address: &str) -> &mut Self {
-        self.lda(AddressMode::IndirectIndexed(AddressReference::new(address)))
-    }
-    pub fn lda_ind_x(&mut self, address: &str) -> &mut Self {
-        self.lda(AddressMode::IndexedIndirect(AddressReference::new(address)))
-    }
-
-    fn ldy(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::LDY, address_mode);
-        self
-    }
-    pub fn ldy_imm(&mut self, byte: u8) -> &mut Self {
-        self.ldy(AddressMode::Immediate(Immediate::Byte(byte)))
-    }
-    pub fn ldy_imm_low(&mut self, address: &str) -> &mut Self {
-        self.ldy(AddressMode::Immediate(Immediate::Low(
-            AddressReference::new(address),
-        )));
-        self
-    }
-    pub fn ldy_imm_high(&mut self, address: &str) -> &mut Self {
-        self.ldy(AddressMode::Immediate(Immediate::High(
-            AddressReference::new(address),
-        )));
-        self
-    }
-
-    fn sta(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::STA, address_mode);
-        self
-    }
-
-    pub fn sta_addr(&mut self, name: &str) -> &mut Self {
-        self.sta(AddressMode::Absolute(AddressReference::new(name)))
-    }
-    pub fn sta_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
-        self.sta(AddressMode::Absolute(AddressReference::with_offset(
-            name, offset,
-        )))
-    }
-    pub fn sta_addr_x(&mut self, name: &str) -> &mut Self {
-        self.sta(AddressMode::AbsoluteX(AddressReference::new(name)))
-    }
-    pub fn sta_addr_y(&mut self, name: &str) -> &mut Self {
-        self.sta(AddressMode::AbsoluteY(AddressReference::new(name)))
-    }
-
-    fn jsr(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::JSR, address_mode);
-        self
-    }
-    pub fn jsr_addr(&mut self, name: &str) -> &mut Self {
-        self.jsr(AddressMode::Absolute(AddressReference::new(name)))
-    }
-
-    fn adc(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::ADC, address_mode);
-        self
-    }
-    pub fn adc_imm(&mut self, byte: u8) -> &mut Self {
-        self.adc(AddressMode::Immediate(Immediate::Byte(byte)))
-    }
-    pub fn adc_imm_low(&mut self, address: &str) -> &mut Self {
-        self.adc(AddressMode::Immediate(Immediate::Low(
-            AddressReference::new(address),
-        )));
-        self
-    }
-    pub fn adc_imm_high(&mut self, address: &str) -> &mut Self {
-        self.adc(AddressMode::Immediate(Immediate::High(
-            AddressReference::new(address),
-        )));
-        self
-    }
-    pub fn adc_addr(&mut self, name: &str) -> &mut Self {
-        self.adc(AddressMode::Absolute(AddressReference::new(name)))
-    }
-    pub fn adc_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
-        self.adc(AddressMode::Absolute(AddressReference::with_offset(
-            name, offset,
-        )))
-    }
-    pub fn adc_addr_x(&mut self, name: &str) -> &mut Self {
-        self.adc(AddressMode::AbsoluteX(AddressReference::new(name)))
-    }
-    pub fn adc_addr_y(&mut self, name: &str) -> &mut Self {
-        self.adc(AddressMode::AbsoluteY(AddressReference::new(name)))
-    }
-
-    fn cmp(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::CMP, address_mode);
-        self
-    }
-    pub fn cmp_addr(&mut self, name: &str) -> &mut Self {
-        self.cmp(AddressMode::Absolute(AddressReference::new(name)))
-    }
-    pub fn cmp_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
-        self.cmp(AddressMode::Absolute(AddressReference::with_offset(
-            name, offset,
-        )))
-    }
-    fn cpx(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::CPX, address_mode);
-        self
-    }
-    pub fn cmx_addr(&mut self, name: &str) -> &mut Self {
-        self.cpx(AddressMode::Absolute(AddressReference::new(name)))
-    }
-    pub fn cmx_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
-        self.cpx(AddressMode::Absolute(AddressReference::with_offset(
-            name, offset,
-        )))
-    }
-    fn cpy(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::CPY, address_mode);
-        self
-    }
-    pub fn cpy_addr(&mut self, name: &str) -> &mut Self {
-        self.cpy(AddressMode::Absolute(AddressReference::new(name)))
-    }
-    pub fn cpy_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
-        self.cpy(AddressMode::Absolute(AddressReference::with_offset(
-            name, offset,
-        )))
-    }
-
-    fn bne(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::BNE, address_mode);
-        self
-    }
-    pub fn bne_addr(&mut self, name: &str) -> &mut Self {
-        self.bne(AddressMode::Relative(AddressReference::new(name)))
-    }
-    pub fn bne_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
-        self.bne(AddressMode::Relative(AddressReference::with_offset(
-            name, offset,
-        )))
-    }
-
-    fn sbc(&mut self, address_mode: AddressMode) -> &mut Self {
-        self.add_instruction(Operation::SBC, address_mode);
-        self
-    }
-    pub fn sbc_imm(&mut self, byte: u8) -> &mut Self {
-        self.sbc(AddressMode::Immediate(Immediate::Byte(byte)))
-    }
-    pub fn sbc_addr(&mut self, name: &str) -> &mut Self {
-        self.sbc(AddressMode::Absolute(AddressReference::new(name)))
-    }
-    pub fn sbc_addr_offs(&mut self, name: &str, offset: Address) -> &mut Self {
-        self.sbc(AddressMode::Absolute(AddressReference::with_offset(
-            name, offset,
-        )))
-    }
+    add!(lda, LDA);
+    imm!(lda_imm, lda_imm_low, lda_imm_high, lda);
+    addr!(lda_addr, lda_addr_offs, lda);
+    addr_x!(lda_addr_x, lda);
+    addr_y!(lda_addr_y, lda);
+    ind_y!(lda_ind_y, lda);
+    ind_x!(lda_ind_x, lda);
+    add!(ldy, LDY);
+    imm!(ldy_imm, ldy_imm_low, ldy_imm_high, ldy);
+    add!(sta, STA);
+    addr!(sta_addr, sta_addr_offs, sta);
+    addr_x!(sta_addr_x, sta);
+    addr_y!(sta_addr_y, sta);
+    add!(jsr, JSR);
+    addr!(jsr_addr, jsr_addr_offs, jsr);
+    add!(adc, ADC);
+    imm!(adc_imm, adc_imm_low, adc_imm_high, adc);
+    addr!(adc_addr, adc_addr_offs, adc);
+    addr_x!(adc_addr_x, adc);
+    addr_y!(adc_addr_y, adc);
+    add!(cmp, CMP);
+    addr!(cmp_addr, cmp_addr_offs, cmp);
+    add!(cpy, CPY);
+    addr!(cpy_addr, cpy_addr_offs, cpy);
+    add!(cpx, CPX);
+    addr!(cpx_addr, cpx_addr_offs, cpx);
+    add!(bne, BNE);
+    addr!(bne_addr, bne_addr_offs, bne);
+    add!(sbc, SBC);
+    imm!(sbc_imm, sbc_imm_low, sbc_imm_high, sbc);
+    addr!(sbc_addr, sbc_addr_offs, sbc);
 
     pub fn raw(&mut self, data: &[u8]) -> &mut Self {
         self.add_instruction(Operation::Raw(Vec::from(data)), AddressMode::Implied);
