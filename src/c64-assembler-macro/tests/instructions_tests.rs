@@ -131,12 +131,14 @@ macro_rules! _absolute_x_test {
         __absolute_x_test!($op);
     };
 }
+
 macro_rules! _absolute_y_test {
     ($op:ident) => {
         __absolute_test!($op);
         __absolute_y_test!($op);
     };
 }
+
 macro_rules! _absolute_test {
     ($op:ident) => {
         __absolute_test!($op);
