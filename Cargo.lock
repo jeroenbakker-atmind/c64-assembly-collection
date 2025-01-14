@@ -65,6 +65,10 @@ name = "c64-assembler"
 version = "0.1.0"
 
 [[package]]
+name = "c64-assembler-6502"
+version = "0.1.0"
+
+[[package]]
 name = "c64-assembler-macro"
 version = "0.1.0"
 dependencies = [
