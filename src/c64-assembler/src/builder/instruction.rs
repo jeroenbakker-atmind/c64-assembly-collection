@@ -9,11 +9,26 @@ use crate::{
     },
 };
 
+/// Stream of instructions.
 #[derive(Debug, Default, Clone)]
 pub struct Instructions {
     pub instructions: Vec<Instruction>,
 }
 
+/// Utility to build instructions.
+///
+/// # Example
+///
+/// ```
+/// use c64_assembler::builder::instruction::InstructionBuilder;
+/// 
+/// let instructions = InstructionBuilder::default()
+///     .label("main_entry_point")
+///     .lda_imm(0x00)
+///     .sta_addr("VIC20_BORDER_COLOR")
+///     .rts()
+///     .finalize();
+/// ```
 #[derive(Default, Clone)]
 pub struct InstructionBuilder {
     instructions: Instructions,
