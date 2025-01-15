@@ -133,7 +133,9 @@ impl ProgramGenerator {
             Operation::BEQ => todo!(),
             Operation::BIT => todo!(),
             Operation::BMI => todo!(),
-            Operation::BNE => self.with_relative(application, &instruction.address_mode, BNE_ABSOLUTE),
+            Operation::BNE => {
+                self.with_relative(application, &instruction.address_mode, BNE_ABSOLUTE)
+            }
             Operation::BPL => todo!(),
             Operation::BRK => todo!(),
             Operation::BVC => todo!(),

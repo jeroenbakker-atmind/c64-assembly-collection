@@ -1,9 +1,7 @@
 use c64_assembler::{
     builder::{
-        application::{ ApplicationBuilder},
-        function::FunctionBuilder,
-        instruction::InstructionBuilder,
-        module::ModuleBuilder,
+        application::ApplicationBuilder, function::FunctionBuilder,
+        instruction::InstructionBuilder, module::ModuleBuilder,
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
 };

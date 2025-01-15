@@ -359,7 +359,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             ));
         }
 
-        if def.absolute != UNUSED ||def.zeropage != UNUSED{
+        if def.absolute != UNUSED || def.zeropage != UNUSED {
             lines.push(format!(
                 "
                 #[test]
@@ -401,7 +401,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             ));
         }
          */
-         /*
+        /*
         if def.absolute_y != UNUSED ||def.zeropage_y != UNUSED{
             lines.push(format!(
                 "

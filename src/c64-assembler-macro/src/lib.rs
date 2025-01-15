@@ -267,7 +267,7 @@ fn build_instructions(input: TokenStream) -> String {
                     sub_start = i + 1;
                 }
 
-                "asl" | "lsr" |"ror"|"rol"=> {
+                "asl" | "lsr" | "ror" | "rol" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
                     let add_tokens_parsed =
@@ -295,7 +295,7 @@ fn build_instructions(input: TokenStream) -> String {
                     sub_start = i + 1 + add_tokens_parsed;
                 }
 
-                "sta" | "stx" | "sty" |  "jmp" => {
+                "sta" | "stx" | "sty" | "jmp" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
                     let add_tokens_parsed =

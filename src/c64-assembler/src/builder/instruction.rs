@@ -21,7 +21,7 @@ pub struct Instructions {
 ///
 /// ```
 /// use c64_assembler::builder::instruction::InstructionBuilder;
-/// 
+///
 /// let instructions = InstructionBuilder::default()
 ///     .label("main_entry_point")
 ///     .lda_imm(0x00)
@@ -43,7 +43,7 @@ impl InstructionBuilder {
         });
     }
 
-    codegen_instruction_builder!{}
+    codegen_instruction_builder! {}
 
     pub fn raw(&mut self, data: &[u8]) -> &mut Self {
         self.add_instruction(Operation::Raw(Vec::from(data)), AddressMode::Implied);
