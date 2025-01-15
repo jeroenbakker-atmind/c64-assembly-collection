@@ -5,6 +5,7 @@ use c64_assembler::{
     },
     generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
 };
+use c64_assembler_macro::function;
 use c64_colors::colors::Color;
 use c64_encoder::builder::{demo::DemoBuilder, frame::FrameBuilder};
 
@@ -45,16 +46,14 @@ pub fn engine_application() -> Vec<u8> {
                 .finalize(),
         )
         .function(
-            FunctionBuilder::default()
-                .name("set_border_color__vblank")
-                .instructions(
-                    InstructionBuilder::default()
-                        .lda_addr("set_border_color__data")
-                        .sta_addr("VIC20_BORDER_COLOR")
-                        .rts()
-                        .finalize(),
+            function!(
+                name="set_border_color__vblank",
+                instructions!(
+                    lda set_border_color__data
+                    sta VIC20_BORDER_COLOR
+                    rts
                 )
-                .finalize(),
+            )
         )
         .instructions(
             InstructionBuilder::default()
