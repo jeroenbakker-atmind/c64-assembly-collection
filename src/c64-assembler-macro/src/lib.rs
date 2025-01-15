@@ -267,7 +267,7 @@ fn build_instructions(input: TokenStream) -> String {
                     sub_start = i + 1;
                 }
 
-                "asl" => {
+                "asl" | "lsr" |"ror"|"rol"=> {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
                     let add_tokens_parsed =
@@ -275,7 +275,8 @@ fn build_instructions(input: TokenStream) -> String {
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }
-                "adc" | "and" | "lda" => {
+                "adc" | "and" | "cmp" | "cpx" | "cpy" | "eor" | "lda" | "ldx" | "ldy" | "ora"
+                | "sbc" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
                     let add_tokens_parsed =
@@ -284,7 +285,17 @@ fn build_instructions(input: TokenStream) -> String {
                     sub_start = i + 1 + add_tokens_parsed;
                 }
 
-                "sta" => {
+                "bcc" | "bcs" | "beq" | "bmi" | "bne" | "bpl" | "bvc" | "bvs" | "jsr" | "bit"
+                | "dec" | "inc" => {
+                    let mut line = Vec::default();
+                    line.push(format!("    .{name}"));
+                    let add_tokens_parsed =
+                        build_address_mode(&mut line, &tokens[i + 1..], false, false, true, false);
+                    lines.push(line.join(""));
+                    sub_start = i + 1 + add_tokens_parsed;
+                }
+
+                "sta" | "stx" | "sty" |  "jmp" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
                     let add_tokens_parsed =

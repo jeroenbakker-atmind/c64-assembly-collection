@@ -212,8 +212,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             def.instruction.to_string(),
             def.instruction.to_string().to_uppercase()
         ));
-        
-/*
+
         if def.immediate != UNUSED {
             lines.push(format!(
                 "
@@ -252,15 +251,14 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
- */
-/* 
+
         if def.accumulator != UNUSED {
             lines.push(format!(
                 "
                 #[test]
                 fn acc() {{
                     test_first(
-                        instructions!({0} A),
+                        instructions!({0} a),
                         OP,
                         AddressMode::Accumulator,
                     );
@@ -269,8 +267,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        */
-        /* 
+
         if def.absolute != UNUSED ||def.zeropage != UNUSED{
             lines.push(format!(
                 "
@@ -295,7 +292,6 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        */
 
         /*
         if def.absolute_x != UNUSED ||def.zeropage_x != UNUSED{
