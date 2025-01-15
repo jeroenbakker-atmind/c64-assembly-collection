@@ -1,5 +1,4 @@
-use c64_assembler::
-    generator::{program::ProgramGenerator, Generator};
+use c64_assembler::generator::{program::ProgramGenerator, Generator};
 use c64_assembler_macro::application;
 
 pub fn set_black_border_application() -> Vec<u8> {

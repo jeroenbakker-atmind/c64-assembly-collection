@@ -10,4 +10,4 @@ categories = ["compilers", "development-tools"]
 edition = "2021"
 
 [lib]
-# proc-macro = true
+proc-macro = true

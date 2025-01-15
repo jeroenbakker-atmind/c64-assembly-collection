@@ -74,6 +74,7 @@ fn count_users_instructions(instructions: &Instructions, name: &String) -> usize
             AddressMode::Absolute(address_reference)
             | AddressMode::AbsoluteX(address_reference)
             | AddressMode::AbsoluteY(address_reference)
+            | AddressMode::Indirect(address_reference)
             | AddressMode::IndexedIndirect(address_reference)
             | AddressMode::IndirectIndexed(address_reference)
             | AddressMode::Immediate(Immediate::Low(address_reference))
@@ -87,7 +88,6 @@ fn count_users_instructions(instructions: &Instructions, name: &String) -> usize
             AddressMode::Immediate(Immediate::Byte(_))
             | crate::memory::address_mode::AddressMode::Implied
             | AddressMode::Accumulator => {}
-            AddressMode::Implied => todo!(),
         }
     }
     result

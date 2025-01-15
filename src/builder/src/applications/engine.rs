@@ -1,6 +1,6 @@
 use c64_assembler::{
     builder::{
-        application::{Application, ApplicationBuilder},
+        application::{ ApplicationBuilder},
         function::FunctionBuilder,
         instruction::InstructionBuilder,
         module::ModuleBuilder,

@@ -1,6 +1,9 @@
 use c64_colors::colors::Color;
 
-use crate::{builder::{demo::DemoBuilder, frame::FrameBuilder}, encoder::Encoder};
+use crate::{
+    builder::{demo::DemoBuilder, frame::FrameBuilder},
+    encoder::Encoder,
+};
 
 #[test]
 fn encode_empty() {
@@ -16,9 +19,12 @@ fn encode_empty() {
 fn encode() {
     let mut demo = DemoBuilder::default();
 
-    demo.frame(FrameBuilder::default()
-        .set_palette4([Color::White, Color::Grey, Color::Black, Color::Purple])
-        .fill_video_memory(0).build());
+    demo.frame(
+        FrameBuilder::default()
+            .set_palette4([Color::White, Color::Grey, Color::Black, Color::Purple])
+            .fill_video_memory(0)
+            .build(),
+    );
 
     assert_eq!(9, demo.byte_size());
     let encoded_demo = demo.build();

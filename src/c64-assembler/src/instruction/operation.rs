@@ -40,7 +40,6 @@ pub enum Operation {
     PHP,
     PLA,
     PLP,
-    PSR,
     ROL,
     ROR,
     RTI,

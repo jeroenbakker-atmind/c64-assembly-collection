@@ -41,6 +41,7 @@ impl Instruction {
                         3
                     }
                 }
+                AddressMode::Indirect(_address_reference) => 3,
                 AddressMode::IndexedIndirect(_address_reference)
                 | AddressMode::IndirectIndexed(_address_reference) => 2,
             }

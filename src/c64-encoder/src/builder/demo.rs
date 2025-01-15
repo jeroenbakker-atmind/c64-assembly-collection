@@ -9,11 +9,10 @@ pub struct DemoBuilder {
 }
 
 impl DemoBuilder {
-    pub fn frame(&mut self, frame: FrameBuilder) ->&mut Self{
+    pub fn frame(&mut self, frame: FrameBuilder) -> &mut Self {
         self.frames.push(frame);
         self
     }
-
 
     pub fn build(&self) -> Vec<u8> {
         let mut result = Vec::new();

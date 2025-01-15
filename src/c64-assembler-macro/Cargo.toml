@@ -14,3 +14,4 @@ proc-macro = true
 
 [dependencies]
 c64-assembler = {path="../c64-assembler"}
+c64-assembler-6502 = {path="../c64-assembler-6502"}

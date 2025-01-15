@@ -1,7 +1,4 @@
-use c64::{
-    image_converter::palette_bitmap::convert_to_palette4,
-    image_io::{read_png::read_png},
-};
+use c64::{image_converter::palette_bitmap::convert_to_palette4, image_io::read_png::read_png};
 use c64_colors::{colors::Color, palette::Palette4};
 use c64_dithering::dithering::no_dithering::NoDithering;
 use clap::Parser;

@@ -294,8 +294,8 @@ fn build_instructions(input: TokenStream) -> String {
                 }
 
                 "brk" | "cld" | "cli" | "clv" | "dex" | "dey" | "inx" | "iny" | "nop" | "pha"
-                | "psr" | "pla" | "plp" | "rti" | "sed" | "sei" | "tax" | "tay" | "tsx" | "txa"
-                | "txs" | "tya" | "clc" | "rts" => {
+                | "psr" | "pla" | "php" | "plp" | "rti" | "sec" | "sed" | "sei" | "tax" | "tay"
+                | "tsx" | "txa" | "txs" | "tya" | "clc" | "rts" => {
                     lines.push(format!("    .{name}()"));
                     sub_start = i + 1;
                 }
@@ -341,7 +341,7 @@ pub fn function(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn instructions(input: TokenStream) -> TokenStream {
-    dbg!(input.clone());
+    //dbg!(input.clone());
     let mut lines = Vec::<String>::default();
     lines.push("{".to_string());
     lines.push("  use c64_assembler::builder::instruction::{*};".to_string());

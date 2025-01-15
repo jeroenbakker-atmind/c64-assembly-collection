@@ -153,7 +153,6 @@ impl DasmGenerator {
                 Operation::PHP => line.push("php".to_string()),
                 Operation::PLA => line.push("pla".to_string()),
                 Operation::PLP => line.push("plp".to_string()),
-                Operation::PSR => line.push("psr".to_string()),
                 Operation::ROL => line.push("rol".to_string()),
                 Operation::ROR => line.push("ror".to_string()),
                 Operation::RTI => line.push("rti".to_string()),
@@ -205,6 +204,13 @@ impl DasmGenerator {
                     line.push("),y".to_string());
                 }
                 AddressMode::Accumulator => line.push(" A".to_string()),
+                AddressMode::Indirect(address_reference) => {
+                    line.push(format!(" ({}", address_reference.name));
+                    if address_reference.offset != 0 {
+                        line.push(format!("+{}", address_reference.offset));
+                    }
+                    line.push(")".to_string());
+                }
             }
 
             if instruction.comments.is_empty() {

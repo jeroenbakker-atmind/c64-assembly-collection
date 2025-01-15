@@ -10,6 +10,7 @@ pub enum AddressMode {
     AbsoluteX(AddressReference),
     AbsoluteY(AddressReference),
     Relative(AddressReference),
+    Indirect(AddressReference),
     IndexedIndirect(AddressReference),
     IndirectIndexed(AddressReference),
 }
