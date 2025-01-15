@@ -64,6 +64,7 @@ pub const IND: OpCode = UNUSED;
 pub const IND_X: OpCode = UNUSED;
 pub const IND_Y: OpCode = UNUSED;
 
+// TODO add relative?
 pub struct InstructionDef {
     pub instruction: &'static str,
     pub implied: OpCode,

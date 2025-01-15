@@ -45,7 +45,6 @@ impl ProgramGenerator {
     }
 
     fn generate_instruction(&mut self, application: &Application, instruction: &Instruction) {
-        // Use https://www.c64-wiki.com/wiki/
         const UNUSED: u8 = 0x00;
         match &instruction.operation {
             Operation::ADC => {
@@ -58,6 +57,9 @@ impl ProgramGenerator {
                     ADC_ABSOLUTE_Y,
                     ADC_ZEROPAGE,
                     ADC_ZEROPAGE_X,
+                    UNUSED,
+                    UNUSED,
+                    UNUSED,
                     ADC_INDEXED_INDIRECT,
                     ADC_INDIRECT_INDEXED,
                 );
@@ -72,6 +74,9 @@ impl ProgramGenerator {
                     LDA_ABSOLUTE_Y,
                     LDA_ZEROPAGE,
                     LDA_ZEROPAGE_X,
+                    UNUSED,
+                    UNUSED,
+                    UNUSED,
                     LDA_INDEXED_INDIRECT,
                     LDA_INDIRECT_INDEXED,
                 );
@@ -89,6 +94,9 @@ impl ProgramGenerator {
                     LDY_ZEROPAGE_X,
                     UNUSED,
                     UNUSED,
+                    UNUSED,
+                    UNUSED,
+                    UNUSED,
                 );
             }
 
@@ -101,6 +109,9 @@ impl ProgramGenerator {
                 STA_ABSOLUTE_Y,
                 STA_ZEROPAGE,
                 STA_ZEROPAGE_X,
+                UNUSED,
+                UNUSED,
+                UNUSED,
                 STA_INDEXED_INDIRECT,
                 STA_INDIRECT_INDEXED,
             ),
@@ -127,15 +138,30 @@ impl ProgramGenerator {
                 UNUSED,
                 UNUSED,
                 UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
             ),
             Operation::SEC => self.add_u8(SEC),
             Operation::CLC => self.add_u8(CLC),
             Operation::BEQ => todo!(),
             Operation::BIT => todo!(),
             Operation::BMI => todo!(),
-            Operation::BNE => {
-                self.with_relative(application, &instruction.address_mode, BNE_ABSOLUTE)
-            }
+            Operation::BNE => self.with_absolute(
+                application,
+                &instruction.address_mode,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+                BNE_ABSOLUTE,
+                UNUSED,
+                UNUSED,
+                UNUSED,
+            ),
             Operation::BPL => todo!(),
             Operation::BRK => todo!(),
             Operation::BVC => todo!(),
@@ -154,6 +180,9 @@ impl ProgramGenerator {
                 CMP_ZEROPAGE_X,
                 UNUSED,
                 UNUSED,
+                UNUSED,
+                UNUSED,
+                UNUSED,
             ),
             Operation::CPX => self.with_absolute(
                 application,
@@ -163,6 +192,9 @@ impl ProgramGenerator {
                 UNUSED,
                 UNUSED,
                 CPX_ZEROPAGE,
+                UNUSED,
+                UNUSED,
+                UNUSED,
                 UNUSED,
                 UNUSED,
                 UNUSED,
@@ -178,6 +210,7 @@ impl ProgramGenerator {
                 UNUSED,
                 UNUSED,
                 UNUSED,
+                UNUSED, UNUSED, UNUSED
             ),
             Operation::DEC => todo!(),
             Operation::DEX => self.add_u8(DEX),
@@ -206,6 +239,9 @@ impl ProgramGenerator {
                 SBC_ABSOLUTE_Y,
                 SBC_ZEROPAGE,
                 SBC_ZEROPAGE_X,
+                UNUSED,
+                UNUSED,
+                UNUSED,
                 SBC_INDEXED_INDIRECT,
                 SBC_INDIRECT_INDEXED,
             ),
@@ -222,25 +258,6 @@ impl ProgramGenerator {
         }
     }
 
-    fn with_relative(
-        &mut self,
-        application: &Application,
-        address_mode: &AddressMode,
-        relative: u8,
-    ) {
-        match address_mode {
-            AddressMode::Relative(address_reference) => {
-                self.add_u8(relative);
-                let address = application.address(address_reference);
-                let current_instruction =
-                    application.entry_point + self.output.len() as Address - 2;
-                let next_instruction = current_instruction + 2;
-                let relative_address = (address as i32 - next_instruction as i32) as i8;
-                self.add_u8(relative_address as u8);
-            }
-            _ => unreachable!(),
-        }
-    }
     fn with_absolute(
         &mut self,
         application: &Application,
@@ -251,6 +268,9 @@ impl ProgramGenerator {
         absolute_y: u8,
         zeropage: u8,
         zeropage_x: u8,
+        zeropage_y: u8,
+        relative: u8,
+        indirect: u8,
         indexed_indirect: u8,
         indirect_indexed: u8,
     ) {
@@ -292,6 +312,15 @@ impl ProgramGenerator {
                 self.add_u8(absolute_y);
                 self.add_u16(address);
             }
+            AddressMode::Relative(address_reference) => {
+                self.add_u8(relative);
+                let address = application.address(address_reference);
+                let current_instruction =
+                    application.entry_point + self.output.len() as Address - 2;
+                let next_instruction = current_instruction + 2;
+                let relative_address = (address as i32 - next_instruction as i32) as i8;
+                self.add_u8(relative_address as u8);
+            }
             AddressMode::IndexedIndirect(address_reference) => {
                 let address = application.address(address_reference);
                 assert!(address.is_zeropage());
@@ -303,7 +332,9 @@ impl ProgramGenerator {
                 self.add_u8(indirect_indexed);
                 self.add_u8(address.low());
             }
-            _ => {}
+            _ => {
+                panic!()
+            }
         };
     }
 }

@@ -45,16 +45,14 @@ pub fn engine_application() -> Vec<u8> {
                 )
                 .finalize(),
         )
-        .function(
-            function!(
-                name="set_border_color__vblank",
-                instructions!(
-                    lda set_border_color__data
-                    sta VIC20_BORDER_COLOR
-                    rts
-                )
+        .function(function!(
+            name = "set_border_color__vblank",
+            instructions!(
+                lda set_border_color__data
+                sta VIC20_BORDER_COLOR
+                rts
             )
-        )
+        ))
         .instructions(
             InstructionBuilder::default()
                 .label("set_border_color__data")
