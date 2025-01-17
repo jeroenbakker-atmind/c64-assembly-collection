@@ -2,8 +2,7 @@ use c64_colors::colors::Color;
 
 use crate::{
     command::{
-        fill_video_memory::FillVideoMemory, set_border_color::SetBorderColor,
-        set_palette4::SetPalette4, Command,
+        fill_video_memory::FillVideoMemory, set_border_color::SetBorderColor, set_palette4::SetPalette4, Command,
     },
     encoder::{writer::Writer, Encoder},
 };
@@ -15,8 +14,7 @@ pub struct FrameBuilder {
 
 impl FrameBuilder {
     pub fn set_palette4(&mut self, palette: [Color; 4]) -> &mut Self {
-        self.commands
-            .push(Command::SetPalette4(SetPalette4 { palette }));
+        self.commands.push(Command::SetPalette4(SetPalette4 { palette }));
         self
     }
 
@@ -27,8 +25,7 @@ impl FrameBuilder {
     }
 
     pub fn set_border_color(&mut self, color: Color) -> &mut Self {
-        self.commands
-            .push(Command::SetBorderColor(SetBorderColor { color }));
+        self.commands.push(Command::SetBorderColor(SetBorderColor { color }));
         self
     }
 

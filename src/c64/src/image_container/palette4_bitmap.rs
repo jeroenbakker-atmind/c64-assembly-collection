@@ -23,8 +23,7 @@ impl Image for Palette4BitmapImage {
     }
 
     fn get_pixel_color(&self, x: usize, y: usize) -> SRGB {
-        self.palette
-            .get_srgb_color(self.get_pixel_palette_index(x, y))
+        self.palette.get_srgb_color(self.get_pixel_palette_index(x, y))
     }
 }
 

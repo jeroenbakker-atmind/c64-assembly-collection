@@ -1,6 +1,5 @@
 use c64_assembler::{
-    builder::instruction::Instructions, instruction::operation::Operation,
-    memory::address_mode::AddressMode,
+    builder::instruction::Instructions, instruction::operation::Operation, memory::address_mode::AddressMode,
 };
 use c64_assembler_6502::codegen_instruction_tests;
 use c64_assembler_macro::instructions;

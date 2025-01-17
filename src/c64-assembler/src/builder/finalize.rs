@@ -98,16 +98,15 @@ fn update_label_addresses(application: &mut Application) {
     let mut function_addresses = HashMap::<String, Address>::default();
     let mut current_address = application.entry_point;
 
-    let mut update_label_addresses_instructions =
-        |current_address: &mut Address, instructions: &Instructions| {
-            for instruction in &instructions.instructions {
-                if let Operation::Label(label) = &instruction.operation {
-                    label_addresses.insert(label.clone(), *current_address);
-                }
-                let byte_size = instruction.byte_size(application);
-                *current_address += byte_size;
+    let mut update_label_addresses_instructions = |current_address: &mut Address, instructions: &Instructions| {
+        for instruction in &instructions.instructions {
+            if let Operation::Label(label) = &instruction.operation {
+                label_addresses.insert(label.clone(), *current_address);
             }
-        };
+            let byte_size = instruction.byte_size(application);
+            *current_address += byte_size;
+        }
+    };
 
     for module in &application.modules {
         update_label_addresses_instructions(&mut current_address, &module.instructions);

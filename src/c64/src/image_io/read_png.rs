@@ -12,11 +12,7 @@ pub fn read_png(input_file_path: &str) -> DefaultImageContainer {
     // Read the next frame. An APNG might contain multiple frames.
     let info = reader.next_frame(&mut buf).unwrap();
 
-    let components_per_pixel = if info.color_type == ColorType::Rgba {
-        4
-    } else {
-        3
-    };
+    let components_per_pixel = if info.color_type == ColorType::Rgba { 4 } else { 3 };
 
     DefaultImageContainer {
         width: info.width as usize,

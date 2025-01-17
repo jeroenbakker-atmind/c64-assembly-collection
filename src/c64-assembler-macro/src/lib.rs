@@ -270,27 +270,22 @@ fn build_instructions(input: TokenStream) -> String {
                 "asl" | "lsr" | "ror" | "rol" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
-                    let add_tokens_parsed =
-                        build_address_mode(&mut line, &tokens[i + 1..], false, true, true, false);
+                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], false, true, true, false);
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }
-                "adc" | "and" | "cmp" | "cpx" | "cpy" | "eor" | "lda" | "ldx" | "ldy" | "ora"
-                | "sbc" => {
+                "adc" | "and" | "cmp" | "cpx" | "cpy" | "eor" | "lda" | "ldx" | "ldy" | "ora" | "sbc" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
-                    let add_tokens_parsed =
-                        build_address_mode(&mut line, &tokens[i + 1..], true, false, true, true);
+                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], true, false, true, true);
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }
 
-                "bcc" | "bcs" | "beq" | "bmi" | "bne" | "bpl" | "bvc" | "bvs" | "jsr" | "bit"
-                | "dec" | "inc" => {
+                "bcc" | "bcs" | "beq" | "bmi" | "bne" | "bpl" | "bvc" | "bvs" | "jsr" | "bit" | "dec" | "inc" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
-                    let add_tokens_parsed =
-                        build_address_mode(&mut line, &tokens[i + 1..], false, false, true, false);
+                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], false, false, true, false);
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }
@@ -298,15 +293,14 @@ fn build_instructions(input: TokenStream) -> String {
                 "sta" | "stx" | "sty" | "jmp" => {
                     let mut line = Vec::default();
                     line.push(format!("    .{name}"));
-                    let add_tokens_parsed =
-                        build_address_mode(&mut line, &tokens[i + 1..], false, false, true, true);
+                    let add_tokens_parsed = build_address_mode(&mut line, &tokens[i + 1..], false, false, true, true);
                     lines.push(line.join(""));
                     sub_start = i + 1 + add_tokens_parsed;
                 }
 
-                "brk" | "cld" | "cli" | "clv" | "dex" | "dey" | "inx" | "iny" | "nop" | "pha"
-                | "psr" | "pla" | "php" | "plp" | "rti" | "sec" | "sed" | "sei" | "tax" | "tay"
-                | "tsx" | "txa" | "txs" | "tya" | "clc" | "rts" => {
+                "brk" | "cld" | "cli" | "clv" | "dex" | "dey" | "inx" | "iny" | "nop" | "pha" | "psr" | "pla"
+                | "php" | "plp" | "rti" | "sec" | "sed" | "sei" | "tax" | "tay" | "tsx" | "txa" | "txs" | "tya"
+                | "clc" | "rts" => {
                     lines.push(format!("    .{name}()"));
                     sub_start = i + 1;
                 }

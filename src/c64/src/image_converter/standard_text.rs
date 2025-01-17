@@ -222,18 +222,12 @@ impl StandardCharacterMode {
         }
     }
 
-    fn extract_each_char_and_foreground_color(
-        &self,
-        image: &dyn Image,
-    ) -> <Self as ImageConverter>::ResultType {
+    fn extract_each_char_and_foreground_color(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
         let background_color = StandardCharacterMode::find_best_background_color(image);
         self.extract_each_char_and_foreground_color_with_background(image, background_color)
     }
 
-    fn extract_each_char_and_color(
-        &self,
-        image: &dyn Image,
-    ) -> <Self as ImageConverter>::ResultType {
+    fn extract_each_char_and_color(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
         (0_u8..16)
             .map(|background_index| Color::from(background_index))
             .map(|background_color| {
@@ -290,11 +284,7 @@ impl StandardCharacterMode {
                 let best_char = all_colors_to_check
                     .iter()
                     .map(|foreground_color| {
-                        StandardCharacterMode::generate_char_for(
-                            &tile,
-                            background_color,
-                            *foreground_color,
-                        )
+                        StandardCharacterMode::generate_char_for(&tile, background_color, *foreground_color)
                     })
                     .min_by_key(|ch| difference(&tile, ch))
                     .unwrap();
@@ -322,17 +312,11 @@ impl StandardCharacterMode {
         }
     }
 
-    fn extract_custom_char_and_color(
-        &self,
-        image: &dyn Image,
-    ) -> <Self as ImageConverter>::ResultType {
+    fn extract_custom_char_and_color(&self, image: &dyn Image) -> <Self as ImageConverter>::ResultType {
         (0_u8..16)
             .map(|background_index| Color::from(background_index))
             .map(|background_color| {
-                self.extract_custom_char_and_foreground_color_with_background(
-                    image,
-                    background_color,
-                )
+                self.extract_custom_char_and_foreground_color_with_background(image, background_color)
             })
             .min_by_key(|result| difference(image, result))
             .unwrap()
@@ -347,9 +331,7 @@ impl ImageConverter for StandardCharacterMode {
         assert_eq!(input.height() % 8, 0);
         match self.quality {
             ConversionQuality::EachChar => self.extract_each_char(input),
-            ConversionQuality::EachCharAndForegroundColor => {
-                self.extract_each_char_and_foreground_color(input)
-            }
+            ConversionQuality::EachCharAndForegroundColor => self.extract_each_char_and_foreground_color(input),
             ConversionQuality::EachCharAndColor => self.extract_each_char_and_color(input),
             ConversionQuality::CustomCharAndColor => self.extract_custom_char_and_color(input),
         }

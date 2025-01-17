@@ -24,11 +24,7 @@ impl DemoBuilder {
 
 impl Encoder for DemoBuilder {
     fn byte_size(&self) -> usize {
-        self.frames
-            .iter()
-            .map(FrameBuilder::byte_size)
-            .sum::<usize>()
-            + size_of::<u16>()
+        self.frames.iter().map(FrameBuilder::byte_size).sum::<usize>() + size_of::<u16>()
     }
 
     fn encode<'a>(&self, encoded_data: &'a mut [u8]) -> &'a mut [u8] {

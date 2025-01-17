@@ -11,13 +11,7 @@ pub trait Image {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
     fn get_pixel_color(&self, x: usize, y: usize) -> SRGB;
-    fn sub_image(
-        &self,
-        x_start: usize,
-        y_start: usize,
-        width: usize,
-        height: usize,
-    ) -> SRGBImageContainer {
+    fn sub_image(&self, x_start: usize, y_start: usize, width: usize, height: usize) -> SRGBImageContainer {
         let mut colors = Vec::new();
         let x_end = x_start + width;
         let y_end = y_start + height;
@@ -90,11 +84,7 @@ impl Image for DefaultImageContainer {
     fn get_pixel_color(&self, x: usize, y: usize) -> SRGB {
         let offset = y * self.width() + x;
         let offset = offset * self.components_per_pixel;
-        SRGB::from_rgb(
-            self.buffer[offset],
-            self.buffer[offset + 1],
-            self.buffer[offset + 2],
-        )
+        SRGB::from_rgb(self.buffer[offset], self.buffer[offset + 1], self.buffer[offset + 2])
     }
 }
 

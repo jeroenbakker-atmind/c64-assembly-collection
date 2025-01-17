@@ -1,9 +1,7 @@
 extern crate clap;
 
 use c64::image_container::{difference, Image};
-use c64::image_converter::{
-    ConversionQuality, ImageConverter, StandardBitmapMode, StandardCharacterMode,
-};
+use c64::image_converter::{ConversionQuality, ImageConverter, StandardBitmapMode, StandardCharacterMode};
 use c64::image_io::read_png::read_png;
 use c64_colors::colors::Color;
 use clap::{Parser, ValueEnum};
@@ -56,9 +54,7 @@ fn main() {
 
     match args.format {
         ConversionFormat::StandardText => convert_standard_text(&args, &image),
-        ConversionFormat::StandardTextCustomCharset => {
-            convert_standard_text_custom_char_set(&args, &image)
-        }
+        ConversionFormat::StandardTextCustomCharset => convert_standard_text_custom_char_set(&args, &image),
         ConversionFormat::StandardBitmap => convert_standard_bitmap(&args, &image),
     };
 }

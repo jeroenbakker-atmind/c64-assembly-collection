@@ -17,48 +17,20 @@ fn package_disk1a() -> Result<()> {
     )?;
 
     disk.add_files(&[
-        (
-            "bin/autostart.prg",
-            Petscii::from_str("autostart"),
-            FileType::PRG,
-        ),
-        (
-            "bin/load-charset.prg",
-            Petscii::from_str("load-charset"),
-            FileType::PRG,
-        ),
-        (
-            "bin/charset.prg",
-            Petscii::from_str("charset"),
-            FileType::PRG,
-        ),
-        (
-            "bin/rasterbar.prg",
-            Petscii::from_str("rasterbar"),
-            FileType::PRG,
-        ),
-        (
-            "bin/controller.prg",
-            Petscii::from_str("controller"),
-            FileType::PRG,
-        ),
+        ("bin/autostart.prg", Petscii::from_str("autostart"), FileType::PRG),
+        ("bin/load-charset.prg", Petscii::from_str("load-charset"), FileType::PRG),
+        ("bin/charset.prg", Petscii::from_str("charset"), FileType::PRG),
+        ("bin/rasterbar.prg", Petscii::from_str("rasterbar"), FileType::PRG),
+        ("bin/controller.prg", Petscii::from_str("controller"), FileType::PRG),
         ("bin/sprite.prg", Petscii::from_str("sprite"), FileType::PRG),
         (
             "bin/sprite-duplication.prg",
             Petscii::from_str("sprite dup"),
             FileType::PRG,
         ),
-        (
-            "src/ahoy_art_deco.64c",
-            Petscii::from_str("font"),
-            FileType::SEQ,
-        ),
+        ("src/ahoy_art_deco.64c", Petscii::from_str("font"), FileType::SEQ),
         // Load program and the dummy program that will be loaded.
-        (
-            "bin/load-program.prg",
-            Petscii::from_str("load program"),
-            FileType::PRG,
-        ),
+        ("bin/load-program.prg", Petscii::from_str("load program"), FileType::PRG),
         ("bin/dummy.prg", Petscii::from_str("dummy"), FileType::PRG),
         // text mode
         (
@@ -88,11 +60,7 @@ fn package_dev() -> Result<()> {
         Id::from_bytes(b"FYR"),
     )?;
 
-    disk.add_bytes(
-        &engine_application(),
-        Petscii::from_str("engine"),
-        FileType::PRG,
-    )?;
+    disk.add_bytes(&engine_application(), Petscii::from_str("engine"), FileType::PRG)?;
     disk.add_bytes(
         &set_black_border_application(),
         Petscii::from_str("set black border"),

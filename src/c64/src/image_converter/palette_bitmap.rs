@@ -3,11 +3,7 @@ use c64_dithering::dithering::Dithering;
 
 use crate::image_container::{palette4_bitmap::Palette4BitmapImage, Image};
 
-pub fn convert_to_palette4(
-    image: &dyn Image,
-    palette: Palette4,
-    dithering: &dyn Dithering,
-) -> Palette4BitmapImage {
+pub fn convert_to_palette4(image: &dyn Image, palette: Palette4, dithering: &dyn Dithering) -> Palette4BitmapImage {
     assert!(image.width() % 4 == 0);
     assert!(image.height() % 8 == 0);
 

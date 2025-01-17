@@ -1,15 +1,15 @@
 mod isa;
 
 use isa::{
-    isa_6502, OpCode, ACC, ADDR, ADDR_X, ADDR_Y, IMM, IMPLIED, IND, IND_X, IND_Y, RELATIVE, ZERO,
-    ZERO_X, ZERO_Y,
+    isa_6502, OpCode, NO_ABSOLUTE, NO_ABSOLUTE_X, NO_ABSOLUTE_Y, NO_ACCUMULATOR, NO_IMMEDIATE, NO_IMPLIED,
+    NO_INDEXED_INDIRECT, NO_INDIRECT, NO_INDIRECT_INDEXED, NO_RELATIVE, NO_ZEROPAGE, NO_ZEROPAGE_X, NO_ZEROPAGE_Y,
 };
 use proc_macro::TokenStream;
 
 #[proc_macro]
 pub fn codegen_opcodes(_input: TokenStream) -> TokenStream {
     fn format_opcode(result: &mut Vec<String>, instruction: &str, opcode: OpCode, post: &str) {
-        if opcode != IMM {
+        if opcode != NO_IMMEDIATE {
             result.push(format!(
                 "const {}{}:u8 = 0x{:02x};",
                 instruction.to_string().to_uppercase(),
@@ -22,12 +22,7 @@ pub fn codegen_opcodes(_input: TokenStream) -> TokenStream {
     for def in isa_6502() {
         format_opcode(&mut lines, &def.instruction, def.implied, &"");
         format_opcode(&mut lines, &def.instruction, def.immediate, &"_IMMEDIATE");
-        format_opcode(
-            &mut lines,
-            &def.instruction,
-            def.accumulator,
-            &"_ACCUMULATOR",
-        );
+        format_opcode(&mut lines, &def.instruction, def.accumulator, &"_ACCUMULATOR");
         format_opcode(&mut lines, &def.instruction, def.absolute, &"_ABSOLUTE");
         format_opcode(&mut lines, &def.instruction, def.absolute_x, &"_ABSOLUTE_X");
         format_opcode(&mut lines, &def.instruction, def.absolute_y, &"_ABSOLUTE_Y");
@@ -36,18 +31,8 @@ pub fn codegen_opcodes(_input: TokenStream) -> TokenStream {
         format_opcode(&mut lines, &def.instruction, def.zeropage_y, &"_ZEROPAGE_Y");
         format_opcode(&mut lines, &def.instruction, def.relative, &"_RELATIVE");
         format_opcode(&mut lines, &def.instruction, def.indirect, &"_INDIRECT");
-        format_opcode(
-            &mut lines,
-            &def.instruction,
-            def.indexed_indirect,
-            &"_INDEXED_INDIRECT",
-        );
-        format_opcode(
-            &mut lines,
-            &def.instruction,
-            def.indirect_indexed,
-            &"_INDIRECT_INDEXED",
-        );
+        format_opcode(&mut lines, &def.instruction, def.indexed_indirect, &"_INDEXED_INDIRECT");
+        format_opcode(&mut lines, &def.instruction, def.indirect_indexed, &"_INDIRECT_INDEXED");
     }
     lines.join("\n").parse().unwrap()
 }
@@ -57,7 +42,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
     let mut lines = Vec::<String>::default();
 
     for def in isa_6502() {
-        if def.implied != IMPLIED {
+        if def.implied != NO_IMPLIED {
             lines.push(format!(
                 "
                 /// Record a new {0} instruction (addressing mode is implied).
@@ -89,7 +74,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_uppercase()
             ));
         }
-        if def.immediate != IMM {
+        if def.immediate != NO_IMMEDIATE {
             lines.push(format!(
                 "
                 /// Record a {0} instruction with data (byte).
@@ -139,7 +124,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.accumulator != ACC {
+        if def.accumulator != NO_ACCUMULATOR {
             lines.push(format!(
                 "
                 /// Record a {0} instruction that uses accumulator as address mode.
@@ -159,7 +144,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
             ));
         }
 
-        if def.absolute != ADDR || def.zeropage != ZERO {
+        if def.absolute != NO_ABSOLUTE || def.zeropage != NO_ZEROPAGE {
             lines.push(format!(
                 "
                 /// Record a {0} instruction that use an absolute address. 
@@ -196,7 +181,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.absolute_x != ADDR_X || def.zeropage_x != ZERO_X {
+        if def.absolute_x != NO_ABSOLUTE_X || def.zeropage_x != NO_ZEROPAGE_X {
             lines.push(format!(
                 "
                 /// Record a {0} instructon that use an absolute address with x-register as indexer.
@@ -217,7 +202,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.absolute_y != ADDR_Y || def.zeropage_y != ZERO_Y {
+        if def.absolute_y != NO_ABSOLUTE_Y || def.zeropage_y != NO_ZEROPAGE_Y {
             lines.push(format!(
                 "
                 /// Record a {0} instructon that use an absolute address with y-register as indexer.
@@ -238,7 +223,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.relative != RELATIVE {
+        if def.relative != NO_RELATIVE {
             lines.push(format!(
                 "
                 /// Record a {0} instruction that use  relativeeeeeeeee address. 
@@ -275,7 +260,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.indirect != IND {
+        if def.indirect != NO_INDIRECT {
             lines.push(format!(
                 "
                 pub fn {0}_ind(&mut self, address_name: &str) -> &mut Self {{
@@ -285,7 +270,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.indexed_indirect != IND_X {
+        if def.indexed_indirect != NO_INDEXED_INDIRECT {
             lines.push(format!(
                 "
                 pub fn {0}_ind_x(&mut self, address_name: &str) -> &mut Self {{
@@ -295,7 +280,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.indirect_indexed != IND_Y {
+        if def.indirect_indexed != NO_INDIRECT_INDEXED {
             lines.push(format!(
                 "
                 pub fn {0}_ind_y(&mut self, address_name: &str) -> &mut Self {{
@@ -316,7 +301,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
     let mut lines = Vec::<String>::default();
 
     for def in isa_6502() {
-        if def.implied != IMPLIED {
+        if def.implied != NO_IMPLIED {
             lines.push(format!(
                 "
                 #[test]
@@ -345,7 +330,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             def.instruction.to_string().to_uppercase()
         ));
 
-        if def.immediate != IMM {
+        if def.immediate != NO_IMMEDIATE {
             lines.push(format!(
                 "
                 #[test]
@@ -384,7 +369,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             ));
         }
 
-        if def.accumulator != ACC {
+        if def.accumulator != NO_ACCUMULATOR {
             lines.push(format!(
                 "
                 #[test]
@@ -400,7 +385,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             ));
         }
 
-        if def.absolute != ADDR || def.zeropage != ZERO {
+        if def.absolute != NO_ABSOLUTE || def.zeropage != NO_ZEROPAGE {
             lines.push(format!(
                 "
                 #[test]
@@ -424,7 +409,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.relative != RELATIVE {
+        if def.relative != NO_RELATIVE {
             lines.push(format!(
                 "
                 #[test]
@@ -449,7 +434,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             ));
         }
 
-        if def.absolute_x != ADDR_X || def.zeropage_x != ZERO_X {
+        if def.absolute_x != NO_ABSOLUTE_X || def.zeropage_x != NO_ZEROPAGE_X {
             lines.push(format!(
                 "
                 #[test]
@@ -464,7 +449,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.absolute_y != ADDR_Y || def.zeropage_y != ZERO_Y {
+        if def.absolute_y != NO_ABSOLUTE_Y || def.zeropage_y != NO_ZEROPAGE_Y {
             lines.push(format!(
                 "
                 #[test]
@@ -568,17 +553,17 @@ pub fn codegen_program_instruction_to_byte_code(_input: TokenStream) -> TokenStr
         }}
         ",
             def.instruction.to_uppercase(),
-            if def.implied == IMPLIED {
+            if def.implied == NO_IMPLIED {
                 "UNUSED".to_string()
             } else {
                 format!("{}", def.instruction.to_uppercase())
             },
-            if def.immediate == IMM {
+            if def.immediate == NO_IMMEDIATE {
                 "UNUSED".to_string()
             } else {
                 format!("{}_IMMEDIATE", def.instruction.to_uppercase())
             },
-            if def.accumulator == ACC {
+            if def.accumulator == NO_ACCUMULATOR {
                 "UNUSED".to_string()
             } else {
                 format!(
@@ -587,52 +572,52 @@ pub fn codegen_program_instruction_to_byte_code(_input: TokenStream) -> TokenStr
                     def.instruction.to_uppercase()
                 )
             },
-            if def.absolute == ADDR {
+            if def.absolute == NO_ABSOLUTE {
                 "UNUSED".to_string()
             } else {
                 format!("{}_ABSOLUTE", def.instruction.to_uppercase())
             },
-            if def.absolute_x == ADDR_X {
+            if def.absolute_x == NO_ABSOLUTE_X {
                 "UNUSED".to_string()
             } else {
                 format!("{}_ABSOLUTE_X", def.instruction.to_uppercase())
             },
-            if def.absolute_y == ADDR_Y {
+            if def.absolute_y == NO_ABSOLUTE_Y {
                 "UNUSED".to_string()
             } else {
                 format!("{}_ABSOLUTE_Y", def.instruction.to_uppercase())
             },
-            if def.zeropage == ZERO {
+            if def.zeropage == NO_ZEROPAGE {
                 "UNUSED".to_string()
             } else {
                 format!("{}_ZEROPAGE", def.instruction.to_uppercase())
             },
-            if def.zeropage_x == ZERO_X {
+            if def.zeropage_x == NO_ZEROPAGE_X {
                 "UNUSED".to_string()
             } else {
                 format!("{}_ZEROPAGE_X", def.instruction.to_uppercase())
             },
-            if def.zeropage_y == ZERO_Y {
+            if def.zeropage_y == NO_ZEROPAGE_Y {
                 "UNUSED".to_string()
             } else {
                 format!("{}_ZEROPAGE_Y", def.instruction.to_uppercase())
             },
-            if def.relative == RELATIVE {
+            if def.relative == NO_RELATIVE {
                 "UNUSED".to_string()
             } else {
                 format!("{}_RELATIVE", def.instruction.to_uppercase())
             },
-            if def.indirect == IND {
+            if def.indirect == NO_INDIRECT {
                 "UNUSED".to_string()
             } else {
                 format!("{}_INDIRECT", def.instruction.to_uppercase())
             },
-            if def.indexed_indirect == IND_X {
+            if def.indexed_indirect == NO_INDEXED_INDIRECT {
                 "UNUSED".to_string()
             } else {
                 format!("{}_INDIRECT_INDEXED", def.instruction.to_uppercase())
             },
-            if def.indirect_indexed == IND_Y {
+            if def.indirect_indexed == NO_INDIRECT_INDEXED {
                 "UNUSED".to_string()
             } else {
                 format!("{}_INDEXED_INDIRECT", def.instruction.to_uppercase())

@@ -47,9 +47,7 @@ impl ApplicationBuilder {
     }
 
     pub fn define_address(&mut self, name: &str, address: Address) -> &mut Self {
-        self.application
-            .address_lookup
-            .insert(name.to_string(), address);
+        self.application.address_lookup.insert(name.to_string(), address);
         self.application
             .defines
             .push(Define::new(name, Value::Address(address)));
@@ -58,9 +56,7 @@ impl ApplicationBuilder {
 
     pub fn define_zeropage(&mut self, name: &str, address: Address) -> &mut Self {
         assert!(address.is_zeropage());
-        self.application
-            .address_lookup
-            .insert(name.to_string(), address);
+        self.application.address_lookup.insert(name.to_string(), address);
         self.application
             .defines
             .push(Define::new(name, Value::Address(address)));
