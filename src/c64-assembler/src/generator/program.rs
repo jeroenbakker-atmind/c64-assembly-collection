@@ -1,4 +1,4 @@
-use c64_assembler_6502::codegen_opcodes;
+use c64_assembler_6502::{codegen_opcodes, codegen_program_instruction_to_byte_code};
 
 use crate::{
     builder::{application::Application, instruction::Instructions, module::Module},
@@ -46,223 +46,16 @@ impl ProgramGenerator {
 
     fn generate_instruction(&mut self, application: &Application, instruction: &Instruction) {
         const UNUSED: u8 = 0x00;
-        match &instruction.operation {
-            Operation::ADC => {
-                self.with_absolute(
-                    application,
-                    &instruction.address_mode,
-                    ADC_IMMEDIATE,
-                    ADC_ABSOLUTE,
-                    ADC_ABSOLUTE_X,
-                    ADC_ABSOLUTE_Y,
-                    ADC_ZEROPAGE,
-                    ADC_ZEROPAGE_X,
-                    UNUSED,
-                    UNUSED,
-                    UNUSED,
-                    ADC_INDEXED_INDIRECT,
-                    ADC_INDIRECT_INDEXED,
-                );
-            }
-            Operation::LDA => {
-                self.with_absolute(
-                    application,
-                    &instruction.address_mode,
-                    LDA_IMMEDIATE,
-                    LDA_ABSOLUTE,
-                    LDA_ABSOLUTE_X,
-                    LDA_ABSOLUTE_Y,
-                    LDA_ZEROPAGE,
-                    LDA_ZEROPAGE_X,
-                    UNUSED,
-                    UNUSED,
-                    UNUSED,
-                    LDA_INDEXED_INDIRECT,
-                    LDA_INDIRECT_INDEXED,
-                );
-            }
-
-            Operation::LDY => {
-                self.with_absolute(
-                    application,
-                    &instruction.address_mode,
-                    LDY_IMMEDIATE,
-                    LDY_ABSOLUTE,
-                    LDY_ABSOLUTE_X,
-                    UNUSED,
-                    LDY_ZEROPAGE,
-                    LDY_ZEROPAGE_X,
-                    UNUSED,
-                    UNUSED,
-                    UNUSED,
-                    UNUSED,
-                    UNUSED,
-                );
-            }
-
-            Operation::STA => self.with_absolute(
-                application,
-                &instruction.address_mode,
-                UNUSED,
-                STA_ABSOLUTE,
-                STA_ABSOLUTE_X,
-                STA_ABSOLUTE_Y,
-                STA_ZEROPAGE,
-                STA_ZEROPAGE_X,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                STA_INDEXED_INDIRECT,
-                STA_INDIRECT_INDEXED,
-            ),
-            Operation::RTS => {
-                self.add_u8(RTS);
-            }
-            Operation::Raw(bytes) => self.add_bytes(bytes),
-            Operation::Label(_) => {
-                // Intentionally empty.
-            }
-            Operation::AND => todo!(),
-            Operation::ASL => todo!(),
-            Operation::BCC => todo!(),
-            Operation::BCS => todo!(),
-            Operation::JMP => todo!(),
-            Operation::JSR => self.with_absolute(
-                application,
-                &instruction.address_mode,
-                UNUSED,
-                JSR_ABSOLUTE,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-            ),
-            Operation::SEC => self.add_u8(SEC),
-            Operation::CLC => self.add_u8(CLC),
-            Operation::BEQ => todo!(),
-            Operation::BIT => todo!(),
-            Operation::BMI => todo!(),
-            Operation::BNE => self.with_absolute(
-                application,
-                &instruction.address_mode,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                BNE_ABSOLUTE,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-            ),
-            Operation::BPL => todo!(),
-            Operation::BRK => todo!(),
-            Operation::BVC => todo!(),
-            Operation::BVS => todo!(),
-            Operation::CLD => todo!(),
-            Operation::CLI => todo!(),
-            Operation::CLV => todo!(),
-            Operation::CMP => self.with_absolute(
-                application,
-                &instruction.address_mode,
-                CMP_IMMEDIATE,
-                CMP_ABSOLUTE,
-                CMP_ABSOLUTE_X,
-                CMP_ABSOLUTE_Y,
-                CMP_ZEROPAGE,
-                CMP_ZEROPAGE_X,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-            ),
-            Operation::CPX => self.with_absolute(
-                application,
-                &instruction.address_mode,
-                CPX_IMMEDIATE,
-                CPX_ABSOLUTE,
-                UNUSED,
-                UNUSED,
-                CPX_ZEROPAGE,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-            ),
-            Operation::CPY => self.with_absolute(
-                application,
-                &instruction.address_mode,
-                CPY_IMMEDIATE,
-                CPY_ABSOLUTE,
-                UNUSED,
-                UNUSED,
-                CPY_ZEROPAGE,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                UNUSED, UNUSED, UNUSED
-            ),
-            Operation::DEC => todo!(),
-            Operation::DEX => self.add_u8(DEX),
-            Operation::DEY => self.add_u8(DEY),
-            Operation::EOR => todo!(),
-            Operation::INC => todo!(),
-            Operation::INX => self.add_u8(INX),
-            Operation::INY => self.add_u8(INY),
-            Operation::LDX => todo!(),
-            Operation::LSR => todo!(),
-            Operation::NOP => todo!(),
-            Operation::ORA => todo!(),
-            Operation::PHA => todo!(),
-            Operation::PHP => todo!(),
-            Operation::PLA => todo!(),
-            Operation::PLP => todo!(),
-            Operation::ROL => todo!(),
-            Operation::ROR => todo!(),
-            Operation::RTI => todo!(),
-            Operation::SBC => self.with_absolute(
-                application,
-                &instruction.address_mode,
-                SBC_IMMEDIATE,
-                SBC_ABSOLUTE,
-                SBC_ABSOLUTE_X,
-                SBC_ABSOLUTE_Y,
-                SBC_ZEROPAGE,
-                SBC_ZEROPAGE_X,
-                UNUSED,
-                UNUSED,
-                UNUSED,
-                SBC_INDEXED_INDIRECT,
-                SBC_INDIRECT_INDEXED,
-            ),
-            Operation::SED => todo!(),
-            Operation::SEI => todo!(),
-            Operation::STX => todo!(),
-            Operation::STY => todo!(),
-            Operation::TAX => todo!(),
-            Operation::TAY => todo!(),
-            Operation::TSX => todo!(),
-            Operation::TXA => todo!(),
-            Operation::TXS => todo!(),
-            Operation::TYA => todo!(),
-        }
+        codegen_program_instruction_to_byte_code! {}
     }
 
-    fn with_absolute(
+    fn add_byte_code(
         &mut self,
         application: &Application,
         address_mode: &AddressMode,
+        implied: u8,
         immediate: u8,
+        accumulator: u8,
         absolute: u8,
         absolute_x: u8,
         absolute_y: u8,
@@ -275,6 +68,9 @@ impl ProgramGenerator {
         indirect_indexed: u8,
     ) {
         match address_mode {
+            AddressMode::Implied => {
+                self.add_u8(implied);
+            }
             AddressMode::Immediate(Immediate::Byte(byte)) => {
                 self.add_u8(immediate);
                 self.add_u8(*byte);
@@ -286,6 +82,9 @@ impl ProgramGenerator {
             AddressMode::Immediate(Immediate::High(address_reference)) => {
                 self.add_u8(immediate);
                 self.add_u8(application.address(address_reference).high());
+            }
+            AddressMode::Accumulator => {
+                self.add_u8(accumulator);
             }
             AddressMode::Absolute(address_reference) => {
                 let address = application.address(address_reference);
@@ -309,6 +108,13 @@ impl ProgramGenerator {
             }
             AddressMode::AbsoluteY(address_reference) => {
                 let address = application.address(address_reference);
+                if zeropage_y != 0x00 && address.is_zeropage() {
+                    self.add_u8(zeropage_y);
+                    self.add_u8(address.low());
+                } else {
+                    self.add_u8(absolute_y);
+                    self.add_u16(address);
+                }
                 self.add_u8(absolute_y);
                 self.add_u16(address);
             }
@@ -321,6 +127,11 @@ impl ProgramGenerator {
                 let relative_address = (address as i32 - next_instruction as i32) as i8;
                 self.add_u8(relative_address as u8);
             }
+            AddressMode::Indirect(address_reference) => {
+                let address = application.address(address_reference);
+                self.add_u8(indirect);
+                self.add_u16(address);
+            }
             AddressMode::IndexedIndirect(address_reference) => {
                 let address = application.address(address_reference);
                 assert!(address.is_zeropage());
@@ -331,9 +142,6 @@ impl ProgramGenerator {
                 let address = application.address(address_reference);
                 self.add_u8(indirect_indexed);
                 self.add_u8(address.low());
-            }
-            _ => {
-                panic!()
             }
         };
     }

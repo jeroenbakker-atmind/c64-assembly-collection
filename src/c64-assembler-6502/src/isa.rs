@@ -50,7 +50,7 @@
 //! | STA           |             |               |                 | 8D           | 9D             | 99             | 85            | 95             |              | 81             | 91             |
 
 pub type OpCode = u8;
-pub const UNUSED: OpCode = 0xFF;
+const UNUSED: OpCode = 0xFF;
 pub const IMPLIED: OpCode = UNUSED;
 pub const IMM: OpCode = UNUSED;
 pub const ACC: OpCode = UNUSED;
@@ -63,6 +63,7 @@ pub const ZERO_Y: OpCode = UNUSED;
 pub const IND: OpCode = UNUSED;
 pub const IND_X: OpCode = UNUSED;
 pub const IND_Y: OpCode = UNUSED;
+pub const RELATIVE: OpCode = UNUSED;
 
 // TODO add relative?
 pub struct InstructionDef {
@@ -76,6 +77,7 @@ pub struct InstructionDef {
     pub zeropage: OpCode,
     pub zeropage_x: OpCode,
     pub zeropage_y: OpCode,
+    pub relative: OpCode,
     pub indirect: OpCode,
     pub indexed_indirect: OpCode,
     pub indirect_indexed: OpCode,
@@ -92,6 +94,7 @@ impl InstructionDef {
         zeropage: OpCode,
         zeropage_x: OpCode,
         zeropage_y: OpCode,
+        relative: OpCode,
         indirect: OpCode,
         indexed_indirect: OpCode,
         indirect_indexed: OpCode,
@@ -107,6 +110,7 @@ impl InstructionDef {
             zeropage,
             zeropage_x,
             zeropage_y,
+            relative,
             indirect,
             indexed_indirect,
             indirect_indexed,
@@ -117,175 +121,228 @@ impl InstructionDef {
 pub fn isa_6502() -> Vec<InstructionDef> {
     vec![
         InstructionDef::new(
-            "adc", IMPLIED, 0x69, ACC, 0x6D, 0x7D, 0x79, 0x65, 0x75, ZERO_Y, IND, 0x61, 0x71,
+            "adc", IMPLIED, 0x69, ACC, 0x6D, 0x7D, 0x79, 0x65, 0x75, ZERO_Y, RELATIVE, IND, 0x61,
+            0x71,
         ),
         InstructionDef::new(
-            "and", IMPLIED, 0x29, ACC, 0x2D, 0x3D, 0x39, 0x25, 0x35, ZERO_Y, IND, 0x21, 0x1,
+            "and", IMPLIED, 0x29, ACC, 0x2D, 0x3D, 0x39, 0x25, 0x35, ZERO_Y, RELATIVE, IND, 0x21,
+            0x1,
         ),
         InstructionDef::new(
-            "asl", IMPLIED, IMM, 0x0A, 0x0E, 0x1E, ADDR_Y, 0x06, 0x16, ZERO_Y, IND, IND_X, IND_Y,
+            "asl", IMPLIED, IMM, 0x0A, 0x0E, 0x1E, ADDR_Y, 0x06, 0x16, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bcc", IMPLIED, IMM, ACC, 0x90, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bcc", IMPLIED, IMM, ACC, 0x90, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bcs", IMPLIED, IMM, ACC, 0xB0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bcs", IMPLIED, IMM, ACC, 0xB0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "beq", IMPLIED, IMM, ACC, 0xF0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "beq", IMPLIED, IMM, ACC, 0xF0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bit", IMPLIED, IMM, ACC, 0x2C, ADDR_X, ADDR_Y, 0x24, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bit", IMPLIED, IMM, ACC, 0x2C, ADDR_X, ADDR_Y, 0x24, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bmi", IMPLIED, IMM, ACC, 0x30, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bmi", IMPLIED, IMM, ACC, 0x30, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bne", IMPLIED, IMM, ACC, 0xD0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bne", IMPLIED, IMM, ACC, 0xD0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bpl", IMPLIED, IMM, ACC, 0x10, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bpl", IMPLIED, IMM, ACC, 0x10, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "brk", 0x00, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "brk", 0x00, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, RELATIVE,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bvc", IMPLIED, IMM, ACC, 0x50, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bvc", IMPLIED, IMM, ACC, 0x50, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bvs", IMPLIED, IMM, ACC, 0x70, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "bvs", IMPLIED, IMM, ACC, 0x70, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "clc", 0x18, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "clc", 0x18, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "cld", 0xD8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "cld", 0xD8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "cli", 0x58, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "cli", 0x58, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "clv", 0xB8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, UNUSED, IND_Y,
+            "clv", 0xB8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            UNUSED, IND_Y,
         ),
         InstructionDef::new(
-            "cmp", IMPLIED, 0xC9, ACC, 0xCD, 0xDD, 0xD9, 0xC5, 0xD5, ZERO_Y, IND, 0xC1, 0xD1,
+            "cmp", IMPLIED, 0xC9, ACC, 0xCD, 0xDD, 0xD9, 0xC5, 0xD5, ZERO_Y, RELATIVE, IND, 0xC1,
+            0xD1,
         ),
         InstructionDef::new(
-            "cpx", IMPLIED, 0xE0, ACC, 0xEC, ADDR_X, ADDR_Y, 0xE4, ZERO_X, ZERO_Y, IND, IND_X,
+            "cpx", IMPLIED, 0xE0, ACC, 0xEC, ADDR_X, ADDR_Y, 0xE4, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
+        ),
+        InstructionDef::new(
+            "cpy", IMPLIED, 0xC0, ACC, 0xCC, ADDR_X, ADDR_Y, 0xC4, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
+        ),
+        InstructionDef::new(
+            "dec", IMPLIED, IMM, ACC, 0xCE, 0xDE, ADDR_Y, 0xC6, 0xD6, ZERO_Y, RELATIVE, IND, IND_X,
             IND_Y,
         ),
         InstructionDef::new(
-            "cpy", IMPLIED, 0xC0, ACC, 0xCC, ADDR_X, ADDR_Y, 0xC4, ZERO_X, ZERO_Y, IND, IND_X,
+            "dex", 0xCA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
+        ),
+        InstructionDef::new(
+            "dey", 0x88, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
+        ),
+        InstructionDef::new(
+            "eor", IMPLIED, 0x49, ACC, 0x4D, 0x5D, 0x59, 0x45, 0x55, ZERO_Y, RELATIVE, IND, 0x41,
+            0x51,
+        ),
+        InstructionDef::new(
+            "inc", IMPLIED, IMM, ACC, 0xEE, 0xFE, ADDR_Y, 0xE6, 0xF6, ZERO_Y, RELATIVE, IND, IND_X,
             IND_Y,
         ),
         InstructionDef::new(
-            "dec", IMPLIED, IMM, ACC, 0xCE, 0xDE, ADDR_Y, 0xC6, 0xD6, ZERO_Y, IND, IND_X, IND_Y,
+            "inx", 0xE8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "dex", 0xCA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "iny", 0xC8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "dey", 0x88, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "jmp", IMPLIED, IMM, ACC, 0x4C, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, 0x6C,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "eor", IMPLIED, 0x49, ACC, 0x4D, 0x5D, 0x59, 0x45, 0x55, ZERO_Y, IND, 0x41, 0x51,
+            "jsr", IMPLIED, IMM, ACC, 0x20, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "inc", IMPLIED, IMM, ACC, 0xEE, 0xFE, ADDR_Y, 0xE6, 0xF6, ZERO_Y, IND, IND_X, IND_Y,
+            "lda", IMPLIED, 0xA9, ACC, 0xAD, 0xBD, 0xB9, 0xA5, 0xB5, ZERO_Y, RELATIVE, IND, 0xA1,
+            0xB1,
         ),
         InstructionDef::new(
-            "inx", 0xE8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "ldx", IMPLIED, 0xA2, ACC, 0xAE, ADDR_X, 0xBE, 0xA6, ZERO_X, 0xB6, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "iny", 0xC8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "ldy", IMPLIED, 0xA0, ACC, 0xAC, 0xBC, ADDR_Y, 0xA4, 0xB4, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "jmp", IMPLIED, IMM, ACC, 0x4C, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0x6C, IND_X,
-            IND_Y,
+            "lsr", IMPLIED, IMM, 0x4A, 0x4E, 0x5E, ADDR_Y, 0x46, 0x56, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "jsr", IMPLIED, IMM, ACC, 0x20, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "nop", 0xEA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "lda", IMPLIED, 0xA9, ACC, 0xAD, 0xBD, 0xB9, 0xA5, 0xB5, ZERO_Y, IND, 0xA1, 0xB1,
+            "ora", IMPLIED, 0x09, ACC, 0x0D, 0x1D, 0x19, 0x05, 0x15, ZERO_Y, RELATIVE, IND, 0x01,
+            0x11,
         ),
         InstructionDef::new(
-            "ldx", IMPLIED, 0xA2, ACC, 0xAE, ADDR_X, 0xBE, 0xA6, ZERO_X, 0xB6, IND, IND_X, IND_Y,
+            "pha", 0x48, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "ldy", IMPLIED, 0xA0, ACC, 0xAC, 0xBC, ADDR_Y, 0xA4, 0xB4, ZERO_Y, IND, IND_X, IND_Y,
+            "php", 0x08, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "lsr", IMPLIED, IMM, 0x4A, 0x4E, 0x5E, ADDR_Y, 0x46, 0x56, ZERO_Y, IND, IND_X, IND_Y,
+            "pla", 0x68, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "nop", 0xEA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "plp", 0x28, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "ora", IMPLIED, 0x09, ACC, 0x0D, 0x1D, 0x19, 0x05, 0x15, ZERO_Y, IND, 0x01, 0x11,
+            "rol", IMPLIED, IMM, 0x2A, 0x2E, 0x3E, ADDR_Y, 0x26, 0x36, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "pha", 0x48, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "ror", IMPLIED, IMM, 0x6A, 0x6E, 0x7E, ADDR_Y, 0x66, 0x76, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "php", 0x08, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "rti", 0x40, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "pla", 0x68, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "rts", 0x60, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "plp", 0x28, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "sbc", IMPLIED, 0xE9, ACC, 0xED, 0xFD, 0xF9, 0xE5, 0xF5, ZERO_Y, RELATIVE, IND, 0xE1,
+            0xF1,
         ),
         InstructionDef::new(
-            "rol", IMPLIED, IMM, 0x2A, 0x2E, 0x3E, ADDR_Y, 0x26, 0x36, ZERO_Y, IND, IND_X, IND_Y,
+            "sec", 0x38, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "ror", IMPLIED, IMM, 0x6A, 0x6E, 0x7E, ADDR_Y, 0x66, 0x76, ZERO_Y, IND, IND_X, IND_Y,
+            "sed", 0xF8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "rti", 0x40, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "sei", 0x78, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "rts", 0x60, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "sta", IMPLIED, IMM, ACC, 0x8D, 0x9D, 0x99, 0x85, 0x95, ZERO_Y, RELATIVE, IND, 0x81,
+            0x91,
         ),
         InstructionDef::new(
-            "sbc", IMPLIED, 0xE9, ACC, 0xED, 0xFD, 0xF9, 0xE5, 0xF5, ZERO_Y, IND, 0xE1, 0xF1,
+            "stx", IMPLIED, IMM, ACC, 0x8E, ADDR_X, ADDR_Y, 0x86, ZERO_X, 0x96, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "sec", 0x38, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "sty", IMPLIED, IMM, ACC, 0x8C, ADDR_X, ADDR_Y, 0x84, 0x94, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "sed", 0xF8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "tax", 0xAA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "sei", 0x78, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "tay", 0xA8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "sta", IMPLIED, IMM, ACC, 0x8D, 0x9D, 0x99, 0x85, 0x95, ZERO_Y, IND, 0x81, 0x91,
+            "tsx", 0xBA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "stx", IMPLIED, IMM, ACC, 0x8E, ADDR_X, ADDR_Y, 0x86, ZERO_X, 0x96, IND, IND_X, IND_Y,
+            "txa", 0x8A, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "sty", IMPLIED, IMM, ACC, 0x8C, ADDR_X, ADDR_Y, 0x84, 0x94, ZERO_Y, IND, IND_X, IND_Y,
+            "txs", 0x9A, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "tax", 0xAA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
-        ),
-        InstructionDef::new(
-            "tay", 0xA8, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
-        ),
-        InstructionDef::new(
-            "tsx", 0xBA, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
-        ),
-        InstructionDef::new(
-            "txa", 0x8A, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
-        ),
-        InstructionDef::new(
-            "txs", 0x9A, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
-        ),
-        InstructionDef::new(
-            "tya", 0x98, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, IND_X, IND_Y,
+            "tya", 0x98, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
+            IND_X, IND_Y,
         ),
     ]
 }
