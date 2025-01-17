@@ -1,3 +1,12 @@
+//! Internal crate for c64-assembler containing 6502 instruction set and code generators.
+//!
+//! Code generators for
+//!
+//! - generate op codes
+//! - instruction builder functions including doctests
+//! - instruction!() tests suite
+//! - program byte code
+//!
 mod isa;
 
 use isa::{
