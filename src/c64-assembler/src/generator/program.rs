@@ -29,6 +29,7 @@ impl Generator for ProgramGenerator {
 }
 
 codegen_opcodes!();
+const UNUSED: u8 = 0xFF;
 
 impl ProgramGenerator {
     fn generate_module(&mut self, application: &Application, module: &Module) {
@@ -45,7 +46,6 @@ impl ProgramGenerator {
     }
 
     fn generate_instruction(&mut self, application: &Application, instruction: &Instruction) {
-        const UNUSED: u8 = 0x00;
         codegen_program_instruction_to_byte_code! {}
     }
 
@@ -88,7 +88,7 @@ impl ProgramGenerator {
             }
             AddressMode::Absolute(address_reference) => {
                 let address = application.address(address_reference);
-                if zeropage != 0x00 && address.is_zeropage() {
+                if zeropage != UNUSED && address.is_zeropage() {
                     self.add_u8(zeropage);
                     self.add_u8(application.address(address_reference).low());
                 } else {
@@ -98,7 +98,7 @@ impl ProgramGenerator {
             }
             AddressMode::AbsoluteX(address_reference) => {
                 let address = application.address(address_reference);
-                if zeropage_x != 0x00 && address.is_zeropage() {
+                if zeropage_x != UNUSED && address.is_zeropage() {
                     self.add_u8(zeropage_x);
                     self.add_u8(address.low());
                 } else {
@@ -108,7 +108,7 @@ impl ProgramGenerator {
             }
             AddressMode::AbsoluteY(address_reference) => {
                 let address = application.address(address_reference);
-                if zeropage_y != 0x00 && address.is_zeropage() {
+                if zeropage_y != UNUSED && address.is_zeropage() {
                     self.add_u8(zeropage_y);
                     self.add_u8(address.low());
                 } else {

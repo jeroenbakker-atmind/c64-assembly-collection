@@ -159,7 +159,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
             ));
         }
 
-        if def.absolute != ADDR {
+        if def.absolute != ADDR || def.zeropage != ZERO {
             lines.push(format!(
                 "
                 /// Record a {0} instruction that use an absolute address. 
@@ -196,7 +196,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.absolute_x != ADDR_X {
+        if def.absolute_x != ADDR_X || def.zeropage_x != ZERO_X {
             lines.push(format!(
                 "
                 /// Record a {0} instructon that use an absolute address with x-register as indexer.
@@ -217,7 +217,7 @@ pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        if def.absolute_y != ADDR_Y {
+        if def.absolute_y != ADDR_Y || def.zeropage_y != ZERO_Y {
             lines.push(format!(
                 "
                 /// Record a {0} instructon that use an absolute address with y-register as indexer.
@@ -449,8 +449,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
             ));
         }
 
-        /*
-        if def.absolute_x != UNUSED ||def.zeropage_x != UNUSED{
+        if def.absolute_x != ADDR_X || def.zeropage_x != ZERO_X {
             lines.push(format!(
                 "
                 #[test]
@@ -465,9 +464,7 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-         */
-        /*
-        if def.absolute_y != UNUSED ||def.zeropage_y != UNUSED{
+        if def.absolute_y != ADDR_Y || def.zeropage_y != ZERO_Y {
             lines.push(format!(
                 "
                 #[test]
@@ -482,7 +479,6 @@ pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
                 def.instruction.to_string()
             ));
         }
-        */
         /*
         if def.indirect != UNUSED {
             lines.push(format!(
