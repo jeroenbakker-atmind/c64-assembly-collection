@@ -133,44 +133,44 @@ pub fn isa_6502() -> Vec<InstructionDef> {
             IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bcc", IMPLIED, IMM, ACC, 0x90, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "bcc", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0x90, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
-            "bcs", IMPLIED, IMM, ACC, 0xB0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "bcs", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0xB0, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
-            "beq", IMPLIED, IMM, ACC, 0xF0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "beq", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0xF0, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
             "bit", IMPLIED, IMM, ACC, 0x2C, ADDR_X, ADDR_Y, 0x24, ZERO_X, ZERO_Y, RELATIVE, IND,
             IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bmi", IMPLIED, IMM, ACC, 0x30, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "bmi", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0x30, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
-            "bne", IMPLIED, IMM, ACC, 0xD0, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "bne", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0xD0, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
-            "bpl", IMPLIED, IMM, ACC, 0x10, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "bpl", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0x10, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
             "brk", 0x00, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, IND, RELATIVE,
             IND_X, IND_Y,
         ),
         InstructionDef::new(
-            "bvc", IMPLIED, IMM, ACC, 0x50, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "bvc", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0x50, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
-            "bvs", IMPLIED, IMM, ACC, 0x70, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
-            IND_X, IND_Y,
+            "bvs", IMPLIED, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, 0x70, IND, IND_X,
+            IND_Y,
         ),
         InstructionDef::new(
             "clc", 0x18, IMM, ACC, ADDR, ADDR_X, ADDR_Y, ZERO, ZERO_X, ZERO_Y, RELATIVE, IND,
