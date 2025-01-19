@@ -2,11 +2,8 @@
 //!
 //! # Table
 //!
-//! ## TODO
+//! Table with all the instructions and op-codes per addressing mode.
 //!
-//! - Accumulator of PHA, PLA should be implied
-//! - Relative jumps are now inside the implied columns. Should have its own
-//! - Does not contain all instructions.
 //!
 //! | **Instructie** | **Implied** | **Immediate** | **Accumulator** | **Absolute** | **Absolute,X** | **Absolute,Y** | **Zero Page** | **Zero Page,X** | **Indirect** | **Indirect,X** | **Indirect,Y** |
 //! |----------------|-------------|---------------|-----------------|--------------|----------------|----------------|---------------|-----------------|--------------|----------------|----------------|
@@ -58,5 +55,12 @@
 //! | SED           | F8          |               |                 |              |                |                |               |                 |              |                |                |
 //! | SEI           | 78          |               |                 |              |                |                |               |                 |              |                |                |
 //! | STA           |             |               |                 | 8D           | 9D             | 99             | 85            | 95             |              | 81             | 91             |
+//!
+//! ## TODO
+//!
+//! - [ ] Accumulator of PHA, PLA should be implied
+//! - [ ] Relative jumps are now inside the implied columns. Should have its own
+//! - [ ] Does not contain all instructions.
+//! - [ ] Perhaps the solution is to generate this from the instructions definitions.
 
 pub mod isa;
