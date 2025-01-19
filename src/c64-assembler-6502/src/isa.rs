@@ -1,4 +1,4 @@
-/// A byte that encodes the instruction and type of addressing mode.
+/// An OpCode is the first byte that encodes the instruction and type of addressing mode.
 pub type OpCode = u8;
 
 const UNUSED: OpCode = 0xFF;
