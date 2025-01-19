@@ -9,6 +9,7 @@ use cbm::{
     Petscii,
 };
 
+#[allow(dead_code)]
 fn package_disk1a() -> Result<()> {
     let mut disk = c64::create_disk::initialize_disk(
         Path::new("demo-disk1.D64"),

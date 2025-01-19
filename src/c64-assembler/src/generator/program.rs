@@ -1,4 +1,4 @@
-use c64_assembler_6502::{codegen_opcodes, codegen_program_instruction_to_byte_code};
+use c64_assembler_codegen::{codegen_opcodes, codegen_program_instruction_to_byte_code};
 
 use crate::{
     builder::{application::Application, instruction::Instructions, module::Module},

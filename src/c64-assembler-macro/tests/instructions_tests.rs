@@ -1,7 +1,7 @@
 use c64_assembler::{
     builder::instruction::Instructions, instruction::operation::Operation, memory::address_mode::AddressMode,
 };
-use c64_assembler_6502::codegen_instruction_tests;
+use c64_assembler_codegen::codegen_instruction_tests;
 use c64_assembler_macro::instructions;
 
 fn test_first(instructions: Instructions, operation: Operation, address_mode: AddressMode) {

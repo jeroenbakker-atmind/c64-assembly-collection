@@ -9,5 +9,3 @@ keywords = ["retro", "c64", "6502"]
 categories = ["compilers", "development-tools"]
 edition = "2021"
 
-[lib]
-proc-macro = true

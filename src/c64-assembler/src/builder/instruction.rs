@@ -1,4 +1,4 @@
-use c64_assembler_6502::codegen_instruction_builder;
+use c64_assembler_codegen::codegen_instruction_builder;
 
 use crate::{
     instruction::{operation::Operation, Instruction},

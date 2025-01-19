@@ -3,6 +3,14 @@ members = [
     "src/c64",
     "src/encoder",
     "src/builder",
-    "src/convert"
-, "src/c64-dithering", "src/c64-colors", "src/c64-charset", "src/c64-encoder", "src/c64-assembler", "src/c64-assembler-macro", "src/c64-assembler-6502"]
+    "src/convert", 
+    "src/c64-dithering", 
+    "src/c64-colors", 
+    "src/c64-charset", 
+    "src/c64-encoder", 
+    "src/c64-assembler", 
+    "src/c64-assembler-macro", 
+    "src/c64-assembler-6502", 
+    "src/c64-assembler-codegen"
+]
 resolver="2"

@@ -1,86 +1,94 @@
-//!  | **Instructie** | **Implied** | **Immediate** | **Accumulator** | **Absolute** | **Absolute,X** | **Absolute,Y** | **Zero Page** | **Zero Page,X** | **Indirect** | **Indirect,X** | **Indirect,Y** |
-//! |----------------|-------------|---------------|-----------------|--------------|----------------|----------------|---------------|-----------------|--------------|----------------|----------------|
-//! | ADC           |             | 69            |                 | 6D           | 7D             | 79             | 65            | 75             |              | 61             | 71             |
-//! | AND           |             | 29            |                 | 2D           | 3D             | 39             | 25            | 35             |              | 21             | 31             |
-//! | ASL           |             |               | 0A              | 0E           | 1E             |                | 06            | 16             |              |                |                |
-//! | BCC           | 90          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BCS           | B0          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BEQ           | F0          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BIT           |             |               |                 | 2C           |                |                | 24            |                 |              |                |                |
-//! | BMI           | 30          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BNE           | D0          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BPL           | 10          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BRK           | 00          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BVC           | 50          |               |                 |              |                |                |               |                 |              |                |                |
-//! | BVS           | 70          |               |                 |              |                |                |               |                 |              |                |                |
-//! | CLC           | 18          |               |                 |              |                |                |               |                 |              |                |                |
-//! | CLD           | D8          |               |                 |              |                |                |               |                 |              |                |                |
-//! | CLI           | 58          |               |                 |              |                |                |               |                 |              |                |                |
-//! | CLV           | B8          |               |                 |              |                |                |               |                 |              |                |                |
-//! | CMP           |             | C9            |                 | CD           | DD             | D9             | C5            | D5             |              | C1             | D1             |
-//! | CPX           |             | E0            |                 | EC           |                |                | E4            |                 |              |                |                |
-//! | CPY           |             | C0            |                 | CC           |                |                | C4            |                 |              |                |                |
-//! | DEC           |             |               |                 | CE           | DE             |                | C6            | D6             |              |                |                |
-//! | DEX           | CA          |               |                 |              |                |                |               |                 |              |                |                |
-//! | DEY           | 88          |               |                 |              |                |                |               |                 |              |                |                |
-//! | EOR           |             | 49            |                 | 4D           | 5D             | 59             | 45            | 55             |              | 41             | 51             |
-//! | INC           |             |               |                 | EE           | FE             |                | E6            | F6             |              |                |                |
-//! | INX           | E8          |               |                 |              |                |                |               |                 |              |                |                |
-//! | INY           | C8          |               |                 |              |                |                |               |                 |              |                |                |
-//! | JMP           |             |               |                 | 4C           |                |                |               |                 | 6C           |                |                |
-//! | JSR           |             |               |                 | 20           |                |                |               |                 |              |                |                |
-//! | LDA           |             | A9            |                 | AD           | BD             | B9             | A5            | B5             |              | A1             | B1             |
-//! | LDX           |             | A2            |                 | AE           |                | BE             | A6            |                 |              |                |                |
-//! | LDY           |             | A0            |                 | AC           | BC             |                | A4            | B4             |              |                |                |
-//! | LSR           |             |               | 4A              | 4E           | 5E             |                | 46            | 56             |              |                |                |
-//! | NOP           | EA          |               |                 |              |                |                |               |                 |              |                |                |
-//! | ORA           |             | 09            |                 | 0D           | 1D             | 19             | 05            | 15             |              | 01             | 11             |
-//! | PHA           |             |               | 48              |              |                |                |               |                 |              |                |                |
-//! | PHP           | 08          |               |                 |              |                |                |               |                 |              |                |                |
-//! | PLA           |             |               | 68              |              |                |                |               |                 |              |                |                |
-//! | PLP           | 28          |               |                 |              |                |                |               |                 |              |                |                |
-//! | ROL           |             |               | 2A              | 2E           | 3E             |                | 26            | 36             |              |                |                |
-//! | ROR           |             |               | 6A              | 6E           | 7E             |                | 66            | 76             |              |                |                |
-//! | RTI           | 40          |               |                 |              |                |                |               |                 |              |                |                |
-//! | RTS           | 60          |               |                 |              |                |                |               |                 |              |                |                |
-//! | SBC           |             | E9            |                 | ED           | FD             | F9             | E5            | F5             |              | E1             | F1             |
-//! | SEC           | 38          |               |                 |              |                |                |               |                 |              |                |                |
-//! | SED           | F8          |               |                 |              |                |                |               |                 |              |                |                |
-//! | SEI           | 78          |               |                 |              |                |                |               |                 |              |                |                |
-//! | STA           |             |               |                 | 8D           | 9D             | 99             | 85            | 95             |              | 81             | 91             |
-
+/// A byte that encodes the instruction and type of addressing mode.
 pub type OpCode = u8;
+
 const UNUSED: OpCode = 0xFF;
+/// Special OpCode for instructions that don't have an op-code for implied addressing mode.
 pub const NO_IMPLIED: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for immediate addressing mode.
 pub const NO_IMMEDIATE: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for accumulator addressing mode.
 pub const NO_ACCUMULATOR: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for absolute addressing mode.
 pub const NO_ABSOLUTE: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for absolute-x addressing mode.
 pub const NO_ABSOLUTE_X: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for absolute-y addressing mode.
 pub const NO_ABSOLUTE_Y: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for zeropage addressing mode.
 pub const NO_ZEROPAGE: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for zeropage-x addressing mode.
 pub const NO_ZEROPAGE_X: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for zeropage-y addressing mode.
 pub const NO_ZEROPAGE_Y: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for indirect addressing mode.
 pub const NO_INDIRECT: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for indexed indirect addressing mode.
 pub const NO_INDEXED_INDIRECT: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for indirect indexed addressing mode.
 pub const NO_INDIRECT_INDEXED: OpCode = UNUSED;
+/// Special OpCode for instructions that don't have an op-code for relative addressing mode.
 pub const NO_RELATIVE: OpCode = UNUSED;
 
+/// Instruction definition.
+///
+/// Contains the instruction (as str) and the op-codes per addressing mode.
 pub struct InstructionDef {
+    /// Instruction as lowercase str (lda, sta, ...)
     pub instruction: &'static str,
+    /// OpCode for implied addressing mode.
+    ///
+    /// Contains [NO_IMPLIED] when no op-code exist.
     pub implied: OpCode,
+    /// OpCode for immediate addressing mode.
+    ///
+    /// Contains [NO_IMMEDIATE] when no op-code exists.
     pub immediate: OpCode,
+    /// OpCode for accumualtor addressing mode.
+    ///
+    /// Contains [NO_ACCUMULATOR] when no op-code exists.
     pub accumulator: OpCode,
+    /// OpCode for absolute addressing mode.
+    ///
+    /// Contains [NO_ABSOLUTE] when no op-code exists.
     pub absolute: OpCode,
+    /// OpCode for absolute-x addressing mode.
+    ///
+    /// Contains [NO_ABSOLUTE_X] when no op-code exists.
     pub absolute_x: OpCode,
+    /// OpCode for absolute-y addressing mode.
+    ///
+    /// Contains [NO_ABSOLUTE_Y] when no op-code exists.
     pub absolute_y: OpCode,
+    /// OpCode for zeropage addressing mode.
+    ///
+    /// Contains [NO_ZEROPAGE] when no op-code exists.
     pub zeropage: OpCode,
+    /// OpCode for zeropage-x addressing mode.
+    ///
+    /// Contains [NO_ZEROPAGE_X] when no op-code exists.
     pub zeropage_x: OpCode,
+    /// OpCode for zeropage-y addressing mode.
+    ///
+    /// Contains [NO_ZEROPAGE_Y] when no op-code exists.
     pub zeropage_y: OpCode,
+    /// OpCode for relative addressing mode.
+    ///
+    /// Contains [NO_RELATIVE] when no op-code exists.
     pub relative: OpCode,
+    /// OpCode for indirect addressing mode.
+    ///
+    /// Contains [NO_INDIRECT] when no op-code exists.
     pub indirect: OpCode,
+    /// OpCode for indexed indirect addressing mode.
+    ///
+    /// Contains [NO_INDEXED_INDIRECT] when no op-code exists.
     pub indexed_indirect: OpCode,
+    /// OpCode for indirect indexed addressing mode.
+    ///
+    /// Contains [NO_INDIRECT_INDEXED] when no op-code exists.
     pub indirect_indexed: OpCode,
 }
+
 impl InstructionDef {
     fn new(
         instruction: &'static str,
@@ -117,6 +125,7 @@ impl InstructionDef {
     }
 }
 
+/// Return all instruction definitions inside the 6502 instruction set.
 pub fn isa_6502() -> Vec<InstructionDef> {
     vec![
         InstructionDef::new(
