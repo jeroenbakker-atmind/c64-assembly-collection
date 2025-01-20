@@ -11,3 +11,4 @@ edition = "2021"
 
 [dependencies]
 c64-assembler-codegen = {path="../c64-assembler-codegen"}
+c64-assembler-6502 = {path="../c64-assembler-6502"}

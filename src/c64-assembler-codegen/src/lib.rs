@@ -9,41 +9,10 @@
 //!
 
 use c64_assembler_6502::isa::{
-    isa_6502, OpCode, NO_ABSOLUTE, NO_ABSOLUTE_X, NO_ABSOLUTE_Y, NO_ACCUMULATOR, NO_IMMEDIATE, NO_IMPLIED,
-    NO_INDEXED_INDIRECT, NO_INDIRECT, NO_INDIRECT_INDEXED, NO_RELATIVE, NO_ZEROPAGE, NO_ZEROPAGE_X, NO_ZEROPAGE_Y,
+    isa_6502, NO_ABSOLUTE, NO_ABSOLUTE_X, NO_ABSOLUTE_Y, NO_ACCUMULATOR, NO_IMMEDIATE, NO_IMPLIED, NO_INDEXED_INDIRECT,
+    NO_INDIRECT, NO_INDIRECT_INDEXED, NO_RELATIVE, NO_ZEROPAGE, NO_ZEROPAGE_X, NO_ZEROPAGE_Y,
 };
 use proc_macro::TokenStream;
-
-#[proc_macro]
-pub fn codegen_opcodes(_input: TokenStream) -> TokenStream {
-    fn format_opcode(result: &mut Vec<String>, instruction: &str, opcode: OpCode, post: &str) {
-        if opcode != NO_IMMEDIATE {
-            result.push(format!(
-                "const {}{}:u8 = 0x{:02x};",
-                instruction.to_string().to_uppercase(),
-                post.to_string(),
-                opcode
-            ));
-        }
-    }
-    let mut lines = Vec::<String>::default();
-    for def in isa_6502() {
-        format_opcode(&mut lines, &def.instruction, def.implied, &"");
-        format_opcode(&mut lines, &def.instruction, def.immediate, &"_IMMEDIATE");
-        format_opcode(&mut lines, &def.instruction, def.accumulator, &"_ACCUMULATOR");
-        format_opcode(&mut lines, &def.instruction, def.absolute, &"_ABSOLUTE");
-        format_opcode(&mut lines, &def.instruction, def.absolute_x, &"_ABSOLUTE_X");
-        format_opcode(&mut lines, &def.instruction, def.absolute_y, &"_ABSOLUTE_Y");
-        format_opcode(&mut lines, &def.instruction, def.zeropage, &"_ZEROPAGE");
-        format_opcode(&mut lines, &def.instruction, def.zeropage_x, &"_ZEROPAGE_X");
-        format_opcode(&mut lines, &def.instruction, def.zeropage_y, &"_ZEROPAGE_Y");
-        format_opcode(&mut lines, &def.instruction, def.relative, &"_RELATIVE");
-        format_opcode(&mut lines, &def.instruction, def.indirect, &"_INDIRECT");
-        format_opcode(&mut lines, &def.instruction, def.indexed_indirect, &"_INDEXED_INDIRECT");
-        format_opcode(&mut lines, &def.instruction, def.indirect_indexed, &"_INDIRECT_INDEXED");
-    }
-    lines.join("\n").parse().unwrap()
-}
 
 #[proc_macro]
 pub fn codegen_instruction_builder(_input: TokenStream) -> TokenStream {
