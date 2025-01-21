@@ -1,21 +1,9 @@
-//! Internal crate for c64-assembler containing 6502 instruction set and code generators.
-//!
-//! Code generators for
-//!
-//! - generate op codes
-//! - instruction builder functions including doctests
-//! - instruction!() tests suite
-//! - program byte code
-//!
-
 use c64_assembler_6502::isa::{
     isa_6502, NO_ABSOLUTE, NO_ABSOLUTE_X, NO_ABSOLUTE_Y, NO_ACCUMULATOR, NO_IMMEDIATE, NO_IMPLIED, NO_INDEXED_INDIRECT,
     NO_INDIRECT, NO_INDIRECT_INDEXED, NO_RELATIVE, NO_ZEROPAGE, NO_ZEROPAGE_X, NO_ZEROPAGE_Y,
 };
-use proc_macro::TokenStream;
 
-#[proc_macro]
-pub fn codegen_program_instruction_to_byte_code(_input: TokenStream) -> TokenStream {
+fn main() {
     let mut lines = Vec::<String>::default();
     lines.push(format!("match &instruction.operation {{"));
 
@@ -126,5 +114,5 @@ pub fn codegen_program_instruction_to_byte_code(_input: TokenStream) -> TokenStr
     }}"
     ));
 
-    lines.join("\n").parse().unwrap()
+    print!("{}", lines.join("\n"))
 }
