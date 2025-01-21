@@ -62,8 +62,8 @@
 //! | TXA             | 0x8A        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
 //! | TXS             | 0x9A        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
 //! | TYA             | 0x98        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
-//! 
-//! 
+//!
+//!
 //! ## TODO
 //!
 //! - [ ] Accumulator of PHA, PLA should be implied

@@ -14,7 +14,6 @@ use c64_assembler_6502::isa::{
 };
 use proc_macro::TokenStream;
 
-
 #[proc_macro]
 pub fn codegen_instruction_tests(_input: TokenStream) -> TokenStream {
     let mut lines = Vec::<String>::default();
