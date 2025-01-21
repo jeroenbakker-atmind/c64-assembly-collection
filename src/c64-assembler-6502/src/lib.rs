@@ -62,13 +62,5 @@
 //! | TXA             | 0x8A        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
 //! | TXS             | 0x9A        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
 //! | TYA             | 0x98        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
-//!
-//!
-//! ## TODO
-//!
-//! - [ ] Accumulator of PHA, PLA should be implied
-//! - [ ] Relative jumps are now inside the implied columns. Should have its own
-//! - [ ] Does not contain all instructions.
-//! - [ ] Perhaps the solution is to generate this from the instructions definitions.
 
 pub mod isa;
