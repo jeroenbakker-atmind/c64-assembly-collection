@@ -10,8 +10,8 @@ categories = ["compilers", "development-tools"]
 edition = "2021"
 
 [dependencies]
-c64-assembler-6502 = {path="../c64-assembler-6502"}
+c64-assembler-6502 = {path="../c64-assembler-6502", version="0.1.0"}
 
 [dev-dependencies]
-c64-assembler-macro = {path="../c64-assembler-macro"}
-c64-assembler-6502 = {path="../c64-assembler-6502"}
+c64-assembler-macro = {path="../c64-assembler-macro", version="0.1.0"}
+c64-assembler-6502 = {path="../c64-assembler-6502", version="0.1.0"}
