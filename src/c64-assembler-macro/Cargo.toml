@@ -11,6 +11,3 @@ edition = "2021"
 
 [lib]
 proc-macro = true
-
-[dev-dependencies]
-c64-assembler = {path="../c64-assembler", version="0.1.0"}
