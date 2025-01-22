@@ -10,10 +10,17 @@
 //! construction stage. Having a C64 assembler written in rust can build a bridge and
 //! allows custom disk formats and faster iterations during development.
 //!
+//! ## Modules and functions
+//!
+//! An [crate::builder::application::Application] is organized in [crate::builder::module::Module] and
+//! [crate::builder::function::Function]. The idea is that
+//! modules and functions can be switched between various implementations having the
+//! same api. Functions can also be marked to be inlined (not implemented yet).
+//!
 //! ## Targets
 //!
 //! - **Done**:
-//!   - [x] Support full 6502/6510 instruction set and address modes.
+//!   - [x] Support full 6502/6510 instruction set and address modes. See [crate::builder::instruction::InstructionBuilder]
 //!   - [x] Use a building pattern to construct the instruction stream.
 //!   - [x] Being able to output to dasm source.
 //!   - [x] Being able to output directly to a PRG
@@ -23,7 +30,9 @@
 //!   - [ ] Able to swap out parts of a program using modules and functions
 //!   - [ ] Being able to output to the macro source (allowing circular development).
 //!
-//! ## Building pattern
+//! ## Usage
+//!
+//! ### Building pattern
 //!
 //! An application can be build using builder patterns.
 //!
@@ -77,7 +86,7 @@
 //! );
 //! ```
 //!
-//! ## Generating dasm source
+//! ### Generating dasm source
 //!
 //! Using the [crate::generator::dasm::DasmGenerator] a dasm compatible assembly source
 //! can be generated.
@@ -117,7 +126,7 @@
 //! ; --- Module end: MAIN ---
 //! ```
 //!
-//! ## Generating .PRG byte stream
+//! ### Generating .PRG byte stream
 //!
 //! Using the [crate::generator::program::ProgramGenerator] to generate the byte stream.
 //! The byte stream includes the loading address.
@@ -136,13 +145,6 @@
 //! 0000:  00 08 00 0C  08 0A 00 9E  20 32 30 36  32 00 00 00
 //! 0010:  A9 00 8D 20  D0 60
 //! ```
-//!
-//! ## Modules and functions
-//!
-//! An application is organized in [crate::builder::module::Module] and
-//! [crate::builder::function::Function]. The idea is that
-//! modules and functions can be switched between various implementations having the
-//! same api. Functions can also be marked to be inlined (not implemented yet).
 //!
 pub mod builder;
 pub mod generator;
