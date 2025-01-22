@@ -46,125 +46,18 @@ impl ProgramGenerator {
     }
 
     fn generate_instruction(&mut self, application: &Application, instruction: &Instruction) {
-        match &instruction.operation {
-            Operation::ADC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_ADC),
-
-            Operation::AND => self.add_byte_code(application, &instruction.address_mode, &OPCODES_AND),
-
-            Operation::ASL => self.add_byte_code(application, &instruction.address_mode, &OPCODES_ASL),
-
-            Operation::BCC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BCC),
-
-            Operation::BCS => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BCS),
-
-            Operation::BEQ => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BEQ),
-
-            Operation::BIT => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BIT),
-
-            Operation::BMI => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BMI),
-
-            Operation::BNE => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BNE),
-
-            Operation::BPL => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BPL),
-
-            Operation::BRK => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BRK),
-
-            Operation::BVC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BVC),
-
-            Operation::BVS => self.add_byte_code(application, &instruction.address_mode, &OPCODES_BVS),
-
-            Operation::CLD => self.add_byte_code(application, &instruction.address_mode, &OPCODES_CLD),
-
-            Operation::CLI => self.add_byte_code(application, &instruction.address_mode, &OPCODES_CLI),
-
-            Operation::CLV => self.add_byte_code(application, &instruction.address_mode, &OPCODES_CLV),
-
-            Operation::CMP => self.add_byte_code(application, &instruction.address_mode, &OPCODES_CMP),
-
-            Operation::CPX => self.add_byte_code(application, &instruction.address_mode, &OPCODES_CPX),
-
-            Operation::CPY => self.add_byte_code(application, &instruction.address_mode, &OPCODES_CPY),
-
-            Operation::DEC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_DEC),
-
-            Operation::DEX => self.add_byte_code(application, &instruction.address_mode, &OPCODES_DEX),
-
-            Operation::DEY => self.add_byte_code(application, &instruction.address_mode, &OPCODES_DEY),
-
-            Operation::EOR => self.add_byte_code(application, &instruction.address_mode, &OPCODES_EOR),
-
-            Operation::INC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_INC),
-
-            Operation::INX => self.add_byte_code(application, &instruction.address_mode, &OPCODES_INX),
-
-            Operation::INY => self.add_byte_code(application, &instruction.address_mode, &OPCODES_INY),
-
-            Operation::LDX => self.add_byte_code(application, &instruction.address_mode, &OPCODES_LDX),
-
-            Operation::LSR => self.add_byte_code(application, &instruction.address_mode, &OPCODES_LSR),
-
-            Operation::NOP => self.add_byte_code(application, &instruction.address_mode, &OPCODES_NOP),
-
-            Operation::ORA => self.add_byte_code(application, &instruction.address_mode, &OPCODES_ORA),
-
-            Operation::PHA => self.add_byte_code(application, &instruction.address_mode, &OPCODES_PHA),
-
-            Operation::PHP => self.add_byte_code(application, &instruction.address_mode, &OPCODES_PHP),
-
-            Operation::PLA => self.add_byte_code(application, &instruction.address_mode, &OPCODES_PLA),
-
-            Operation::PLP => self.add_byte_code(application, &instruction.address_mode, &OPCODES_PLP),
-
-            Operation::ROL => self.add_byte_code(application, &instruction.address_mode, &OPCODES_ROL),
-
-            Operation::ROR => self.add_byte_code(application, &instruction.address_mode, &OPCODES_ROR),
-
-            Operation::RTI => self.add_byte_code(application, &instruction.address_mode, &OPCODES_RTI),
-
-            Operation::SBC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_SBC),
-
-            Operation::SED => self.add_byte_code(application, &instruction.address_mode, &OPCODES_SED),
-
-            Operation::SEI => self.add_byte_code(application, &instruction.address_mode, &OPCODES_SEI),
-
-            Operation::STX => self.add_byte_code(application, &instruction.address_mode, &OPCODES_STX),
-
-            Operation::STY => self.add_byte_code(application, &instruction.address_mode, &OPCODES_STY),
-
-            Operation::TAX => self.add_byte_code(application, &instruction.address_mode, &OPCODES_TAX),
-
-            Operation::TAY => self.add_byte_code(application, &instruction.address_mode, &OPCODES_TAY),
-
-            Operation::TSX => self.add_byte_code(application, &instruction.address_mode, &OPCODES_TSX),
-
-            Operation::TXA => self.add_byte_code(application, &instruction.address_mode, &OPCODES_TXA),
-
-            Operation::TXS => self.add_byte_code(application, &instruction.address_mode, &OPCODES_TXS),
-
-            Operation::TYA => self.add_byte_code(application, &instruction.address_mode, &OPCODES_TYA),
-
-            Operation::LDA => self.add_byte_code(application, &instruction.address_mode, &OPCODES_LDA),
-
-            Operation::LDY => self.add_byte_code(application, &instruction.address_mode, &OPCODES_LDY),
-
-            Operation::STA => self.add_byte_code(application, &instruction.address_mode, &OPCODES_STA),
-
-            Operation::JMP => self.add_byte_code(application, &instruction.address_mode, &OPCODES_JMP),
-
-            Operation::JSR => self.add_byte_code(application, &instruction.address_mode, &OPCODES_JSR),
-
-            Operation::SEC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_SEC),
-
-            Operation::CLC => self.add_byte_code(application, &instruction.address_mode, &OPCODES_CLC),
-
-            Operation::RTS => self.add_byte_code(application, &instruction.address_mode, &OPCODES_RTS),
-
-            Operation::Raw(bytes) => {
+        match (&instruction.operation.definition(), &instruction.operation) {
+            (Some(definition), _) => {
+                self.add_byte_code(application, &instruction.address_mode, definition);
+            }
+            (None, Operation::Label(_)) => {
+                // Labels don't have bytes in the byte stream, they are only markers
+            }
+            (None, Operation::Raw(bytes)) => {
                 self.add_bytes(bytes);
             }
-            Operation::Label(_) => {
-                // Intentionally empty.
-            }
+
+            (_, _) => panic!(),
         }
     }
 
