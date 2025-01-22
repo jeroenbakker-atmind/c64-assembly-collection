@@ -1,5 +1,5 @@
 use c64_assembler_6502::{
-    instruction::{InstructionDef, *},
+    instruction::InstructionDef,
     opcodes::{NO_ZEROPAGE, NO_ZEROPAGE_X, NO_ZEROPAGE_Y},
 };
 
