@@ -11,3 +11,7 @@ edition = "2021"
 
 [dependencies]
 c64-assembler-6502 = {path="../c64-assembler-6502"}
+
+[dev-dependencies]
+c64-assembler-macro = {path="../c64-assembler-macro"}
+c64-assembler-6502 = {path="../c64-assembler-6502"}

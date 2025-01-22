@@ -3,7 +3,11 @@ use c64_assembler::{
         application::ApplicationBuilder, function::FunctionBuilder, instruction::InstructionBuilder,
         module::ModuleBuilder,
     },
-    generator::{dasm::DasmGenerator, program::ProgramGenerator, Generator},
+    generator::{
+        dasm::DasmGenerator,
+        program::{print_hexdump, ProgramGenerator},
+        Generator,
+    },
 };
 use c64_assembler_macro::function;
 use c64_colors::colors::Color;
@@ -193,21 +197,6 @@ pub fn engine_application() -> Vec<u8> {
     println!("{}", DasmGenerator::default().generate(application.clone()));
 
     let result = ProgramGenerator::default().generate(application);
-    let mut address = 0;
-    result.chunks(16).for_each(|chunk| {
-        let mut line = Vec::new();
-
-        line.push(format!("{:04X}: ", address));
-        address += 16;
-
-        chunk.chunks(4).for_each(|chunk| {
-            chunk.iter().for_each(|byte| {
-                line.push(format!("{:02X}", byte));
-            });
-            line.push("".to_string());
-        });
-        println!("{}", line.join(" ").trim_end());
-    });
-
+    print_hexdump(&result);
     result
 }

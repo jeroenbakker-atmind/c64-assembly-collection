@@ -157,3 +157,22 @@ impl ProgramGenerator {
         }
     }
 }
+
+/// Utility function to output the set of bytes into a hexdump kind of format to the console.
+pub fn print_hexdump(bytes: &[u8]) {
+    let mut address = 0;
+    bytes.chunks(16).for_each(|chunk| {
+        let mut line = Vec::new();
+
+        line.push(format!("{:04X}: ", address));
+        address += 16;
+
+        chunk.chunks(4).for_each(|chunk| {
+            chunk.iter().for_each(|byte| {
+                line.push(format!("{:02X}", byte));
+            });
+            line.push("".to_string());
+        });
+        println!("{}", line.join(" ").trim_end());
+    });
+}
