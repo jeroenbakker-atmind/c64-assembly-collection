@@ -63,4 +63,70 @@
 //! | TXS             | 0x9A        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
 //! | TYA             | 0x98        |               |                 |              |                |                |               |                 |                 |              |              |                |                |
 
-pub mod isa;
+pub mod instruction;
+pub mod opcodes;
+
+use instruction::InstructionDef;
+use opcodes::*;
+
+/// Return all instruction definitions inside the 6502 instruction set.
+pub fn isa_6502() -> Vec<InstructionDef> {
+    vec![
+        OPCODES_ADC,
+        OPCODES_AND,
+        OPCODES_ASL,
+        OPCODES_BCC,
+        OPCODES_BCS,
+        OPCODES_BEQ,
+        OPCODES_BIT,
+        OPCODES_BMI,
+        OPCODES_BNE,
+        OPCODES_BPL,
+        OPCODES_BRK,
+        OPCODES_BVC,
+        OPCODES_BVS,
+        OPCODES_CLD,
+        OPCODES_CLI,
+        OPCODES_CLV,
+        OPCODES_CMP,
+        OPCODES_CPX,
+        OPCODES_CPY,
+        OPCODES_DEC,
+        OPCODES_DEX,
+        OPCODES_DEY,
+        OPCODES_EOR,
+        OPCODES_INC,
+        OPCODES_INX,
+        OPCODES_INY,
+        OPCODES_LDX,
+        OPCODES_LSR,
+        OPCODES_NOP,
+        OPCODES_ORA,
+        OPCODES_PHA,
+        OPCODES_PHP,
+        OPCODES_PLA,
+        OPCODES_PLP,
+        OPCODES_ROL,
+        OPCODES_ROR,
+        OPCODES_RTI,
+        OPCODES_SBC,
+        OPCODES_SED,
+        OPCODES_SEI,
+        OPCODES_STX,
+        OPCODES_STY,
+        OPCODES_TAX,
+        OPCODES_TAY,
+        OPCODES_TSX,
+        OPCODES_TXA,
+        OPCODES_TXS,
+        OPCODES_TYA,
+        OPCODES_LDA,
+        OPCODES_LDY,
+        OPCODES_STA,
+        OPCODES_JMP,
+        OPCODES_JSR,
+        OPCODES_SEC,
+        OPCODES_CLC,
+        OPCODES_RTS,
+    ]
+}
