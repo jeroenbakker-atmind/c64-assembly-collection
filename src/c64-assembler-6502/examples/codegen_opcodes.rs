@@ -7,7 +7,10 @@ fn main() {
     fn format_opcode(result: &mut Vec<String>, instruction: &str, opcode: OpCode, post: &str) {
         if opcode != NO_IMPLIED {
             result.push(format!(
-                "const {}_{}:OpCode = 0x{:02x};",
+                "/// OpCode for the {} instruction in addressing mode {}
+pub const {}_{}:OpCode = 0x{:02x};",
+                instruction.to_string(),
+                post.to_lowercase(),
                 instruction.to_string().to_uppercase(),
                 post.to_string(),
                 opcode

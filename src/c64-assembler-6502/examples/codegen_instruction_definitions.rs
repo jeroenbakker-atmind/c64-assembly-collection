@@ -18,7 +18,11 @@ fn main() {
 
     fn format_opcodes(result: &mut Vec<String>, def: &InstructionDef) {
         let line = format!(
-            "pub const OPCODES_{0}:InstructionDef = InstructionDef {{
+            "
+/// Instruction definition for {1}
+/// 
+/// Includes the instruction name and its [OpCode] for a address mode. 
+pub const OPCODES_{0}:InstructionDef = InstructionDef {{
     instruction: \"{1}\",
     implied: {2},
     immediate: {3},

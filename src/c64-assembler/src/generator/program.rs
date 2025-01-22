@@ -1,4 +1,7 @@
-use c64_assembler_6502::{instruction::InstructionDef, opcodes::*};
+use c64_assembler_6502::{
+    instruction::{InstructionDef, *},
+    opcodes::{NO_ZEROPAGE, NO_ZEROPAGE_X, NO_ZEROPAGE_Y},
+};
 
 use crate::{
     builder::{application::Application, instruction::Instructions, module::Module},

@@ -66,8 +66,7 @@
 pub mod instruction;
 pub mod opcodes;
 
-use instruction::InstructionDef;
-use opcodes::*;
+use instruction::*;
 
 /// Return all instruction definitions inside the 6502 instruction set.
 pub fn isa_6502() -> Vec<InstructionDef> {
