@@ -62,6 +62,7 @@ pub fn engine_application() -> Vec<u8> {
                         .add_basic_header()
                         .label("main_entry_point")
                         .jsr_addr("engine__init")
+                        .jsr_addr("engine__frame__process")
                         .rts()
                         .build(),
                 )
@@ -94,6 +95,30 @@ pub fn engine_application() -> Vec<u8> {
                         )
                         .build(),
                 )
+                .function(function!(
+                name="engine__frame__process"
+                instructions!(
+                    jsr engine__commands_left__init
+                    lda #$2
+                    jsr engine__current_ptr__advance
+                engine__frame_commands__next:
+                    jsr engine__commands_left__is_zero
+                    bne engine__frame_command__process
+                engine__frame__exit:
+                    "All commands in frame have been processed."
+                    "Update VIC20 registries"
+                    "TODO: use shadow registries"
+                    "TODO: wait for vblank"
+                    jsr set_border_color__vblank
+                    rts
+
+                engine__frame_command__process:
+                    jsr set_border_color__process
+                    jsr engine__commands_left__decrease
+                    jmp engine__frame_commands__next
+
+                    )
+                ))
                 .build(),
         )
         .module(
