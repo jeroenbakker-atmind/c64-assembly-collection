@@ -211,10 +211,11 @@ pub fn engine_application() -> Vec<u8> {
         )
         .module(set_border_color)
         .module(engine_data)
-        .build();
-    println!("{}", DasmGenerator::default().generate(application.clone()));
+        .build()
+        .unwrap();
+    println!("{}", DasmGenerator::default().generate(application.clone()).unwrap());
 
-    let result = ProgramGenerator::default().generate(application);
+    let result = ProgramGenerator::default().generate(application).unwrap();
     print_hexdump(&result);
     result
 }

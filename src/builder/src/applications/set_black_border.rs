@@ -1,4 +1,4 @@
-use c64_assembler::generator::{print_hexdump, DasmGenerator, Generator, ProgramGenerator};
+use c64_assembler::generator::{Generator, ProgramGenerator};
 use c64_assembler_macro::application;
 
 pub fn set_black_border_application() -> Vec<u8> {
@@ -16,11 +16,8 @@ pub fn set_black_border_application() -> Vec<u8> {
                 rts
             )
         )
-    );
+    )
+    .unwrap();
 
-    println!("{}", DasmGenerator::default().generate(application.clone()));
-
-    let result = ProgramGenerator::default().generate(application);
-    print_hexdump(&result);
-    result
+    ProgramGenerator::default().generate(application).unwrap()
 }
