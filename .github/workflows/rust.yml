@@ -16,6 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+       submodules: true
+
     - name: Check formatting
       run: cargo fmt --check
     - name: Build
