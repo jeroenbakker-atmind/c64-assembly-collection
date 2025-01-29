@@ -1,13 +1,6 @@
 use c64_assembler::{
-    builder::{
-        application::ApplicationBuilder, function::FunctionBuilder, instruction::InstructionBuilder,
-        module::ModuleBuilder,
-    },
-    generator::{
-        dasm::DasmGenerator,
-        program::{print_hexdump, ProgramGenerator},
-        Generator,
-    },
+    builder::{ApplicationBuilder, FunctionBuilder, InstructionBuilder, ModuleBuilder},
+    generator::{print_hexdump, DasmGenerator, Generator, ProgramGenerator},
 };
 use c64_assembler_macro::function;
 use c64_colors::colors::Color;
@@ -20,8 +13,8 @@ pub fn engine_application() -> Vec<u8> {
 
     let engine_data = ModuleBuilder::default()
         .name("engine_data")
-        .instructions(InstructionBuilder::default().label("engine_data").raw(&data).finalize())
-        .finalize();
+        .instructions(InstructionBuilder::default().label("engine_data").raw(&data).build())
+        .build();
 
     let set_border_color = ModuleBuilder::default()
         .name("set_border_color")
@@ -36,9 +29,9 @@ pub fn engine_application() -> Vec<u8> {
                         .lda_imm(2)
                         .jsr_addr("engine__current_ptr__advance")
                         .rts()
-                        .finalize(),
+                        .build(),
                 )
-                .finalize(),
+                .build(),
         )
         .function(function!(
             name = "set_border_color__vblank",
@@ -53,14 +46,14 @@ pub fn engine_application() -> Vec<u8> {
                 .label("set_border_color__data")
                 .comment("Border color to set at the next vblank")
                 .raw(&[0x00])
-                .finalize(),
+                .build(),
         )
-        .finalize();
+        .build();
 
     let application = ApplicationBuilder::default()
         .name("Engine")
-        .add_vic20()
-        .define_zeropage("CURRENT_PTR", 0xFE)
+        .include_vic20_defines()
+        .define_address("CURRENT_PTR", 0xFE)
         .module(
             ModuleBuilder::default()
                 .name("main")
@@ -70,9 +63,9 @@ pub fn engine_application() -> Vec<u8> {
                         .label("main_entry_point")
                         .jsr_addr("engine__init")
                         .rts()
-                        .finalize(),
+                        .build(),
                 )
-                .finalize(),
+                .build(),
         )
         .module(
             ModuleBuilder::default()
@@ -97,11 +90,11 @@ pub fn engine_application() -> Vec<u8> {
                                 .comment("Number of frames is only needed when reading directly from disk.")
                                 .jsr_addr("engine__current_ptr__advance")
                                 .rts()
-                                .finalize(),
+                                .build(),
                         )
-                        .finalize(),
+                        .build(),
                 )
-                .finalize(),
+                .build(),
         )
         .module(
             ModuleBuilder::default()
@@ -124,11 +117,11 @@ pub fn engine_application() -> Vec<u8> {
                                 .adc_addr_offs("CURRENT_PTR", 1)
                                 .sta_addr_offs("CURRENT_PTR", 1)
                                 .rts()
-                                .finalize(),
+                                .build(),
                         )
-                        .finalize(),
+                        .build(),
                 )
-                .finalize(),
+                .build(),
         )
         .module(
             ModuleBuilder::default()
@@ -139,7 +132,7 @@ pub fn engine_application() -> Vec<u8> {
                         .comment("Number of commands left to process in the current frame.")
                         .comment("When 0 the frame is finished processing")
                         .raw(&[0x00; 2])
-                        .finalize(),
+                        .build(),
                 )
                 .function(
                     FunctionBuilder::default()
@@ -153,9 +146,9 @@ pub fn engine_application() -> Vec<u8> {
                                 .lda_ind_y("CURRENT_PTR")
                                 .sta_addr_offs("engine__commands_left", 1)
                                 .rts()
-                                .finalize(),
+                                .build(),
                         )
-                        .finalize(),
+                        .build(),
                 )
                 .function(
                     FunctionBuilder::default()
@@ -170,9 +163,9 @@ pub fn engine_application() -> Vec<u8> {
                                 .sbc_imm(0x00)
                                 .sta_addr_offs("engine__commands_left", 1)
                                 .rts()
-                                .finalize(),
+                                .build(),
                         )
-                        .finalize(),
+                        .build(),
                 )
                 .function(
                     FunctionBuilder::default()
@@ -185,15 +178,15 @@ pub fn engine_application() -> Vec<u8> {
                                 .cmp_addr_offs("engine__commands_left", 1)
                                 .label("engine__commands_left__is_zero__exit")
                                 .rts()
-                                .finalize(),
+                                .build(),
                         )
-                        .finalize(),
+                        .build(),
                 )
-                .finalize(),
+                .build(),
         )
         .module(set_border_color)
         .module(engine_data)
-        .finalize();
+        .build();
     println!("{}", DasmGenerator::default().generate(application.clone()));
 
     let result = ProgramGenerator::default().generate(application);

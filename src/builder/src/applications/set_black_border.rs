@@ -1,8 +1,4 @@
-use c64_assembler::generator::{
-    dasm::DasmGenerator,
-    program::{print_hexdump, ProgramGenerator},
-    Generator,
-};
+use c64_assembler::generator::{print_hexdump, DasmGenerator, Generator, ProgramGenerator};
 use c64_assembler_macro::application;
 
 pub fn set_black_border_application() -> Vec<u8> {
