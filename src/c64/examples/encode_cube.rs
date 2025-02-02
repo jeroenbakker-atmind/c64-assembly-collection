@@ -27,9 +27,8 @@ fn main() {
     }
 
     let mut unique = HashSet::<u64>::new();
-    for image in images {
-        println!("{} chars", image.count_unique());
+    for (index, image) in images.iter().enumerate() {
         unique.extend(image.chars.iter());
+        println!("{index}: unique_chars={}, tot={}", image.count_unique(), unique.len());
     }
-    println!("total {} chars", unique.len());
 }
