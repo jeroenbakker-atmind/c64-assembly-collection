@@ -3,6 +3,7 @@ bin/
 *.swp
 *.D64
 src/temp-*
+/resources
 
 # Added by cargo
 

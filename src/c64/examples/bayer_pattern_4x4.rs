@@ -20,5 +20,5 @@ fn main() {
         height: 100,
         buffer: colors,
     };
-    write_png("bayer_4x4.png", &bayer_image);
+    write_png("resources/bayer_4x4.png", &bayer_image);
 }
