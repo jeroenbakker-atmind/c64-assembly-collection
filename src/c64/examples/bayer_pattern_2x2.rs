@@ -3,7 +3,7 @@ use c64_colors::colors::SRGB;
 use c64_dithering::dithering::bayer::{Bayer2x2, DitherPattern};
 
 const WIDTH: usize = 1920;
-const HEIGHT:usize = 1080;
+const HEIGHT: usize = 1080;
 
 fn main() {
     let pattern = Bayer2x2 {};
