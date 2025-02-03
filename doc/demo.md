@@ -1,8 +1,19 @@
 # Goal
-
+## Look
 Main look is black and white using dithering
 result is 2x2 pixels (resolution = 160x100)
 on top of that painterly lines are drawn in purple color using sprites.
+
+## Act 1: Title
+
+lines draw the outline of a rect.
+rect starts to rotate 2d
+rect starts to rotate 3d
+flash => title.
+the words of the title are added one by one, where the letters. Cube is fixed in position
+fade from pure white to its regular color.
+Some purple lines are added to highlight some features
+
 
 rotating object (skull?) resizes none fluent motion.
 painterly lines highlights some features
