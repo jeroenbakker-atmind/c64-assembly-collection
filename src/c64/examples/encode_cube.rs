@@ -17,7 +17,7 @@ fn main() {
                 let sx = x / 2;
                 let sy = y / 2;
                 let c = image.get_pixel_color(sx, sy);
-                if c.r > 8 {
+                if c.r > 0x7F {
                     bit_char_image.set_pixel_color(x, y);
                 }
             }
