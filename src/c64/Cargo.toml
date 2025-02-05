@@ -13,6 +13,9 @@ c64-colors = {path="../c64-colors"}
 c64-dithering = {path="../c64-dithering"}
 c64-charset = {path="../c64-charset"}
 
+[dev-dependencies]
+c64-encoder = {path="../c64-encoder"}
+
 [lib]
 name="c64"
 path="src/lib.rs"

@@ -1,22 +1,26 @@
 use fill_video_memory::FillVideoMemory;
 use set_border_color::SetBorderColor;
 use set_palette4::SetPalette4;
+use update_chars::UpdateCharsU16Encoded;
 
 use crate::encoder::Encoder;
 
 pub mod fill_video_memory;
 pub mod set_border_color;
 pub mod set_palette4;
+pub mod update_chars;
 
 const FILL_VIDEO_MEMORY: u8 = 1;
 const SET_PALETTE4: u8 = 2;
 const SET_BORDER_COLOR: u8 = 3;
+const UPDATE_CHARS_U16: u8 = 16;
 
 #[derive(Debug, Clone)]
 pub enum Command {
     FillVideoMemory(FillVideoMemory),
     SetPalette4(SetPalette4),
     SetBorderColor(SetBorderColor),
+    UpdateCharsU16Encoded(UpdateCharsU16Encoded),
 }
 
 impl Encoder for Command {
@@ -25,6 +29,7 @@ impl Encoder for Command {
             Command::FillVideoMemory(fill_video_memory) => fill_video_memory.byte_size(),
             Command::SetPalette4(set_palette4) => set_palette4.byte_size(),
             Command::SetBorderColor(set_border_color) => set_border_color.byte_size(),
+            Command::UpdateCharsU16Encoded(update_chars) => update_chars.byte_size(),
         };
         command_size + size_of::<u8>()
     }
@@ -44,6 +49,11 @@ impl Encoder for Command {
             Command::SetBorderColor(set_border_color) => {
                 let mut encoded_data = SET_BORDER_COLOR.encode(encoded_data);
                 encoded_data = set_border_color.encode(encoded_data);
+                encoded_data
+            }
+            Command::UpdateCharsU16Encoded(update_chars) => {
+                let mut encoded_data = UPDATE_CHARS_U16.encode(encoded_data);
+                encoded_data = update_chars.encode(encoded_data);
                 encoded_data
             }
         }

@@ -4,7 +4,7 @@ use c64_colors::colors::{Color, SRGB};
 
 use super::Image;
 
-type BitEncodedChar = u64;
+pub type BitEncodedChar = u64;
 
 pub struct BitCharImage {
     pub chars: Vec<BitEncodedChar>,

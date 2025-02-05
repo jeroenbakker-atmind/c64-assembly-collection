@@ -2,14 +2,17 @@ use c64_colors::colors::Color;
 
 use crate::{
     command::{
-        fill_video_memory::FillVideoMemory, set_border_color::SetBorderColor, set_palette4::SetPalette4, Command,
+        fill_video_memory::FillVideoMemory, set_border_color::SetBorderColor, set_palette4::SetPalette4,
+        update_chars::UpdateCharsU16Encoded, Command,
     },
     encoder::{writer::Writer, Encoder},
 };
 
+pub type Commands = Vec<Command>;
+
 #[derive(Default, Clone)]
 pub struct FrameBuilder {
-    pub commands: Vec<Command>,
+    pub commands: Commands,
 }
 
 impl FrameBuilder {
@@ -29,6 +32,19 @@ impl FrameBuilder {
         self
     }
 
+    pub fn update_charmap_u16(&mut self, update_chars: UpdateCharsU16Encoded) -> &mut Self {
+        self.commands.push(Command::UpdateCharsU16Encoded(update_chars));
+        self
+    }
+
+    /// Extend the frame from commands.
+    ///
+    /// Used when pushing generated commands from a sub-builder to a frame.
+    pub fn extend(&mut self, commands: &[Command]) -> &mut Self {
+        self.commands.extend_from_slice(commands);
+        self
+    }
+
     pub fn build(&self) -> Self {
         self.clone()
     }
@@ -36,16 +52,25 @@ impl FrameBuilder {
 
 impl Encoder for FrameBuilder {
     fn byte_size(&self) -> usize {
-        self.commands.iter().map(Command::byte_size).sum::<usize>() + size_of::<u16>()
+        self.commands.byte_size() + size_of::<u16>()
     }
 
     fn encode<'a>(&self, encoded_data: &'a mut [u8]) -> &'a mut [u8] {
         let mut encoded_data = encoded_data.add(&(self.commands.len() as u16));
+        encoded_data = self.commands.encode(encoded_data);
+        encoded_data
+    }
+}
 
-        for frame in &self.commands {
-            encoded_data = frame.encode(encoded_data);
+impl Encoder for Commands {
+    fn byte_size(&self) -> usize {
+        self.iter().map(Command::byte_size).sum::<usize>()
+    }
+    fn encode<'a>(&self, encoded_data: &'a mut [u8]) -> &'a mut [u8] {
+        let mut encoded_data = encoded_data;
+        for command in self {
+            encoded_data = command.encode(encoded_data);
         }
-
         encoded_data
     }
 }
