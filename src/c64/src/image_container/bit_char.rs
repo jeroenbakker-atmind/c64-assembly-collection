@@ -51,8 +51,8 @@ impl BitCharImage {
     }
 
     fn get_bit_mask(&self, pixel_x: usize, pixel_y: usize) -> u64 {
-        let left_x = pixel_x % 8;
-        let left_y = pixel_y % 8;
+        let left_x = 7 - (pixel_x % 8);
+        let left_y = 7 - (pixel_y % 8);
         let bit_offset = left_y * 8 + left_x;
         1_u64 << bit_offset
     }
@@ -63,7 +63,7 @@ impl BitCharImage {
     }
 
     fn get_char_mut(&mut self, char_x: usize, char_y: usize) -> &mut BitEncodedChar {
-        let index = char_y * char_y + char_x;
+        let index = char_y * self.width + char_x;
         &mut self.chars[index]
     }
 

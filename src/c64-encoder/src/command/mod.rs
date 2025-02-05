@@ -2,6 +2,7 @@ use fill_video_memory::FillVideoMemory;
 use set_border_color::SetBorderColor;
 use set_palette4::SetPalette4;
 use update_chars::UpdateCharsU16Encoded;
+use update_text_mode_screen::UpdateTextModeScreen;
 
 use crate::encoder::Encoder;
 
@@ -9,11 +10,13 @@ pub mod fill_video_memory;
 pub mod set_border_color;
 pub mod set_palette4;
 pub mod update_chars;
+pub mod update_text_mode_screen;
 
-const FILL_VIDEO_MEMORY: u8 = 1;
-const SET_PALETTE4: u8 = 2;
-const SET_BORDER_COLOR: u8 = 3;
-const UPDATE_CHARS_U16: u8 = 16;
+pub const FILL_VIDEO_MEMORY: u8 = 1;
+pub const SET_PALETTE4: u8 = 2;
+pub const SET_BORDER_COLOR: u8 = 3;
+pub const UPDATE_CHARS_U16: u8 = 16;
+pub const UPDATE_TEXT_MODE_SCREEN: u8 = 32;
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -21,6 +24,7 @@ pub enum Command {
     SetPalette4(SetPalette4),
     SetBorderColor(SetBorderColor),
     UpdateCharsU16Encoded(UpdateCharsU16Encoded),
+    UpdateTextModeScreen(UpdateTextModeScreen),
 }
 
 impl Encoder for Command {
@@ -30,6 +34,7 @@ impl Encoder for Command {
             Command::SetPalette4(set_palette4) => set_palette4.byte_size(),
             Command::SetBorderColor(set_border_color) => set_border_color.byte_size(),
             Command::UpdateCharsU16Encoded(update_chars) => update_chars.byte_size(),
+            Command::UpdateTextModeScreen(update_text_mode_screen) => update_text_mode_screen.byte_size(),
         };
         command_size + size_of::<u8>()
     }
@@ -54,6 +59,11 @@ impl Encoder for Command {
             Command::UpdateCharsU16Encoded(update_chars) => {
                 let mut encoded_data = UPDATE_CHARS_U16.encode(encoded_data);
                 encoded_data = update_chars.encode(encoded_data);
+                encoded_data
+            }
+            Command::UpdateTextModeScreen(update_text_mode_screen) => {
+                let mut encoded_data = UPDATE_TEXT_MODE_SCREEN.encode(encoded_data);
+                encoded_data = update_text_mode_screen.encode(encoded_data);
                 encoded_data
             }
         }

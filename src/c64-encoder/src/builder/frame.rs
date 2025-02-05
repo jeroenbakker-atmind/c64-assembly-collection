@@ -3,7 +3,7 @@ use c64_colors::colors::Color;
 use crate::{
     command::{
         fill_video_memory::FillVideoMemory, set_border_color::SetBorderColor, set_palette4::SetPalette4,
-        update_chars::UpdateCharsU16Encoded, Command,
+        update_chars::UpdateCharsU16Encoded, update_text_mode_screen::UpdateTextModeScreen, Command,
     },
     encoder::{writer::Writer, Encoder},
 };
@@ -34,6 +34,11 @@ impl FrameBuilder {
 
     pub fn update_charmap_u16(&mut self, update_chars: UpdateCharsU16Encoded) -> &mut Self {
         self.commands.push(Command::UpdateCharsU16Encoded(update_chars));
+        self
+    }
+    pub fn update_text_mode_screen(&mut self, update_text_mode_screen: UpdateTextModeScreen) -> &mut Self {
+        self.commands
+            .push(Command::UpdateTextModeScreen(update_text_mode_screen));
         self
     }
 

@@ -5,11 +5,15 @@ use c64::{
         bit_char::{BitCharImage, BitEncodedChar},
         Image,
     },
-    image_io::read_png::read_png,
+    image_io::{read_png::read_png, write_png::write_png},
 };
 use c64_encoder::{
     builder::{demo::DemoBuilder, frame::FrameBuilder},
-    command::update_chars::{UpdateChar, UpdateCharsU16Encoded},
+    command::{
+        update_chars::{UpdateChar, UpdateCharsU16Encoded},
+        update_text_mode_screen::UpdateTextModeScreen,
+    },
+    evaluator::evaluate,
 };
 
 fn main() {
@@ -33,10 +37,10 @@ fn main() {
         images.push(bit_char_image);
     }
 
+    // Get all used chars */
     let mut unique = HashSet::<u64>::new();
-    for (index, image) in images.iter().enumerate() {
+    for image in images.iter() {
         unique.extend(image.chars.iter());
-        println!("{index}: unique_chars={}, tot={}", image.count_unique(), unique.len());
     }
 
     // Usages contains per encoded char which frames is using it. The list of frames is in sequential order.
@@ -122,25 +126,49 @@ fn main() {
         let frame_charmap = &charmap_per_frame[frame];
         let mut update_charmap = UpdateCharsU16Encoded::default();
         for (char_index, (current_char, frame_char)) in current_charmap.iter().zip(frame_charmap).enumerate() {
-            if current_char != frame_char {
+            if current_char != frame_char || frame == 1 {
                 update_charmap.chars.push(UpdateChar {
                     char: char_index as u8,
                     data: *frame_char,
                 });
             }
         }
-        if !update_charmap.chars.is_empty() {
-            println!("Frame: {frame}");
-            for update_char in &update_charmap.chars {
-                println!(" - {} => {}", update_char.char, update_char.data);
-            }
-        }
+
+        let image = &images[frame - 1];
+        let mut text_mode_screen = UpdateTextModeScreen::default();
+        let image_charcodes = image
+            .chars
+            .iter()
+            .map(|char_bits| {
+                for (charcode, charmap_bits) in frame_charmap.iter().enumerate() {
+                    if charmap_bits == char_bits {
+                        return charcode as u8;
+                    }
+                }
+                panic!()
+            })
+            .collect::<Vec<u8>>();
+        text_mode_screen
+            .chars
+            .iter_mut()
+            .zip(image_charcodes.iter())
+            .for_each(|(out_screen, in_char)| *out_screen = *in_char);
+
         let mut demo_frame = FrameBuilder::default();
         if !update_charmap.chars.is_empty() {
             demo_frame.update_charmap_u16(update_charmap);
         }
+        demo_frame.update_text_mode_screen(text_mode_screen);
         demo.frame(demo_frame);
     }
-    let bytes = demo.build();
-    println!("{:#?}", bytes);
+    let demo_bytes = demo.build();
+    println!("{:?}", demo_bytes);
+
+    let frame_states = evaluate(&demo_bytes);
+    for (index, frame_state) in frame_states.iter().enumerate() {
+        write_png(
+            format!("resources/render/debug.001.{:04}.png", index + 1).as_str(),
+            frame_state,
+        );
+    }
 }

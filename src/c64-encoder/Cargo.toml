@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 c64-colors={path="../c64-colors"}
+c64={path="../c64"}
