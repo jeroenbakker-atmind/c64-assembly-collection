@@ -167,8 +167,9 @@ fn main() {
     let frame_states = evaluate(&demo_bytes);
     for (index, frame_state) in frame_states.iter().enumerate() {
         write_png(
-            format!("resources/render/debug.001.{:04}.png", index + 1).as_str(),
+            format!("resources/render/debug.001.{:04}.png", index).as_str(),
             frame_state,
         );
     }
+    println!("size in bytes: {:?}", demo_bytes.len());
 }
