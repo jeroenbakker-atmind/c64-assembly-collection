@@ -6,6 +6,13 @@ pub trait DitherPattern {
     fn threshold(&self, pixel_x: usize, pixel_y: usize) -> u8;
 }
 
+pub struct Bayer1x1 {}
+impl DitherPattern for Bayer1x1 {
+    fn threshold(&self, _pixel_x: usize, _pixel_y: usize) -> u8 {
+        128
+    }
+}
+
 pub struct Bayer2x2 {}
 impl DitherPattern for Bayer2x2 {
     fn threshold(&self, pixel_x: usize, pixel_y: usize) -> u8 {

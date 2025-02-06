@@ -11,6 +11,12 @@ impl Default for UpdateTextModeScreen {
     }
 }
 
+impl UpdateTextModeScreen {
+    pub fn filled(char: u8) -> UpdateTextModeScreen {
+        UpdateTextModeScreen { chars: [char; 1000] }
+    }
+}
+
 impl Encoder for UpdateTextModeScreen {
     fn byte_size(&self) -> usize {
         1000

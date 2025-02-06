@@ -2,7 +2,7 @@ use state::State;
 
 use crate::{
     charmap::encoding::decode_char,
-    command::{UPDATE_CHARS_U16, UPDATE_TEXT_MODE_SCREEN},
+    command::{FILL_VIDEO_MEMORY, UPDATE_CHARS_U16, UPDATE_TEXT_MODE_SCREEN},
 };
 
 pub mod state;
@@ -33,7 +33,7 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                     let char = read_u8(demo_bytes, &mut current_ptr);
                     let encoded_char = read_u16(demo_bytes, &mut current_ptr);
                     let decoded_char = decode_char(encoded_char);
-                    println!("  char={char:03}, encoded={encoded_char:016b}, decoded={decoded_char:064b}");
+                    println!("  char={char:02X}, encoded={encoded_char:016b}, decoded={decoded_char:064b}");
                     state.charmap.chars[char as usize] = decoded_char;
                 }
             } else if command_type == UPDATE_TEXT_MODE_SCREEN {
@@ -42,11 +42,16 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                 for y in 0..25 {
                     for x in 0..40 {
                         let char = read_u8(demo_bytes, &mut current_ptr);
-                        print!("{:02x}", char);
+                        print!("{char:02X}");
                         state.text_screen.bytes[y * 40 + x] = char;
                     }
                     println!("");
                 }
+            } else if command_type == FILL_VIDEO_MEMORY {
+                println!(" command=UpdateTextModeScreen");
+                let char = read_u8(demo_bytes, &mut current_ptr);
+                println!(" byte={char:02X}");
+                state.text_screen.bytes = [char; 1000];
             } else {
                 panic!("detected an not implemented command type {command_type}");
             }

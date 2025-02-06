@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use c64::{
-    image_container::bit_char::BitEncodedChar,
+    image_container::bit_char::{BitCharImage, BitEncodedChar},
     image_converter::{DitheredText, ImageConverter},
     image_io::{read_png::read_png, write_png::write_png},
 };
@@ -83,7 +83,8 @@ fn main() {
     }
     assert!(
         result.len() <= 256,
-        "More characters needed for (animation vs algorithm)"
+        "More characters needed for (animation vs algorithm): needed={}",
+        result.len()
     );
 
     // dilate the results.
@@ -124,31 +125,22 @@ fn main() {
             }
         }
 
-        let image = &images[frame - 1];
-        let mut text_mode_screen = UpdateTextModeScreen::default();
-        let image_charcodes = image
-            .chars
-            .iter()
-            .map(|char_bits| {
-                for (charcode, charmap_bits) in frame_charmap.iter().enumerate() {
-                    if charmap_bits == char_bits {
-                        return charcode as u8;
-                    }
-                }
-                panic!()
-            })
-            .collect::<Vec<u8>>();
-        text_mode_screen
-            .chars
-            .iter_mut()
-            .zip(image_charcodes.iter())
-            .for_each(|(out_screen, in_char)| *out_screen = *in_char);
-
         let mut demo_frame = FrameBuilder::default();
         if !update_charmap.chars.is_empty() {
             demo_frame.update_charmap_u16(update_charmap);
         }
-        demo_frame.update_text_mode_screen(text_mode_screen);
+
+        let image = &images[frame - 1];
+        let text_mode_screen = create_text_mode_screen(image, &frame_charmap);
+        let previous_text_mode_screen = if frame > 1 {
+            let previous_image = &images[frame - 2];
+            create_text_mode_screen(previous_image, &frame_charmap)
+        } else {
+            // TODO: find most used char in text_mode_screen.
+            demo_frame.fill_video_memory(2);
+            UpdateTextModeScreen::filled(2)
+        };
+        choose_best_text_mode_update(&mut demo_frame, &previous_text_mode_screen, &text_mode_screen);
         demo.frame(demo_frame);
     }
     let demo_bytes = demo.build();
@@ -162,4 +154,37 @@ fn main() {
         );
     }
     println!("size in bytes: {:?}", demo_bytes.len());
+}
+
+fn create_text_mode_screen(image: &BitCharImage, charmap: &[u64]) -> UpdateTextModeScreen {
+    let mut text_mode_screen = UpdateTextModeScreen::default();
+    let image_charcodes = image
+        .chars
+        .iter()
+        .map(|char_bits| {
+            for (charcode, charmap_bits) in charmap.iter().enumerate() {
+                if charmap_bits == char_bits {
+                    return charcode as u8;
+                }
+            }
+            panic!()
+        })
+        .collect::<Vec<u8>>();
+    text_mode_screen
+        .chars
+        .iter_mut()
+        .zip(image_charcodes.iter())
+        .for_each(|(out_screen, in_char)| *out_screen = *in_char);
+
+    text_mode_screen
+}
+
+/// Find best algorithm to transition from previous_text_mode_screen to text_mode_screen.
+/// By testing the number of bytes needed for several algorithms. The smallest will be chosen.
+fn choose_best_text_mode_update(
+    demo_frame: &mut FrameBuilder,
+    _from_screen: &UpdateTextModeScreen,
+    to_screen: &UpdateTextModeScreen,
+) {
+    demo_frame.update_text_mode_screen(to_screen.clone());
 }
