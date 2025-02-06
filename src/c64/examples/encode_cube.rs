@@ -11,6 +11,7 @@ use c64_encoder::{
         update_chars::{UpdateChar, UpdateCharsU16Encoded},
         update_text_mode_screen::UpdateTextModeScreen,
     },
+    encoder::Encoder,
     evaluator::evaluate,
 };
 
@@ -183,8 +184,15 @@ fn create_text_mode_screen(image: &BitCharImage, charmap: &[u64]) -> UpdateTextM
 /// By testing the number of bytes needed for several algorithms. The smallest will be chosen.
 fn choose_best_text_mode_update(
     demo_frame: &mut FrameBuilder,
-    _from_screen: &UpdateTextModeScreen,
+    from_screen: &UpdateTextModeScreen,
     to_screen: &UpdateTextModeScreen,
 ) {
+    // Early exit, when both screens are identical we don't need to do anything.
+    if to_screen.chars == from_screen.chars {
+        return;
+    }
+    // Fallback to update full screen. Hopefully we never select this one.
+    let _full_update_byte_len = to_screen.byte_size();
+
     demo_frame.update_text_mode_screen(to_screen.clone());
 }
