@@ -1,10 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use c64::{
-    image_container::{
-        bit_char::{BitCharImage, BitEncodedChar},
-        Image,
-    },
+    image_container::bit_char::BitEncodedChar,
+    image_converter::{DitheredText, ImageConverter},
     image_io::{read_png::read_png, write_png::write_png},
 };
 use c64_encoder::{
@@ -17,23 +15,11 @@ use c64_encoder::{
 };
 
 fn main() {
+    /* Load images into an image list. */
     let mut images = vec![];
     for image_number in 1..=100 {
         let image = read_png(format!("resources/render/001/{image_number:04}.png").as_str());
-        // convert to BitCharImageContainer each char is encoded in a single u64
-        let mut bit_char_image = BitCharImage::new(320 / 8, 200 / 8);
-
-        for y in 0..200 {
-            for x in 0..320 {
-                let sx = x / 2;
-                let sy = y / 2;
-                let c = image.get_pixel_color(sx, sy);
-                if c.r > 0x7F {
-                    bit_char_image.set_pixel_color(x, y);
-                }
-            }
-        }
-
+        let bit_char_image = DitheredText {}.convert(&image);
         images.push(bit_char_image);
     }
 
@@ -95,6 +81,10 @@ fn main() {
             location.get_mut(frame + 1).map(|slot| *slot = Some(key));
         }
     }
+    assert!(
+        result.len() <= 256,
+        "More characters needed for (animation vs algorithm)"
+    );
 
     // dilate the results.
     // Ensures all slots are filled, and ensures the first slot is not filled.
