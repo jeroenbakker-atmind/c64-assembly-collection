@@ -2,7 +2,7 @@ use state::State;
 
 use crate::{
     charmap::encoding::decode_char,
-    command::{FILL_VIDEO_MEMORY, UPDATE_CHARS_U16, UPDATE_TEXT_MODE_SCREEN},
+    command::{FILL_VIDEO_MEMORY, PARTIAL_UPDATE_TEXT_MODE_SCREEN, UPDATE_CHARS_U16, UPDATE_TEXT_MODE_SCREEN},
 };
 
 pub mod state;
@@ -46,6 +46,16 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                         state.text_screen.bytes[y * 40 + x] = char;
                     }
                     println!("");
+                }
+            } else if command_type == PARTIAL_UPDATE_TEXT_MODE_SCREEN {
+                println!(" command=PartialUpdateTextModeScreen");
+                let num_changes = read_u16(demo_bytes, &mut current_ptr);
+                println!(" num_changes={num_changes}");
+                for _ in 0..num_changes {
+                    let offset = read_u16(demo_bytes, &mut current_ptr);
+                    let char = read_u8(demo_bytes, &mut current_ptr);
+                    println!("  offset={offset}, char={char:02X}");
+                    state.text_screen.bytes[offset as usize] = char;
                 }
             } else if command_type == FILL_VIDEO_MEMORY {
                 println!(" command=UpdateTextModeScreen");

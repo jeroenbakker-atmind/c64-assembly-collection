@@ -8,8 +8,10 @@ use c64::{
 use c64_encoder::{
     builder::{demo::DemoBuilder, frame::FrameBuilder},
     command::{
+        partial_update_text_mode::PartialUpdateTextModeScreen,
         update_chars::{UpdateChar, UpdateCharsU16Encoded},
         update_text_mode_screen::UpdateTextModeScreen,
+        Command,
     },
     encoder::Encoder,
     evaluator::evaluate,
@@ -187,12 +189,31 @@ fn choose_best_text_mode_update(
     from_screen: &UpdateTextModeScreen,
     to_screen: &UpdateTextModeScreen,
 ) {
-    // Early exit, when both screens are identical we don't need to do anything.
-    if to_screen.chars == from_screen.chars {
-        return;
-    }
-    // Fallback to update full screen. Hopefully we never select this one.
-    let _full_update_byte_len = to_screen.byte_size();
+    let mut best_commands;
+    let mut best_byte_size;
 
-    demo_frame.update_text_mode_screen(to_screen.clone());
+    // Algorithm: Full update of the text mode screen.
+    best_commands = vec![Command::UpdateTextModeScreen(to_screen.clone())];
+    best_byte_size = best_commands[0].byte_size();
+
+    // Algorithm: In case both screens are identical there is nothing to do.
+    if to_screen.chars == from_screen.chars {
+        best_commands = vec![];
+        best_byte_size = 0;
+    }
+
+    // Algorithm: Partial update, one char at a time.
+    let partial_update = Command::PartialUpdateTextModeScreen(PartialUpdateTextModeScreen::transition(
+        &from_screen.chars,
+        &to_screen.chars,
+    ));
+    let partial_update_byte_size = partial_update.byte_size();
+    if partial_update_byte_size < best_byte_size {
+        best_commands = vec![partial_update];
+        best_byte_size = partial_update_byte_size;
+    }
+    // Algorithm: Check partial transition using run length encoding. Multiple bytes can be skipped, and multiple bytes can be written.
+    // Algorithm: Check full update using run length encoding. with a clear.
+
+    demo_frame.extend(&best_commands);
 }

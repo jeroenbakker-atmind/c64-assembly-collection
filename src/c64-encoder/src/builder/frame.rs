@@ -50,6 +50,12 @@ impl FrameBuilder {
         self
     }
 
+    /// Add the given command at the end of the command list.
+    pub fn push(&mut self, command: Command) -> &mut Self {
+        self.commands.push(command);
+        self
+    }
+
     pub fn build(&self) -> Self {
         self.clone()
     }
