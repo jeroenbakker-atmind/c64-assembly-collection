@@ -134,7 +134,7 @@ fn main() {
         }
 
         let image = &images[frame - 1];
-        let text_mode_screen = create_text_mode_screen(image, &frame_charmap);
+        let text_mode_screen: UpdateTextModeScreen = create_text_mode_screen(image, &frame_charmap);
         let previous_text_mode_screen = if frame > 1 {
             let previous_image = &images[frame - 2];
             create_text_mode_screen(previous_image, &frame_charmap)
@@ -184,6 +184,8 @@ fn create_text_mode_screen(image: &BitCharImage, charmap: &[u64]) -> UpdateTextM
 
 /// Find best algorithm to transition from previous_text_mode_screen to text_mode_screen.
 /// By testing the number of bytes needed for several algorithms. The smallest will be chosen.
+///
+/// Something similar could also be created for charmaps.
 fn choose_best_text_mode_update(
     demo_frame: &mut FrameBuilder,
     from_screen: &UpdateTextModeScreen,
