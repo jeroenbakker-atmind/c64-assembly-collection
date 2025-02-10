@@ -11,8 +11,11 @@ use c64::{
 use c64_encoder::{
     builder::{demo::DemoBuilder, frame::FrameBuilder},
     command::{
+        clear_screen_chars::ClearScreenChars,
         partial_update_text_mode::PartialUpdateTextModeScreen,
         update_chars::{UpdateChar, UpdateCharsU16Encoded},
+        update_chars_ranged::{UpdateCharRanged, UpdateCharsRangedU16Encoded},
+        update_screen_chars_rle::UpdateScreenCharsRLE,
         update_text_mode_screen::UpdateTextModeScreen,
         Command,
     },
@@ -54,7 +57,7 @@ fn main() {
     assert!(best_solution_size != usize::MAX, "No solution found");
 
     let demo_bytes = best_solution.build();
-    println!("{:?}", demo_bytes);
+    //println!("{:?}", demo_bytes);
 
     let frame_states = evaluate(&demo_bytes);
     for (index, frame_state) in frame_states.iter().enumerate() {
@@ -71,38 +74,135 @@ fn main() {
 ///
 /// Something similar could also be created for charmaps.
 fn choose_best_text_mode_update(
-    demo_frame: &mut FrameBuilder,
-    from_screen: &UpdateTextModeScreen,
-    to_screen: &UpdateTextModeScreen,
-) {
+    from_screen: &[u8; 1000],
+    to_screen: &[u8; 1000],
+    allow_partial_updates: bool,
+    allow_clear_and_update: bool,
+) -> (Vec<Command>, usize) {
     let mut best_commands;
     let mut best_byte_size;
 
     // Algorithm: Full update of the text mode screen.
-    best_commands = vec![Command::UpdateTextModeScreen(to_screen.clone())];
-    best_byte_size = best_commands[0].byte_size();
+    best_commands = vec![Command::UpdateTextModeScreen(UpdateTextModeScreen {
+        chars: to_screen.clone(),
+    })];
+    best_byte_size = byte_size(&best_commands);
 
-    // Algorithm: In case both screens are identical there is nothing to do.
-    if to_screen.chars == from_screen.chars {
-        best_commands = vec![];
-        best_byte_size = 0;
+    if allow_clear_and_update {
+        let mut screen_char_count = HashMap::<u8, usize>::new();
+        for screen_char in to_screen {
+            *(screen_char_count.entry(*screen_char).or_default()) += 1;
+        }
+        let max_occurence = screen_char_count.iter().max_by_key(|(_k, v)| **v).unwrap();
+        let clear_screen = [*max_occurence.0; 1000];
+        let (mut clear_and_update, _clear_byte_size) =
+            choose_best_text_mode_update(&clear_screen, to_screen, true, false);
+
+        clear_and_update.insert(
+            0,
+            Command::FillVideoMemory(ClearScreenChars {
+                screen_char: *max_occurence.0,
+            }),
+        );
+        let clear_byte_size = byte_size(&clear_and_update);
+
+        if clear_byte_size < best_byte_size {
+            best_commands = clear_and_update;
+            best_byte_size = clear_byte_size;
+        }
     }
 
-    // Algorithm: Partial update, one char at a time.
-    let partial_update = Command::PartialUpdateTextModeScreen(PartialUpdateTextModeScreen::transition(
-        &from_screen.chars,
-        &to_screen.chars,
-    ));
-    let partial_update_byte_size = partial_update.byte_size();
-    if partial_update_byte_size < best_byte_size {
-        best_commands = vec![partial_update];
-        best_byte_size = partial_update_byte_size;
-    }
-    // Algorithm: Use rle for subsequential updates including small gabs of 2 pixels, and one char at a time for the rest.
-    // Algorithm: Check partial transition using run length encoding. Multiple bytes can be skipped, and multiple bytes can be written.
-    // Algorithm: Check full update using run length encoding. with a clear.
+    if allow_partial_updates {
+        // Algorithm: In case both screens are identical there is nothing to do.
+        if to_screen == from_screen {
+            best_commands = vec![];
+            best_byte_size = byte_size(&best_commands);
+        }
 
-    demo_frame.extend(&best_commands);
+        // Algorithm: Partial update, one char at a time.
+        {
+            let partial_update = vec![Command::PartialUpdateTextModeScreen(
+                PartialUpdateTextModeScreen::transition(from_screen, to_screen),
+            )];
+            let partial_update_byte_size = byte_size(&partial_update);
+            if partial_update_byte_size < best_byte_size {
+                best_commands = partial_update;
+                best_byte_size = partial_update_byte_size;
+            }
+        }
+        // Algorithm: Use rle for subsequential updates including small gabs of 2 pixels, and one char at a time for the rest.
+        {
+            let update_screen_chars_rle = vec![Command::UpdateScreenCharsRLE(UpdateScreenCharsRLE::transition(
+                from_screen,
+                to_screen,
+            ))];
+            let update_screen_chars_rle_byte_size = byte_size(&update_screen_chars_rle);
+            if update_screen_chars_rle_byte_size < best_byte_size {
+                best_commands = update_screen_chars_rle;
+                best_byte_size = update_screen_chars_rle_byte_size;
+            }
+        }
+
+        // Algorithm: Check partial transition using run length encoding. Multiple bytes can be skipped, and multiple bytes can be written.
+        // Algorithm: Check full update using run length encoding. with a clear.
+    }
+    (best_commands, best_byte_size)
+}
+
+fn choose_best_charset_update(
+    from_charset: &[u64],
+    to_charset: &[u64],
+    allow_partial_updates: bool,
+    _allow_clear_and_update: bool,
+) -> (Vec<Command>, usize) {
+    let mut best_commands = vec![];
+    let mut best_byte_size = usize::MAX;
+
+    // Early exit when no update is needed.
+    if from_charset == to_charset {
+        return (vec![], 0);
+    }
+
+    // Full range update
+    {
+        let update_chars_ranged = vec![Command::UpdateCharsRangedU16Encoded(UpdateCharsRangedU16Encoded {
+            offset: 0,
+            chars: to_charset
+                .iter()
+                .map(|char| UpdateCharRanged { data: *char })
+                .collect::<Vec<UpdateCharRanged>>(),
+        })];
+        let update_chars_ranged_byte_size = byte_size(&update_chars_ranged);
+
+        if update_chars_ranged_byte_size < best_byte_size {
+            best_commands = update_chars_ranged;
+            best_byte_size = update_chars_ranged_byte_size;
+        }
+    }
+
+    if allow_partial_updates {
+        let update_chars = vec![Command::UpdateCharsU16Encoded(UpdateCharsU16Encoded {
+            chars: to_charset
+                .iter()
+                .enumerate()
+                .filter(|(index, to_screen_char)| from_charset[*index] != **to_screen_char)
+                .map(|(screen_char, char)| UpdateChar {
+                    char: screen_char as u8,
+                    data: *char,
+                })
+                .collect::<Vec<UpdateChar>>(),
+        })];
+        let update_chars_byte_size = byte_size(&update_chars);
+        if update_chars_byte_size < best_byte_size {
+            best_commands = update_chars;
+            best_byte_size = update_chars_byte_size;
+        }
+    }
+
+    (best_commands, best_byte_size)
+}
+fn byte_size(commands: &[Command]) -> usize {
+    commands.iter().map(|c| c.byte_size()).sum::<usize>()
 }
 
 enum Strategy {
@@ -183,10 +283,7 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
         for (loc, frame_slots) in inner_result.iter().enumerate() {
             let mut loc_possible = true;
             for frame in frames {
-                if matches!(frame_slots.get(frame - 1), Some(Some(_bit_char)))
-                    || matches!(frame_slots.get(*frame), Some(Some(_bit_char)))
-                    || matches!(frame_slots.get(frame + 1), Some(Some(_bit_char)))
-                {
+                if matches!(frame_slots.get(*frame), Some(Some(_bit_char))) {
                     loc_possible = false;
                 }
             }
@@ -203,9 +300,7 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
             inner_result.last_mut().unwrap()
         };
         for frame in frames {
-            location.get_mut(frame - 1).map(|slot| *slot = Some(key));
             location.get_mut(*frame).map(|slot| *slot = Some(key));
-            location.get_mut(frame + 1).map(|slot| *slot = Some(key));
         }
     }
     assert!(
@@ -238,34 +333,26 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
 
     // Extract the changes in the char map per frame.
     for frame in 1..=100 {
-        let current_charmap = &charmap_per_frame[frame - 1];
-        let frame_charmap = &charmap_per_frame[frame];
-        let mut update_charmap = UpdateCharsU16Encoded::default();
-        for (char_index, (current_char, frame_char)) in current_charmap.iter().zip(frame_charmap).enumerate() {
-            if current_char != frame_char || frame == 1 {
-                update_charmap.chars.push(UpdateChar {
-                    char: char_index as u8,
-                    data: *frame_char,
-                });
-            }
-        }
+        let from_charset = &charmap_per_frame[frame - 1];
+        let to_charset = &charmap_per_frame[frame];
+        let (best_charmap_commands, _best_charmap_size) =
+            choose_best_charset_update(&from_charset, &to_charset, frame != 1, false);
 
         let mut demo_frame = FrameBuilder::default();
-        if !update_charmap.chars.is_empty() {
-            demo_frame.update_charmap_u16(update_charmap);
-        }
+        demo_frame.extend(&best_charmap_commands);
 
         let image = &images[frame - 1];
-        let text_mode_screen: UpdateTextModeScreen = create_text_mode_screen(image, &frame_charmap);
+        let text_mode_screen: UpdateTextModeScreen = create_text_mode_screen(image, &to_charset);
         let previous_text_mode_screen = if frame > 1 {
             let previous_image = &images[frame - 2];
-            create_text_mode_screen(previous_image, &frame_charmap)
+            create_text_mode_screen(previous_image, &from_charset)
         } else {
             // TODO: find most used char in text_mode_screen.
-            demo_frame.fill_video_memory(2);
-            UpdateTextModeScreen::filled(2)
+            UpdateTextModeScreen::filled(0xFF)
         };
-        choose_best_text_mode_update(&mut demo_frame, &previous_text_mode_screen, &text_mode_screen);
+        demo_frame.extend(
+            &choose_best_text_mode_update(&previous_text_mode_screen.chars, &text_mode_screen.chars, true, true).0,
+        );
         result.push(demo_frame);
     }
     result
@@ -324,30 +411,19 @@ fn build_frames_static_with_dynamic_charset(images: &ImageSequence<BitCharImage>
             dynamic_screen_char += 1;
             screen_char
         };
-        text_screen.bytes[offset] = screen_char;
+        text_screen.screen_chars[offset] = screen_char;
     }
 
-    // TODO: determine best update command
-    let text_screen_command = Command::UpdateTextModeScreen(UpdateTextModeScreen {
-        chars: text_screen.bytes,
-    });
-    let update_charmap_command = Command::UpdateCharsU16Encoded(UpdateCharsU16Encoded {
-        chars: charmap
-            .iter()
-            .enumerate()
-            .map(|(screen_char, char)| UpdateChar {
-                char: screen_char as u8,
-                data: *char,
-            })
-            .collect::<Vec<UpdateChar>>(),
-    });
+    let text_screen_commands =
+        choose_best_text_mode_update(&text_screen.screen_chars, &text_screen.screen_chars, false, true).0;
+    let update_charmap_commands = choose_best_charset_update(&charmap, &charmap, false, true).0;
 
     for (index, image) in images.iter().enumerate() {
         let mut frame_builder = FrameBuilder::default();
         let frame = index + 1;
         if frame == 1 {
-            frame_builder.push(update_charmap_command.clone());
-            frame_builder.push(text_screen_command.clone());
+            frame_builder.extend(&update_charmap_commands);
+            frame_builder.extend(&text_screen_commands);
         } else {
             let mut char_updates = vec![];
             for (offset, char) in image.chars.iter().enumerate() {
@@ -362,7 +438,7 @@ fn build_frames_static_with_dynamic_charset(images: &ImageSequence<BitCharImage>
                 }
 
                 char_updates.push(UpdateChar {
-                    char: text_screen.bytes[offset],
+                    char: text_screen.screen_chars[offset],
                     data: *char,
                 });
             }

@@ -17,6 +17,7 @@
   - [ ] Screen RLE decoding can skip (for the background) add a number of static chars (includes an array of static chars) or add a number of dynamic chars (screen char is last used dynamic screen char + 1)
 - [ ] When number of dynamic screen chars don't fit, they they need to be changed in time.
 - [ ] LHZ encoding/decoding?
+- [ ] Autodetect repeating frames and automatically add a loop? Perhaps not this should be done when building the demo.
 
 ## Areas of investigation
 

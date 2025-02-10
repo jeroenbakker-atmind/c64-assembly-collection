@@ -2,7 +2,7 @@ use c64_colors::colors::Color;
 
 use crate::{
     command::{
-        fill_video_memory::FillVideoMemory, set_border_color::SetBorderColor, set_palette4::SetPalette4,
+        clear_screen_chars::ClearScreenChars, set_border_color::SetBorderColor, set_palette4::SetPalette4,
         update_chars::UpdateCharsU16Encoded, update_text_mode_screen::UpdateTextModeScreen, Command,
     },
     encoder::{writer::Writer, Encoder},
@@ -22,8 +22,9 @@ impl FrameBuilder {
     }
 
     pub fn fill_video_memory(&mut self, pixel_data: u8) -> &mut Self {
-        self.commands
-            .push(Command::FillVideoMemory(FillVideoMemory { pixel_data }));
+        self.commands.push(Command::FillVideoMemory(ClearScreenChars {
+            screen_char: pixel_data,
+        }));
         self
     }
 

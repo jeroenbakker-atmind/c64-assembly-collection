@@ -1,16 +1,16 @@
 use crate::encoder::{writer::Writer, Encoder};
 
-#[derive(Copy, Clone, Debug)]
-pub struct FillVideoMemory {
-    pub pixel_data: u8,
+#[derive(Copy, Clone, Debug, Default)]
+pub struct ClearScreenChars {
+    pub screen_char: u8,
 }
 
-impl Encoder for FillVideoMemory {
+impl Encoder for ClearScreenChars {
     fn byte_size(&self) -> usize {
         size_of::<u8>()
     }
 
     fn encode<'a>(&self, encoded_data: &'a mut [u8]) -> &'a mut [u8] {
-        encoded_data.add(&self.pixel_data)
+        encoded_data.add(&self.screen_char)
     }
 }

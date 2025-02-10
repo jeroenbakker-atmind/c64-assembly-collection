@@ -6,14 +6,14 @@ use crate::{
 #[derive(Default, Debug, Clone)]
 pub struct UpdateCharsRangedU16Encoded {
     pub offset: u8,
-    pub chars: Vec<UpdateChar>,
+    pub chars: Vec<UpdateCharRanged>,
 }
 #[derive(Default, Debug, Copy, Clone)]
-pub struct UpdateChar {
+pub struct UpdateCharRanged {
     pub data: u64,
 }
 
-impl Encoder for UpdateChar {
+impl Encoder for UpdateCharRanged {
     fn byte_size(&self) -> usize {
         2
     }
@@ -29,7 +29,7 @@ impl Encoder for UpdateChar {
 
 impl Encoder for UpdateCharsRangedU16Encoded {
     fn byte_size(&self) -> usize {
-        1 + 1 + self.chars.len() * UpdateChar::default().byte_size()
+        1 + 1 + self.chars.len() * UpdateCharRanged::default().byte_size()
     }
 
     fn encode<'a>(&self, encoded_data: &'a mut [u8]) -> &'a mut [u8] {

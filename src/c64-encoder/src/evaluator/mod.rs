@@ -2,7 +2,14 @@ use state::State;
 
 use crate::{
     charmap::encoding::decode_char,
-    command::{FILL_VIDEO_MEMORY, PARTIAL_UPDATE_TEXT_MODE_SCREEN, UPDATE_CHARS_U16, UPDATE_TEXT_MODE_SCREEN},
+    command::{
+        update_screen_chars_rle::{
+            RLE_MASK_AUTO_INCREMENT, RLE_MASK_BITS, RLE_MASK_SKIP_VALUES, RLE_MASK_UPDATE_VALUES,
+            RLE_MASK_UPDATE_WITH_SINGLE_VALUE,
+        },
+        CLEAR_SCREEN_CHAR, PARTIAL_UPDATE_TEXT_MODE_SCREEN, UPDATE_CHARS_RANGED_U16, UPDATE_CHARS_U16,
+        UPDATE_SCREEN_CHARS_RLE, UPDATE_TEXT_MODE_SCREEN,
+    },
 };
 
 pub mod state;
@@ -21,6 +28,7 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
         println!("decoding frame={frame}");
         let num_commands = read_u16(demo_bytes, &mut current_ptr);
         println!(" num_commands={num_commands}");
+        state.reset();
         for command_index in 1..=num_commands {
             println!("decoding command={frame}.{command_index}");
             let command_type = read_u8(demo_bytes, &mut current_ptr);
@@ -34,7 +42,20 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                     let encoded_char = read_u16(demo_bytes, &mut current_ptr);
                     let decoded_char = decode_char(encoded_char);
                     println!("  char={char:02X}, encoded={encoded_char:016b}, decoded={decoded_char:064b}");
-                    state.charmap.chars[char as usize] = decoded_char;
+                    state.charset.update_char(char, decoded_char);
+                }
+            } else if command_type == UPDATE_CHARS_RANGED_U16 {
+                println!(" command=UpdateCharsRangedU16Encoded");
+                let num_chars = read_u8(demo_bytes, &mut current_ptr);
+                let offset = read_u8(demo_bytes, &mut current_ptr);
+                println!(" offset={offset}");
+                println!(" num_chars={num_chars}");
+                for char_index in 0..num_chars {
+                    let char = offset + char_index;
+                    let encoded_char = read_u16(demo_bytes, &mut current_ptr);
+                    let decoded_char = decode_char(encoded_char);
+                    println!("  char={char:02X}, encoded={encoded_char:016b}, decoded={decoded_char:064b}");
+                    state.charset.update_char(char, decoded_char);
                 }
             } else if command_type == UPDATE_TEXT_MODE_SCREEN {
                 println!(" command=UpdateTextModeScreen");
@@ -43,7 +64,7 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                     for x in 0..40 {
                         let char = read_u8(demo_bytes, &mut current_ptr);
                         print!("{char:02X}");
-                        state.text_screen.bytes[y * 40 + x] = char;
+                        state.text_screen.screen_chars[y * 40 + x] = char;
                     }
                     println!("");
                 }
@@ -55,17 +76,65 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                     let offset = read_u16(demo_bytes, &mut current_ptr);
                     let char = read_u8(demo_bytes, &mut current_ptr);
                     println!("  offset={offset}, char={char:02X}");
-                    state.text_screen.bytes[offset as usize] = char;
+                    state.text_screen.screen_chars[offset as usize] = char;
                 }
-            } else if command_type == FILL_VIDEO_MEMORY {
-                println!(" command=UpdateTextModeScreen");
+            } else if command_type == UPDATE_SCREEN_CHARS_RLE {
+                println!(" command=UpdateScreenCharsRLE");
+                let num_packets = read_u8(demo_bytes, &mut current_ptr);
+                println!(" num_packets={num_packets:03}");
+                let mut offset = 0;
+                for packet_number in 0..num_packets {
+                    let header = read_u8(demo_bytes, &mut current_ptr);
+                    let command_mask = header & RLE_MASK_BITS;
+                    let num_screen_chars = header - command_mask;
+                    print!("  packet={packet_number:03}, num_screen_chars={num_screen_chars:02}");
+                    match command_mask {
+                        RLE_MASK_UPDATE_WITH_SINGLE_VALUE => {
+                            let screen_char = read_u8(demo_bytes, &mut current_ptr);
+                            print!(", rle_command=RLECommand::UpdateWithSingleValue, screen_char={screen_char:02X}");
+                            for _ in 0..num_screen_chars {
+                                state.text_screen.screen_chars[offset] = screen_char;
+                                offset += 1;
+                            }
+                        }
+                        RLE_MASK_UPDATE_VALUES => {
+                            print!(", rle_command=RLECommand::UpdateValues, screen_chars=[");
+                            for _ in 0..num_screen_chars {
+                                let screen_char = read_u8(demo_bytes, &mut current_ptr);
+                                print!("{screen_char:02X},");
+
+                                state.text_screen.screen_chars[offset] = screen_char;
+                                offset += 1;
+                            }
+                            print!("]");
+                        }
+                        RLE_MASK_SKIP_VALUES => {
+                            print!(", rle_command=RLECommand::SkipValues");
+                            offset += num_screen_chars as usize;
+                        }
+                        RLE_MASK_AUTO_INCREMENT => {
+                            let mut screen_char = read_u8(demo_bytes, &mut current_ptr);
+                            print!(", rle_command=RLECommand::AutoIncrement, screen_char={screen_char:02X}");
+                            for _ in 0..num_screen_chars {
+                                state.text_screen.screen_chars[offset] = screen_char;
+                                offset += 1;
+                                screen_char += 1;
+                            }
+                        }
+                        _ => panic!(),
+                    }
+                    println!();
+                }
+            } else if command_type == CLEAR_SCREEN_CHAR {
+                println!(" command=ClearScreenChar");
                 let char = read_u8(demo_bytes, &mut current_ptr);
-                println!(" byte={char:02X}");
-                state.text_screen.bytes = [char; 1000];
+                println!(" screen_char={char:02X}");
+                state.text_screen.screen_chars = [char; 1000];
             } else {
                 panic!("detected an not implemented command type {command_type}");
             }
         }
+        state.mark_used();
         frame_states.push(state.clone());
     }
 
