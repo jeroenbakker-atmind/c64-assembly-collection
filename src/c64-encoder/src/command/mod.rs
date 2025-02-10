@@ -3,6 +3,7 @@ use partial_update_text_mode::PartialUpdateTextModeScreen;
 use set_border_color::SetBorderColor;
 use set_palette4::SetPalette4;
 use update_chars::UpdateCharsU16Encoded;
+use update_chars_ranged::UpdateCharsRangedU16Encoded;
 use update_text_mode_screen::UpdateTextModeScreen;
 
 use crate::encoder::Encoder;
@@ -12,12 +13,14 @@ pub mod partial_update_text_mode;
 pub mod set_border_color;
 pub mod set_palette4;
 pub mod update_chars;
+pub mod update_chars_ranged;
 pub mod update_text_mode_screen;
 
 pub const FILL_VIDEO_MEMORY: u8 = 1;
 pub const SET_PALETTE4: u8 = 2;
 pub const SET_BORDER_COLOR: u8 = 3;
 pub const UPDATE_CHARS_U16: u8 = 16;
+pub const UPDATE_CHARS_RANGED_U16: u8 = 17;
 pub const UPDATE_TEXT_MODE_SCREEN: u8 = 32;
 pub const PARTIAL_UPDATE_TEXT_MODE_SCREEN: u8 = 33;
 
@@ -27,6 +30,7 @@ pub enum Command {
     SetPalette4(SetPalette4),
     SetBorderColor(SetBorderColor),
     UpdateCharsU16Encoded(UpdateCharsU16Encoded),
+    UpdateCharsRangedU16Encoded(UpdateCharsRangedU16Encoded),
     UpdateTextModeScreen(UpdateTextModeScreen),
     PartialUpdateTextModeScreen(PartialUpdateTextModeScreen),
 }
@@ -38,6 +42,7 @@ impl Encoder for Command {
             Command::SetPalette4(set_palette4) => set_palette4.byte_size(),
             Command::SetBorderColor(set_border_color) => set_border_color.byte_size(),
             Command::UpdateCharsU16Encoded(update_chars) => update_chars.byte_size(),
+            Command::UpdateCharsRangedU16Encoded(update_chars_ranged) => update_chars_ranged.byte_size(),
             Command::UpdateTextModeScreen(update_text_mode_screen) => update_text_mode_screen.byte_size(),
             Command::PartialUpdateTextModeScreen(partial_update_text_mode) => partial_update_text_mode.byte_size(),
         };
@@ -63,6 +68,11 @@ impl Encoder for Command {
             }
             Command::UpdateCharsU16Encoded(update_chars) => {
                 let mut encoded_data = UPDATE_CHARS_U16.encode(encoded_data);
+                encoded_data = update_chars.encode(encoded_data);
+                encoded_data
+            }
+            Command::UpdateCharsRangedU16Encoded(update_chars) => {
+                let mut encoded_data = UPDATE_CHARS_RANGED_U16.encode(encoded_data);
                 encoded_data = update_chars.encode(encoded_data);
                 encoded_data
             }

@@ -73,9 +73,14 @@ impl BitCharImage {
         *char = *char | bit_mask;
     }
 
-    pub fn count_unique(&self) -> usize {
+    pub fn all_unique_chars(&self) -> HashSet<u64> {
         let mut uniques = HashSet::<u64>::new();
         uniques.extend(self.chars.iter());
-        uniques.len()
+        uniques
+    }
+
+    #[deprecated]
+    pub fn count_unique(&self) -> usize {
+        self.all_unique_chars().len()
     }
 }
