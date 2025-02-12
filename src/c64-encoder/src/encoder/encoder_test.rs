@@ -22,7 +22,7 @@ fn encode() {
     demo.frame(
         FrameBuilder::default()
             .set_palette4([Color::White, Color::Grey, Color::Black, Color::Purple])
-            .fill_video_memory(0)
+            .clear_screen_chars(0)
             .build(),
     );
 

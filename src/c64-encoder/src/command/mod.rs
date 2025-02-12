@@ -1,3 +1,4 @@
+use c64_assembler::Module;
 use clear_screen_chars::ClearScreenChars;
 use partial_update_text_mode::PartialUpdateTextModeScreen;
 use set_border_color::SetBorderColor;
@@ -29,7 +30,7 @@ pub const UPDATE_SCREEN_CHARS_RLE: u8 = 34;
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    FillVideoMemory(ClearScreenChars),
+    ClearScreenChars(ClearScreenChars),
     SetPalette4(SetPalette4),
     SetBorderColor(SetBorderColor),
     UpdateCharsU16Encoded(UpdateCharsU16Encoded),
@@ -42,7 +43,7 @@ pub enum Command {
 impl Encoder for Command {
     fn byte_size(&self) -> usize {
         let command_size = match self {
-            Command::FillVideoMemory(fill_video_memory) => fill_video_memory.byte_size(),
+            Command::ClearScreenChars(fill_video_memory) => fill_video_memory.byte_size(),
             Command::SetPalette4(set_palette4) => set_palette4.byte_size(),
             Command::SetBorderColor(set_border_color) => set_border_color.byte_size(),
             Command::UpdateCharsU16Encoded(update_chars) => update_chars.byte_size(),
@@ -56,7 +57,7 @@ impl Encoder for Command {
 
     fn encode<'a>(&self, encoded_data: &'a mut [u8]) -> &'a mut [u8] {
         match self {
-            Command::FillVideoMemory(fill_video_memory) => {
+            Command::ClearScreenChars(fill_video_memory) => {
                 let mut encoded_data = CLEAR_SCREEN_CHAR.encode(encoded_data);
                 encoded_data = fill_video_memory.encode(encoded_data);
                 encoded_data
@@ -98,4 +99,8 @@ impl Encoder for Command {
             }
         }
     }
+}
+
+pub trait DecoderModule {
+    fn module() -> Module;
 }

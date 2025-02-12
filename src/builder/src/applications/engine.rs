@@ -1,14 +1,23 @@
 use c64_assembler::{
     builder::{ApplicationBuilder, FunctionBuilder, InstructionBuilder, ModuleBuilder},
     generator::{print_hexdump, DasmGenerator, Generator, ProgramGenerator},
+    validator::{AssemblerResult, Validator},
 };
 use c64_assembler_macro::function;
 use c64_colors::colors::Color;
-use c64_encoder::builder::{demo::DemoBuilder, frame::FrameBuilder};
+use c64_encoder::{
+    builder::{demo::DemoBuilder, frame::FrameBuilder},
+    command::{clear_screen_chars::ClearScreenChars, set_border_color::SetBorderColor, DecoderModule},
+};
 
-pub fn engine_application() -> Vec<u8> {
+pub fn engine_application() -> AssemblerResult<Vec<u8>> {
     let data = DemoBuilder::default()
-        .frame(FrameBuilder::default().set_border_color(Color::Black).build())
+        .frame(
+            FrameBuilder::default()
+                .clear_screen_chars(0x00)
+                .set_border_color(Color::Black)
+                .build(),
+        )
         .build();
 
     let engine_data = ModuleBuilder::default()
@@ -16,44 +25,17 @@ pub fn engine_application() -> Vec<u8> {
         .instructions(InstructionBuilder::default().label("engine_data").raw(&data).build())
         .build();
 
-    let set_border_color = ModuleBuilder::default()
-        .name("set_border_color")
-        .function(
-            FunctionBuilder::default()
-                .name("set_border_color__process")
-                .instructions(
-                    InstructionBuilder::default()
-                        .ldy_imm(1)
-                        .lda_ind_y("CURRENT_PTR")
-                        .sta_addr("set_border_color__data")
-                        .lda_imm(2)
-                        .jsr_addr("engine__current_ptr__advance")
-                        .rts()
-                        .build(),
-                )
-                .build(),
-        )
-        .function(function!(
-            name = "set_border_color__vblank",
-            instructions!(
-                lda set_border_color__data
-                sta VIC20_BORDER_COLOR
-                rts
-            )
-        ))
-        .instructions(
-            InstructionBuilder::default()
-                .label("set_border_color__data")
-                .comment("Border color to set at the next vblank")
-                .raw(&[0x00])
-                .build(),
-        )
-        .build();
+    let clear_screen_chars = ClearScreenChars::module();
+    let set_border_color = SetBorderColor::module();
 
     let application = ApplicationBuilder::default()
         .name("Engine")
         .include_vic20_defines()
         .define_address("CURRENT_PTR", 0xFE)
+        .define_address("SCREEN_CHARS_PAGE0", 0x0400)
+        .define_address("SCREEN_CHARS_PAGE1", 0x0500)
+        .define_address("SCREEN_CHARS_PAGE2", 0x0600)
+        .define_address("SCREEN_CHARS_PAGE3", 0x0700)
         .module(
             ModuleBuilder::default()
                 .name("main")
@@ -109,11 +91,10 @@ pub fn engine_application() -> Vec<u8> {
                     "Update VIC20 registries"
                     "TODO: use shadow registries"
                     "TODO: wait for vblank"
-                    jsr set_border_color__vblank
                     rts
 
                 engine__frame_command__process:
-                    jsr set_border_color__process
+                    jsr clear_screen_chars__process
                     jsr engine__commands_left__decrease
                     jmp engine__frame_commands__next
 
@@ -209,13 +190,15 @@ pub fn engine_application() -> Vec<u8> {
                 )
                 .build(),
         )
+        .module(clear_screen_chars)
         .module(set_border_color)
         .module(engine_data)
         .build()
         .unwrap();
     println!("{}", DasmGenerator::default().generate(application.clone()).unwrap());
 
+    application.validate()?;
     let result = ProgramGenerator::default().generate(application).unwrap();
     print_hexdump(&result);
-    result
+    Ok(result)
 }

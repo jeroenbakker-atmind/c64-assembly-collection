@@ -100,7 +100,7 @@ fn choose_best_text_mode_update(
 
         clear_and_update.insert(
             0,
-            Command::FillVideoMemory(ClearScreenChars {
+            Command::ClearScreenChars(ClearScreenChars {
                 screen_char: *max_occurence.0,
             }),
         );

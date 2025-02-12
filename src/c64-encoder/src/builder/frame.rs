@@ -21,8 +21,8 @@ impl FrameBuilder {
         self
     }
 
-    pub fn fill_video_memory(&mut self, pixel_data: u8) -> &mut Self {
-        self.commands.push(Command::FillVideoMemory(ClearScreenChars {
+    pub fn clear_screen_chars(&mut self, pixel_data: u8) -> &mut Self {
+        self.commands.push(Command::ClearScreenChars(ClearScreenChars {
             screen_char: pixel_data,
         }));
         self

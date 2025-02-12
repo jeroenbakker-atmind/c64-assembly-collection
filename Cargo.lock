@@ -109,6 +109,8 @@ name = "c64-encoder"
 version = "0.1.0"
 dependencies = [
  "c64",
+ "c64-assembler",
+ "c64-assembler-macro",
  "c64-colors",
 ]
 

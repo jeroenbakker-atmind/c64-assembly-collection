@@ -61,7 +61,11 @@ fn package_dev() -> Result<()> {
         Id::from_bytes(b"FYR"),
     )?;
 
-    disk.add_bytes(&engine_application(), Petscii::from_str("engine"), FileType::PRG)?;
+    disk.add_bytes(
+        &engine_application().unwrap(),
+        Petscii::from_str("engine"),
+        FileType::PRG,
+    )?;
     disk.add_bytes(
         &set_black_border_application(),
         Petscii::from_str("set black border"),
