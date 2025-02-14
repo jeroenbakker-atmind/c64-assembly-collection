@@ -4,7 +4,7 @@ use c64_assembler_macro::application;
 pub fn set_black_border_application() -> Vec<u8> {
     let application = application!(
         name="Set back border"
-        include_vic20_defines
+        include_vic2_defines
         module!(
             name="main"
             instructions!(
@@ -12,7 +12,7 @@ pub fn set_black_border_application() -> Vec<u8> {
             main_entry_point:
                 "Load black color into accumulator"
                 lda #$00
-                sta VIC20_BORDER_COLOR
+                sta VIC2_BORDER_COLOR
                 rts
             )
         )

@@ -3,7 +3,7 @@ use c64_colors::colors::Color;
 
 use crate::encoder::{writer::Writer, Encoder};
 
-use super::DecoderModule;
+use super::{modules::CurrentPtrMacros, DecoderModule};
 
 #[derive(Copy, Clone, Debug)]
 pub struct SetBorderColor {
@@ -29,11 +29,9 @@ impl DecoderModule for SetBorderColor {
                     .name("set_border_color__process")
                     .instructions(
                         InstructionBuilder::default()
-                            .ldy_imm(1)
-                            .lda_ind_y("CURRENT_PTR")
-                            .sta_addr("VIC20_BORDER_COLOR")
-                            .lda_imm(2)
-                            .jsr_addr("engine__current_ptr__advance")
+                            .lda_current_ptr_offs(1, "Load border color into the accumulator.")
+                            .sta_addr("VIC2_BORDER_COLOR")
+                            .inc_current_ptr(2)
                             .rts()
                             .build(),
                     )

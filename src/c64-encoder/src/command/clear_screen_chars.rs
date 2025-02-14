@@ -5,7 +5,7 @@ use c64_assembler::{
 
 use crate::encoder::{writer::Writer, Encoder};
 
-use super::DecoderModule;
+use super::{modules::CurrentPtrMacros, DecoderModule};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct ClearScreenChars {
@@ -31,8 +31,7 @@ impl DecoderModule for ClearScreenChars {
                     .name("clear_screen_chars__process")
                     .instructions(
                         InstructionBuilder::default()
-                            .ldy_imm(1)
-                            .lda_ind_y("CURRENT_PTR")
+                            .lda_current_ptr_offs(1, "Load character to fill the screen with into the accumulator")
                             .ldx_imm(0x00)
                             .label("clear_screen_char__next")
                             .sta_addr_x("SCREEN_CHARS_PAGE0")
@@ -41,8 +40,7 @@ impl DecoderModule for ClearScreenChars {
                             .sta_addr_x("SCREEN_CHARS_PAGE3")
                             .inx()
                             .bne_addr("clear_screen_char__next")
-                            .lda_imm(2)
-                            .jsr_addr("engine__current_ptr__advance")
+                            .inc_current_ptr(2)
                             .rts()
                             .build(),
                     )

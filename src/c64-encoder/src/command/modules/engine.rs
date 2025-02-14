@@ -5,8 +5,9 @@ use c64_assembler::{
 use c64_assembler_macro::function;
 
 use crate::command::{
-    clear_screen_chars::ClearScreenChars, set_border_color::SetBorderColor, DecoderModule, CLEAR_SCREEN_CHAR,
-    SET_BORDER_COLOR,
+    clear_screen_chars::ClearScreenChars, set_border_color::SetBorderColor,
+    update_chars_ranged::UpdateCharsRangedU16Encoded, DecoderModule, CLEAR_SCREEN_CHAR, SET_BORDER_COLOR,
+    UPDATE_CHARS_RANGED_U16,
 };
 
 use super::{CommandsLeft, CurrentPTR, DecodeU16Char};
@@ -24,11 +25,16 @@ impl EngineBuilder for ApplicationBuilder {
             .define_address("SCREEN_CHARS_PAGE1", 0x0500)
             .define_address("SCREEN_CHARS_PAGE2", 0x0600)
             .define_address("SCREEN_CHARS_PAGE3", 0x0700)
+            .define_address("CHARSET_PTR_PAGE0", 0xC000)
+            .define_address("CHARSET_PTR_PAGE1", 0xC100)
+            .define_address("CHARSET_PTR_PAGE2", 0xC200)
+            .define_address("CHARSET_PTR_PAGE3", 0xC300)
             .module(Engine::module())
             .module(CurrentPTR::module())
             .module(CommandsLeft::module())
             .module(ClearScreenChars::module())
             .module(SetBorderColor::module())
+            .module(UpdateCharsRangedU16Encoded::module())
             .module(DecodeU16Char::module())
     }
 }
@@ -73,7 +79,7 @@ impl DecoderModule for Engine {
                 bne engine__frame_command__process
             engine__frame__exit:
                 "All commands in frame have been processed."
-                "Update VIC20 registries"
+                "Update VIC2 registries"
                 "TODO: use shadow registries"
                 "TODO: wait for vblank"
                 rts
@@ -100,7 +106,8 @@ fn command_dispatcher() -> Instructions {
     command_switch_builder.ldx_imm(0).lda_ind_x("CURRENT_PTR");
     for (command, command_id, next) in [
         ("clear_screen_chars", CLEAR_SCREEN_CHAR, "set_border_color"),
-        ("set_border_color", SET_BORDER_COLOR, "exit"),
+        ("set_border_color", SET_BORDER_COLOR, "update_chars_ranged_u16"),
+        ("update_chars_ranged_u16", UPDATE_CHARS_RANGED_U16, "exit"),
     ] {
         command_switch_builder
             .label(format!("engine__frame_command__{command}").as_str())

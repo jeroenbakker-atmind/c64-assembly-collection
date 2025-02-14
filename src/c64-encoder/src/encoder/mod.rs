@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod encoder_test;
+pub mod utils;
 pub mod writer;
 
 pub trait Encoder {

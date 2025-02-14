@@ -19,12 +19,12 @@ use c64_encoder::{
         update_text_mode_screen::UpdateTextModeScreen,
         Command,
     },
-    encoder::Encoder,
+    encoder::{utils::print_vechex, Encoder},
     evaluator::{evaluate, state::TextScreen},
 };
 
 fn main() {
-    //encode_act(1, 100);
+    encode_act(1, 100);
     encode_act(2, 1);
 }
 
@@ -62,7 +62,6 @@ fn encode_act(act: u32, number_of_frames: usize) {
     assert!(best_solution_size != usize::MAX, "No solution found");
 
     let demo_bytes = best_solution.build();
-    //println!("{:?}", demo_bytes);
 
     let frame_states = evaluate(&demo_bytes);
     for (index, frame_state) in frame_states.iter().enumerate() {
@@ -71,6 +70,8 @@ fn encode_act(act: u32, number_of_frames: usize) {
             frame_state,
         );
     }
+
+    print_vechex(&demo_bytes);
     println!("size in bytes: {:?}", demo_bytes.len());
 }
 
