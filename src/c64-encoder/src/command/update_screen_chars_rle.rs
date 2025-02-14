@@ -36,7 +36,6 @@ pub struct UpdateScreenCharsRLE {
 }
 
 impl UpdateScreenCharsRLE {
-    // TODO: Known issue: "aabb" would lead to `SingleValue(a, 4)` as we only check the mask, and not its content.
     pub fn transition(from_screen_chars: &[u8], to_screen_chars: &[u8]) -> UpdateScreenCharsRLE {
         let mut result = UpdateScreenCharsRLE::default();
 
@@ -73,12 +72,14 @@ impl UpdateScreenCharsRLE {
                 && to_screen_chars[offset + 1] > 0
                 && to_screen_chars[offset] == to_screen_chars[offset + 1] - 1
             {
+                println!("{}, {}", to_screen_chars[offset], to_screen_chars[offset + 1]);
                 commands_per_screen_char[offset] = RLE_MASK_AUTO_INCREMENT;
             }
             if offset != 0
                 && to_screen_chars[offset - 1] != 255
                 && to_screen_chars[offset] == to_screen_chars[offset - 1] + 1
             {
+                println!("{}, {}", to_screen_chars[offset - 1], to_screen_chars[offset]);
                 commands_per_screen_char[offset] = RLE_MASK_AUTO_INCREMENT;
             }
         }
@@ -108,18 +109,48 @@ impl UpdateScreenCharsRLE {
                         });
                     }
                     RLE_MASK_UPDATE_WITH_SINGLE_VALUE => {
-                        let screen_char = to_screen_chars[offset];
-                        result.rle_packets.push(RLEPacket {
-                            num_screen_chars: num_screen_chars_in_packet,
+                        let mut screen_char = to_screen_chars[offset];
+                        let mut packets = vec![RLEPacket {
+                            num_screen_chars: 0,
                             command: RLECommand::UpdateWithSingleValue(screen_char),
-                        });
+                        }];
+                        for add_offset in 0..num_screen_chars_in_packet {
+                            let screen_char_at_offset = to_screen_chars[offset + add_offset as usize];
+                            if screen_char_at_offset != screen_char {
+                                packets.push(RLEPacket {
+                                    num_screen_chars: 0,
+                                    command: RLECommand::UpdateWithSingleValue(screen_char_at_offset),
+                                });
+                                screen_char = screen_char_at_offset;
+                            }
+
+                            let packet = packets.last_mut().unwrap();
+                            packet.num_screen_chars += 1;
+                        }
+
+                        result.rle_packets.append(&mut packets);
                     }
                     RLE_MASK_AUTO_INCREMENT => {
-                        let screen_char = to_screen_chars[offset];
-                        result.rle_packets.push(RLEPacket {
-                            num_screen_chars: num_screen_chars_in_packet,
+                        let mut screen_char = to_screen_chars[offset];
+                        let mut packets = vec![RLEPacket {
+                            num_screen_chars: 0,
                             command: RLECommand::AutoIncrement(screen_char),
-                        });
+                        }];
+                        for add_offset in 0..num_screen_chars_in_packet {
+                            let screen_char_at_offset = to_screen_chars[offset + add_offset as usize];
+                            if screen_char_at_offset != screen_char + add_offset {
+                                packets.push(RLEPacket {
+                                    num_screen_chars: 0,
+                                    command: RLECommand::AutoIncrement(screen_char_at_offset),
+                                });
+                                screen_char = screen_char_at_offset;
+                            }
+
+                            let packet = packets.last_mut().unwrap();
+                            packet.num_screen_chars += 1;
+                        }
+
+                        result.rle_packets.append(&mut packets);
                     }
                     RLE_MASK_UPDATE_VALUES => {
                         let mut screen_chars = Vec::new();
@@ -137,6 +168,7 @@ impl UpdateScreenCharsRLE {
             }
         }
         debug_assert!(validate(&commands_per_screen_char, &result));
+        debug_assert!(validate_decode(from_screen_chars, to_screen_chars, &result.rle_packets));
 
         result
     }
@@ -154,6 +186,60 @@ fn validate(expected: &[u8], source: &UpdateScreenCharsRLE) -> bool {
         decoded.extend(vec![mask; packet.num_screen_chars as usize]);
     }
     assert_eq!(expected, decoded);
+    true
+}
+
+fn validate_decode(from_screen: &[u8], to_screen: &[u8], packets: &[RLEPacket]) -> bool {
+    let mut decoded = Vec::from(from_screen);
+    let mut packet_per_offset = Vec::<RLEPacket>::new();
+    for packet in packets {
+        for _char in 0..packet.num_screen_chars {
+            packet_per_offset.push(packet.clone());
+        }
+    }
+
+    let mut offset = 0;
+    for packet in packets {
+        println!("- {}: {:?}", offset, packet);
+        offset += packet.num_screen_chars as usize;
+    }
+
+    let mut offset = 0;
+    for packet in packets {
+        match &packet.command {
+            RLECommand::UpdateWithSingleValue(value) => {
+                for _add_offset in 0..packet.num_screen_chars {
+                    decoded[offset] = *value;
+                    offset += 1;
+                }
+            }
+            RLECommand::UpdateValues(items) => {
+                assert_eq!(packet.num_screen_chars as usize, items.len());
+                for item in items {
+                    decoded[offset] = *item;
+                    offset += 1;
+                }
+            }
+            RLECommand::SkipValues => offset += packet.num_screen_chars as usize,
+            RLECommand::AutoIncrement(start_value) => {
+                for add_offset in 0..packet.num_screen_chars {
+                    decoded[offset] = start_value + add_offset;
+                    offset += 1;
+                }
+            }
+        }
+    }
+
+    for (offset, (expected, decoded)) in to_screen.iter().zip(decoded.iter()).enumerate() {
+        assert_eq!(
+            expected, decoded,
+            "Char at {offset} are not equal, {:?}",
+            packet_per_offset[offset]
+        );
+    }
+
+    assert_eq!(to_screen, decoded);
+
     true
 }
 

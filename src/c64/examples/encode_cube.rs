@@ -237,7 +237,7 @@ impl Strategy {
             result.push(Strategy::StaticWithDynamicCharset);
         }
 
-        //result.push(Strategy::Initial);
+        result.push(Strategy::Initial);
 
         result
     }
