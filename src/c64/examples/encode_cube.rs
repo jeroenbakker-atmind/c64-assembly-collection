@@ -24,10 +24,15 @@ use c64_encoder::{
 };
 
 fn main() {
+    //encode_act(1, 100);
+    encode_act(2, 1);
+}
+
+fn encode_act(act: u32, number_of_frames: usize) {
     /* Load images into an image list. */
     let mut images = ImageSequence::<BitCharImage>::new();
-    for image_number in 1..=100 {
-        let image = read_png(format!("resources/render/001/{image_number:04}.png").as_str());
+    for image_number in 1..=number_of_frames {
+        let image = read_png(format!("resources/render/{act:03}/{image_number:04}.png").as_str());
         let bit_char_image = DitheredText {}.convert(&image);
         images.push(bit_char_image);
     }
@@ -62,7 +67,7 @@ fn main() {
     let frame_states = evaluate(&demo_bytes);
     for (index, frame_state) in frame_states.iter().enumerate() {
         write_png(
-            format!("resources/render/debug.001.{:04}.png", index).as_str(),
+            format!("resources/render/debug.{act:03}.{:04}.png", index).as_str(),
             frame_state,
         );
     }
@@ -159,7 +164,7 @@ fn choose_best_charset_update(
     let mut best_byte_size = usize::MAX;
 
     // Early exit when no update is needed.
-    if from_charset == to_charset {
+    if allow_partial_updates && from_charset == to_charset {
         return (vec![], 0);
     }
 
@@ -232,7 +237,7 @@ impl Strategy {
             result.push(Strategy::StaticWithDynamicCharset);
         }
 
-        result.push(Strategy::Initial);
+        //result.push(Strategy::Initial);
 
         result
     }
@@ -332,7 +337,7 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
     }
 
     // Extract the changes in the char map per frame.
-    for frame in 1..=100 {
+    for frame in 1..=images.len() {
         let from_charset = &charmap_per_frame[frame - 1];
         let to_charset = &charmap_per_frame[frame];
         let (best_charmap_commands, _best_charmap_size) =
@@ -383,7 +388,43 @@ fn create_text_mode_screen(image: &BitCharImage, charmap: &[u64]) -> UpdateTextM
 
 fn build_frames_one_charmap(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilder> {
     let mut result = vec![];
-    todo!();
+
+    let chars = images.all_unique_chars();
+    let mut charmap = chars.into_iter().collect::<Vec<BitEncodedChar>>();
+    charmap.sort();
+
+    let mut text_screen = TextScreen::default();
+    for (index, image) in images.iter().enumerate() {
+        let mut frame_builder = FrameBuilder::default();
+        let frame = index + 1;
+        let mut new_text_screen = TextScreen::default();
+        for (screen_index, char) in image.chars.iter().enumerate() {
+            let screen_char = charmap
+                .iter()
+                .enumerate()
+                .find(|(_screen_char, char_in_map)| char == *char_in_map)
+                .unwrap()
+                .0 as u8;
+            new_text_screen.screen_chars[screen_index] = screen_char;
+        }
+
+        if frame == 1 {
+            let text_screen_commands =
+                choose_best_text_mode_update(&text_screen.screen_chars, &new_text_screen.screen_chars, false, true).0;
+            let update_charmap_commands = choose_best_charset_update(&charmap, &charmap, false, true).0;
+
+            frame_builder.extend(&update_charmap_commands);
+            frame_builder.extend(&text_screen_commands);
+        } else {
+            let text_screen_commands =
+                choose_best_text_mode_update(&text_screen.screen_chars, &new_text_screen.screen_chars, true, true).0;
+
+            frame_builder.extend(&text_screen_commands);
+        }
+        text_screen.screen_chars = new_text_screen.screen_chars;
+
+        result.push(frame_builder);
+    }
     result
 }
 

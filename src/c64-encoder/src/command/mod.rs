@@ -11,6 +11,7 @@ use update_text_mode_screen::UpdateTextModeScreen;
 use crate::encoder::Encoder;
 
 pub mod clear_screen_chars;
+pub mod modules;
 pub mod partial_update_text_mode;
 pub mod set_border_color;
 pub mod set_palette4;

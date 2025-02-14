@@ -8,3 +8,6 @@ c64-colors={path="../c64-colors"}
 c64={path="../c64"}
 c64-assembler-macro={path="../../third_party/c64-assembler/c64-assembler-macro"}
 c64-assembler={path="../../third_party/c64-assembler/c64-assembler"}
+
+[dev-dependencies]
+mos6502 = {version="0.6.1"}

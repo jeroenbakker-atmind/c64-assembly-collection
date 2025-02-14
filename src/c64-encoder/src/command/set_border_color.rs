@@ -1,5 +1,4 @@
 use c64_assembler::builder::{FunctionBuilder, InstructionBuilder, ModuleBuilder};
-use c64_assembler_macro::function;
 use c64_colors::colors::Color;
 
 use crate::encoder::{writer::Writer, Encoder};
