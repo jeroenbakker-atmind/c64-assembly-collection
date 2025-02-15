@@ -4,13 +4,8 @@ use c64_assembler::{
 };
 use c64_assembler_macro::function;
 
-use crate::command::{
-    clear_screen_chars::ClearScreenChars, set_border_color::SetBorderColor,
-    update_chars_ranged::UpdateCharsRangedU16Encoded, DecoderModule, CLEAR_SCREEN_CHAR, SET_BORDER_COLOR,
-    UPDATE_CHARS_RANGED_U16,
-};
-
-use super::{CommandsLeft, CurrentPTR, DecodeU16Char};
+use super::{CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char};
+use crate::command::{all_decoder_modules, DecoderModule};
 
 pub trait EngineBuilder {
     fn add_engine(&mut self) -> &mut Self;
@@ -21,21 +16,23 @@ impl EngineBuilder for ApplicationBuilder {
         self.define_address("CURRENT_PTR", 0xFE)
             .define_address("CHAR_DECODE_SRC_PTR", 0xFE)
             .define_address("CHAR_DECODE_DST_PTR", 0x10)
-            .define_address("SCREEN_CHARS_PAGE0", 0x0400)
-            .define_address("SCREEN_CHARS_PAGE1", 0x0500)
-            .define_address("SCREEN_CHARS_PAGE2", 0x0600)
-            .define_address("SCREEN_CHARS_PAGE3", 0x0700)
-            .define_address("CHARSET_PTR_PAGE0", 0xC000)
-            .define_address("CHARSET_PTR_PAGE1", 0xC100)
-            .define_address("CHARSET_PTR_PAGE2", 0xC200)
-            .define_address("CHARSET_PTR_PAGE3", 0xC300)
+            .define_address("SCREEN_CHARS_PAGE0", 0xC000)
+            .define_address("SCREEN_CHARS_PAGE1", 0xC100)
+            .define_address("SCREEN_CHARS_PAGE2", 0xC200)
+            .define_address("SCREEN_CHARS_PAGE3", 0xC300)
+            .define_address("CHARSET_PTR_PAGE0", 0xC800)
+            .define_address("CHARSET_PTR_PAGE1", 0xC900)
+            .define_address("CHARSET_PTR_PAGE2", 0xCA00)
+            .define_address("CHARSET_PTR_PAGE3", 0xCB00)
+            .define_address("C64_BANK_SELECTION", 0xDD00)
             .module(Engine::module())
             .module(CurrentPTR::module())
             .module(CommandsLeft::module())
-            .module(ClearScreenChars::module())
-            .module(SetBorderColor::module())
-            .module(UpdateCharsRangedU16Encoded::module())
-            .module(DecodeU16Char::module())
+            .module(DecodeU16Char::module());
+        for (_, module) in all_decoder_modules() {
+            self.module(module);
+        }
+        self
     }
 }
 pub struct Engine {}
@@ -59,10 +56,30 @@ impl DecoderModule for Engine {
                             .sta_addr("CURRENT_PTR")
                             .lda_imm_high("engine_data")
                             .sta_addr_offs("CURRENT_PTR", 1)
-                            .lda_imm(2)
+                            .inc_current_ptr(2)
                             .comment("Advance the pointer with 2 bytes.")
                             .comment("Number of frames is only needed when reading directly from disk.")
-                            .jsr_addr("engine__current_ptr__advance")
+                            .lda_imm(0)
+                            .comment("Attach the VIC-II to bank 3 ($C000-$FFFF)")
+                            .sta_addr("C64_BANK_SELECTION")
+                            .lda_imm(0b00000011)
+                            .comment("Set screen chars to $C000 and charset to $C800.")
+                            .sta_addr("VIC2_MEMORY_SETUP")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__deinit")
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_imm(3)
+                            .comment("Attach the VIC-II to bank 0 ($0000-$7FFF")
+                            .sta_addr("C64_BANK_SELECTION")
+                            .lda_imm(0b0010101)
+                            .sta_addr("VIC2_MEMORY_SETUP")
                             .rts()
                             .build(),
                     )
@@ -103,16 +120,22 @@ impl DecoderModule for Engine {
 
 fn command_dispatcher() -> Instructions {
     let mut command_switch_builder = InstructionBuilder::default();
-    command_switch_builder.ldx_imm(0).lda_ind_x("CURRENT_PTR");
-    for (command, command_id, next) in [
-        ("clear_screen_chars", CLEAR_SCREEN_CHAR, "set_border_color"),
-        ("set_border_color", SET_BORDER_COLOR, "update_chars_ranged_u16"),
-        ("update_chars_ranged_u16", UPDATE_CHARS_RANGED_U16, "exit"),
-    ] {
+    command_switch_builder.lda_current_ptr_offs(0, "Load the current command type in the accumulator");
+
+    let commands = all_decoder_modules();
+    for (command_id, command, next_command) in commands.iter().enumerate().map(|(index, module_def)| {
+        (
+            module_def.0,
+            module_def.1.name.as_str(),
+            commands
+                .get(index + 1)
+                .map_or("exit", |next_item| next_item.1.name.as_str()),
+        )
+    }) {
         command_switch_builder
             .label(format!("engine__frame_command__{command}").as_str())
             .cmp_imm(command_id)
-            .bne_addr(format!("engine__frame_command__{next}").as_str())
+            .bne_addr(format!("engine__frame_command__{next_command}").as_str())
             .jmp_addr(format!("{command}__process").as_str());
     }
     command_switch_builder.label("engine__frame_command__exit").rts();

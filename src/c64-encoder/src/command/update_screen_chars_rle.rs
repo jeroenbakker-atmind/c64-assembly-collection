@@ -7,7 +7,14 @@
 //! - Auto increment the next n chars. Will be followed by a single byte, but each next byte will be incremented
 //!
 
+use c64_assembler::{
+    builder::{FunctionBuilder, InstructionBuilder, ModuleBuilder},
+    Module,
+};
+
 use crate::encoder::{writer::Writer, Encoder};
+
+use super::DecoderModule;
 
 #[derive(Debug, Clone)]
 pub enum RLECommand {
@@ -297,5 +304,19 @@ impl Encoder for UpdateScreenCharsRLE {
             encoded_data = encoded_data.add(rle_packet);
         }
         encoded_data
+    }
+}
+
+impl DecoderModule for UpdateScreenCharsRLE {
+    fn module() -> Module {
+        ModuleBuilder::default()
+            .name("update_screen_chars_rle")
+            .function(
+                FunctionBuilder::default()
+                    .name("update_screen_chars_rle__process")
+                    .instructions(InstructionBuilder::default().rts().build())
+                    .build(),
+            )
+            .build()
     }
 }

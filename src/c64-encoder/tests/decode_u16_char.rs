@@ -117,14 +117,14 @@ fn decode_update_chars_ranged_u16() -> AssemblerResult<()> {
     assert_eq!(0b00110011, cpu.memory.get_byte(0x0516));
     assert_eq!(0b00110011, cpu.memory.get_byte(0x0517));
 
-    assert_eq!(0b00001111, cpu.memory.get_byte(0x0518));
-    assert_eq!(0b00001111, cpu.memory.get_byte(0x0519));
-    assert_eq!(0b00001111, cpu.memory.get_byte(0x051A));
-    assert_eq!(0b00001111, cpu.memory.get_byte(0x051B));
-    assert_eq!(0b11110000, cpu.memory.get_byte(0x051C));
-    assert_eq!(0b11110000, cpu.memory.get_byte(0x051D));
-    assert_eq!(0b11110000, cpu.memory.get_byte(0x051E));
-    assert_eq!(0b11110000, cpu.memory.get_byte(0x051F));
+    assert_eq!(0b11110000, cpu.memory.get_byte(0x0518));
+    assert_eq!(0b11110000, cpu.memory.get_byte(0x0519));
+    assert_eq!(0b11110000, cpu.memory.get_byte(0x051A));
+    assert_eq!(0b11110000, cpu.memory.get_byte(0x051B));
+    assert_eq!(0b00001111, cpu.memory.get_byte(0x051C));
+    assert_eq!(0b00001111, cpu.memory.get_byte(0x051D));
+    assert_eq!(0b00001111, cpu.memory.get_byte(0x051E));
+    assert_eq!(0b00001111, cpu.memory.get_byte(0x051F));
 
     Ok(())
 }

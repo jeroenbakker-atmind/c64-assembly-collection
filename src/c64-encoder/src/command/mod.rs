@@ -105,3 +105,11 @@ impl Encoder for Command {
 pub trait DecoderModule {
     fn module() -> Module;
 }
+pub fn all_decoder_modules() -> Vec<(u8, Module)> {
+    vec![
+        (CLEAR_SCREEN_CHAR, ClearScreenChars::module()),
+        (SET_BORDER_COLOR, SetBorderColor::module()),
+        (UPDATE_CHARS_RANGED_U16, UpdateCharsRangedU16Encoded::module()),
+        (UPDATE_SCREEN_CHARS_RLE, UpdateScreenCharsRLE::module()),
+    ]
+}
