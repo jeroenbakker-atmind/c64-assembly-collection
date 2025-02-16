@@ -4,7 +4,7 @@ use c64_assembler::{
 };
 use c64_assembler_macro::function;
 
-use super::{CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char};
+use super::{CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char, ScreenCharPTR};
 use crate::command::{all_decoder_modules, DecoderModule};
 
 pub trait EngineBuilder {
@@ -14,6 +14,7 @@ pub trait EngineBuilder {
 impl EngineBuilder for ApplicationBuilder {
     fn add_engine(&mut self) -> &mut Self {
         self.define_address("CURRENT_PTR", 0xFE)
+            .define_address("SCREEN_CHAR_PTR", 0xFC)
             .define_address("CHAR_DECODE_SRC_PTR", 0xFE)
             .define_address("CHAR_DECODE_DST_PTR", 0x10)
             .define_address("SCREEN_CHARS_PAGE0", 0xC000)
@@ -27,6 +28,7 @@ impl EngineBuilder for ApplicationBuilder {
             .define_address("C64_BANK_SELECTION", 0xDD00)
             .module(Engine::module())
             .module(CurrentPTR::module())
+            .module(ScreenCharPTR::module())
             .module(CommandsLeft::module())
             .module(DecodeU16Char::module());
         for (_, module) in all_decoder_modules() {

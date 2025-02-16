@@ -14,7 +14,10 @@ use c64_assembler::{
 
 use crate::encoder::{writer::Writer, Encoder};
 
-use super::DecoderModule;
+use super::{
+    modules::{CurrentPtrMacros, ScreenCharPtrMacros},
+    DecoderModule,
+};
 
 #[derive(Debug, Clone)]
 pub enum RLECommand {
@@ -29,6 +32,7 @@ pub const RLE_MASK_UPDATE_VALUES: u8 = 0b01000000;
 pub const RLE_MASK_SKIP_VALUES: u8 = 0b10000000;
 pub const RLE_MASK_AUTO_INCREMENT: u8 = 0b11000000;
 pub const RLE_MASK_BITS: u8 = 0b11000000;
+pub const RLE_MASK_FRAMES: u8 = 0b00111111;
 
 #[derive(Debug, Clone)]
 pub struct RLEPacket {
@@ -314,7 +318,112 @@ impl DecoderModule for UpdateScreenCharsRLE {
             .function(
                 FunctionBuilder::default()
                     .name("update_screen_chars_rle__process")
-                    .instructions(InstructionBuilder::default().rts().build())
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_current_ptr_offs(1, "Load number of RLE packets in the accumulator")
+                            .pha()
+                            .inc_current_ptr(2)
+                            .jsr_addr("engine__screen_char_ptr__reset")
+                            .label("update_screen_chars_rle__next_packet")
+                            .lda_current_ptr_offs(0, "Load the RLEPacket header byte into the accumulator.")
+                            .pha()
+                            .and_imm(RLE_MASK_FRAMES)
+                            .comment("Extract the number of chars the packet covers and store in X")
+                            .tax()
+                            .pla()
+                            .and_imm(RLE_MASK_BITS)
+                            .comment("Accumulator contains the packet type")
+                            .label("update_screen_chars_rle__switch_single")
+                            .cmp_imm(RLE_MASK_UPDATE_WITH_SINGLE_VALUE)
+                            .bne_addr("update_screen_chars_rle__switch_values")
+                            .jmp_addr("update_screen_chars_rle__single")
+                            .label("update_screen_chars_rle__switch_values")
+                            .cmp_imm(RLE_MASK_UPDATE_VALUES)
+                            .bne_addr("update_screen_chars_rle__switch_values")
+                            .jmp_addr("update_screen_chars_rle__values")
+                            .label("update_screen_chars_rle__skip")
+                            .cmp_imm(RLE_MASK_UPDATE_VALUES)
+                            .bne_addr("update_screen_chars_rle__auto")
+                            .jmp_addr("update_screen_chars_rle__skip")
+                            .label("update_screen_chars_rle__auto")
+                            .jmp_addr("update_screen_chars_rle__auto")
+                            .label("update_screen_chars_rle__packet_done")
+                            .pla()
+                            .tax()
+                            .dex()
+                            .beq_addr("update_screen_chars_rle__exit")
+                            .txa()
+                            .pha()
+                            .jmp_addr("update_screen_chars_rle__next_packet")
+                            .label("update_screen_chars_rle__exit")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("update_screen_chars_rle__single")
+                    .instructions(
+                        InstructionBuilder::default()
+                            .jmp_addr("update_screen_chars_rle__packet_done")
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("update_screen_chars_rle__values")
+                    .instructions(
+                        InstructionBuilder::default()
+                            .jmp_addr("update_screen_chars_rle__packet_done")
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("update_screen_chars_rle__skip")
+                    .instructions(
+                        InstructionBuilder::default()
+                            .txa()
+                            .jsr_addr("engine__screen_char_ptr__advance")
+                            .inc_current_ptr(1)
+                            .jmp_addr("update_screen_chars_rle__packet_done")
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("update_screen_chars_rle__auto")
+                    .instructions(
+                        InstructionBuilder::default()
+                            .jmp_addr("update_screen_chars_rle__packet_done")
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("update_screen_chars_rle__single")
+                    .instructions(
+                        InstructionBuilder::default()
+                            .txa()
+                            .pha()
+                            .tay()
+                            .label("update_screen_chars_rle__single_next")
+                            .dey()
+                            .bne_addr("update_screen_chars_rle__single_done")
+                            .sta_ind_y("SCREEN_CHAR_PTR")
+                            .jmp_addr("update_screen_chars_rle__single_next")
+                            .label("update_screen_chars_rle__single_done")
+                            .inc_current_ptr(2)
+                            .pla()
+                            .jsr_addr("engine__screen_char_ptr__advance")
+                            .jmp_addr("update_screen_chars_rle__packet_done")
+                            .build(),
+                    )
                     .build(),
             )
             .build()
