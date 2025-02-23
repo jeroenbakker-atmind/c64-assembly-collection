@@ -14,10 +14,7 @@ use c64_assembler::{
 
 use crate::encoder::{writer::Writer, Encoder};
 
-use super::{
-    modules::{CurrentPtrMacros, ScreenCharPtrMacros},
-    DecoderModule,
-};
+use super::{modules::CurrentPtrMacros, DecoderModule};
 
 #[derive(Debug, Clone)]
 pub enum RLECommand {
@@ -339,13 +336,13 @@ impl DecoderModule for UpdateScreenCharsRLE {
                             .jmp_addr("update_screen_chars_rle__single")
                             .label("update_screen_chars_rle__switch_values")
                             .cmp_imm(RLE_MASK_UPDATE_VALUES)
-                            .bne_addr("update_screen_chars_rle__switch_values")
+                            .bne_addr("update_screen_chars_rle__switch_skip")
                             .jmp_addr("update_screen_chars_rle__values")
-                            .label("update_screen_chars_rle__skip")
-                            .cmp_imm(RLE_MASK_UPDATE_VALUES)
-                            .bne_addr("update_screen_chars_rle__auto")
+                            .label("update_screen_chars_rle__switch_skip")
+                            .cmp_imm(RLE_MASK_SKIP_VALUES)
+                            .bne_addr("update_screen_chars_rle__switch_auto")
                             .jmp_addr("update_screen_chars_rle__skip")
-                            .label("update_screen_chars_rle__auto")
+                            .label("update_screen_chars_rle__switch_auto")
                             .jmp_addr("update_screen_chars_rle__auto")
                             .label("update_screen_chars_rle__packet_done")
                             .pla()
@@ -357,16 +354,6 @@ impl DecoderModule for UpdateScreenCharsRLE {
                             .jmp_addr("update_screen_chars_rle__next_packet")
                             .label("update_screen_chars_rle__exit")
                             .rts()
-                            .build(),
-                    )
-                    .build(),
-            )
-            .function(
-                FunctionBuilder::default()
-                    .name("update_screen_chars_rle__single")
-                    .instructions(
-                        InstructionBuilder::default()
-                            .jmp_addr("update_screen_chars_rle__packet_done")
                             .build(),
                     )
                     .build(),
@@ -399,6 +386,25 @@ impl DecoderModule for UpdateScreenCharsRLE {
                     .name("update_screen_chars_rle__auto")
                     .instructions(
                         InstructionBuilder::default()
+                            .lda_current_ptr_offs(1, "Load the single value that will be copied")
+                            .sta_addr("SCRATCH_SPACE_00")
+                            .txa()
+                            .pha()
+                            .tay()
+                            .adc_addr("SCRATCH_SPACE_00")
+                            .tax()
+                            .dex()
+                            .label("update_screen_chars_rle__auto_next")
+                            .dex()
+                            .dey()
+                            .bmi_addr("update_screen_chars_rle__auto_done")
+                            .txa()
+                            .sta_ind_y("SCREEN_CHAR_PTR")
+                            .jmp_addr("update_screen_chars_rle__auto_next")
+                            .label("update_screen_chars_rle__auto_done")
+                            .inc_current_ptr(2)
+                            .pla()
+                            .jsr_addr("engine__screen_char_ptr__advance")
                             .jmp_addr("update_screen_chars_rle__packet_done")
                             .build(),
                     )
@@ -409,12 +415,15 @@ impl DecoderModule for UpdateScreenCharsRLE {
                     .name("update_screen_chars_rle__single")
                     .instructions(
                         InstructionBuilder::default()
+                            .lda_current_ptr_offs(1, "Load the single value that will be copied")
+                            .sta_addr("SCRATCH_SPACE_00")
                             .txa()
                             .pha()
                             .tay()
+                            .lda_addr("SCRATCH_SPACE_00")
                             .label("update_screen_chars_rle__single_next")
                             .dey()
-                            .bne_addr("update_screen_chars_rle__single_done")
+                            .bmi_addr("update_screen_chars_rle__single_done")
                             .sta_ind_y("SCREEN_CHAR_PTR")
                             .jmp_addr("update_screen_chars_rle__single_next")
                             .label("update_screen_chars_rle__single_done")
