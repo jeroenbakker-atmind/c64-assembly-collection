@@ -8,11 +8,13 @@ use c64::{
     image_converter::{DitheredText, ImageConverter},
     image_io::{read_png::read_png, write_png::write_png},
 };
+use c64_colors::colors::Color;
 use c64_encoder::{
     builder::{demo::DemoBuilder, frame::FrameBuilder},
     command::{
         clear_screen_chars::ClearScreenChars,
         partial_update_text_mode::PartialUpdateTextModeScreen,
+        set_palette4::SetPalette4,
         update_chars::{UpdateChar, UpdateCharsU16Encoded},
         update_chars_ranged::{UpdateCharRanged, UpdateCharsRangedU16Encoded},
         update_screen_chars_rle::UpdateScreenCharsRLE,
@@ -345,6 +347,11 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
             choose_best_charset_update(&from_charset, &to_charset, frame != 1, false);
 
         let mut demo_frame = FrameBuilder::default();
+        if frame == 1 {
+            demo_frame.push(Command::SetPalette4(SetPalette4 {
+                palette: [Color::Black, Color::White, Color::DarkGrey, Color::Grey],
+            }));
+        }
         demo_frame.extend(&best_charmap_commands);
 
         let image = &images[frame - 1];

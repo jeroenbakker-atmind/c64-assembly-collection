@@ -7,7 +7,7 @@ use crate::{
             RLE_MASK_AUTO_INCREMENT, RLE_MASK_BITS, RLE_MASK_SKIP_VALUES, RLE_MASK_UPDATE_VALUES,
             RLE_MASK_UPDATE_WITH_SINGLE_VALUE,
         },
-        CLEAR_SCREEN_CHAR, PARTIAL_UPDATE_TEXT_MODE_SCREEN, UPDATE_CHARS_RANGED_U16, UPDATE_CHARS_U16,
+        CLEAR_SCREEN_CHAR, PARTIAL_UPDATE_TEXT_MODE_SCREEN, SET_PALETTE4, UPDATE_CHARS_RANGED_U16, UPDATE_CHARS_U16,
         UPDATE_SCREEN_CHARS_RLE, UPDATE_TEXT_MODE_SCREEN,
     },
 };
@@ -130,6 +130,14 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                 let char = read_u8(demo_bytes, &mut current_ptr);
                 println!(" screen_char={char:02X}");
                 state.text_screen.screen_chars = [char; 1000];
+            } else if command_type == SET_PALETTE4 {
+                println!(" command=SetPalette4");
+                let color13 = read_u8(demo_bytes, &mut current_ptr);
+                let color24 = read_u8(demo_bytes, &mut current_ptr);
+                println!(" color_0={:02X}", color13 & 0x0F);
+                println!(" color_1={:02X}", color24 & 0x0F);
+                println!(" color_2={:02X}", (color13 & 0xF0) >> 4);
+                println!(" color_3={:02X}", (color24 & 0xF0) >> 4);
             } else {
                 panic!("detected an not implemented command type {command_type}");
             }
