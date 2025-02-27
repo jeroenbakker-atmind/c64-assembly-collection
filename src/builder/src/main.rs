@@ -2,7 +2,9 @@ mod applications;
 
 use std::{io::Result, path::Path};
 
-use applications::{engine::engine_application, set_black_border::set_black_border_application};
+use applications::{
+    engine::engine_application, intro::intro_application, set_black_border::set_black_border_application,
+};
 use c64::create_disk::PackageDisk;
 use cbm::{
     disk::{directory::FileType, Id},
@@ -60,6 +62,8 @@ fn package_dev() -> Result<()> {
         Petscii::from_str("development"),
         Id::from_bytes(b"FYR"),
     )?;
+
+    disk.add_bytes(&intro_application().unwrap(), Petscii::from_str("intro"), FileType::PRG)?;
 
     disk.add_bytes(
         &engine_application().unwrap(),
