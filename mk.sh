@@ -3,7 +3,7 @@ set -e
 
 export DASM_BIN=/Users/jeroen/bin/dasm
 export X64_BIN=/Applications/vice-arm64-gtk3-3.8/x64sc.app/Contents/MacOS/x64sc
-export DISK_IMAGE_PATH=/Users/jeroen/workspace/c64-assembly-collection/development.D64
+export DISK_IMAGE_PATH=/Users/jeroen/workspace/c64-assembly-collection/senimul.D64
 
 
 # Compile resources.

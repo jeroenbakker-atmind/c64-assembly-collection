@@ -29,7 +29,7 @@ where
         self.images.len()
     }
 
-    pub fn iter(&self) -> Iter<I> {
+    pub fn iter(&self) -> Iter<'_, I> {
         self.images.iter()
     }
 }

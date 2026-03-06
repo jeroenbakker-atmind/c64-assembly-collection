@@ -41,8 +41,8 @@ impl PackageDisk for D64 {
         self.add_bytes(&content, file.1.clone(), file.2)
     }
 
-    fn add_bytes(&mut self, bytes: &[u8], petscii: Petscii, file_type: FileType) -> Result<()> {
-        let d64_file = self.create_file(&petscii, file_type, cbm::disk::file::Scheme::Linear)?;
+    fn add_bytes(&mut self, bytes: &[u8], filename: Petscii, file_type: FileType) -> Result<()> {
+        let d64_file = self.create_file(&filename, file_type, cbm::disk::file::Scheme::Linear)?;
         d64_file.writer()?.write(bytes)?;
         Ok(())
     }

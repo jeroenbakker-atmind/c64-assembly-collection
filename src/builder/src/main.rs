@@ -4,6 +4,7 @@ use std::{io::Result, path::Path};
 
 use applications::{
     engine::engine_application, intro::intro_application, set_black_border::set_black_border_application,
+    senimul::senimul_application
 };
 use c64::create_disk::PackageDisk;
 use cbm::{
@@ -79,7 +80,21 @@ fn package_dev() -> Result<()> {
     Ok(())
 }
 
+fn package_senimul() -> Result<()> {
+    let mut disk = c64::create_disk::initialize_disk(
+        Path::new("senimul.D64"),
+        Petscii::from_str("development"),
+        Id::from_bytes(b"FYR"),
+    )?;
+
+    disk.add_bytes(&senimul_application(), Petscii::from_str("senimul"), FileType::PRG)?;
+
+
+    Ok(())
+}
+
 fn main() -> std::io::Result<()> {
     //package_disk1a()?;
-    package_dev()
+    //package_dev()?;
+    package_senimul()
 }
