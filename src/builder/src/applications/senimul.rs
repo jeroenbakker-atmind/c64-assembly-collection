@@ -62,4 +62,3 @@ pub fn senimul_application() -> Vec<u8> {
 
     ProgramGenerator::default().generate(application).unwrap()
 }
-

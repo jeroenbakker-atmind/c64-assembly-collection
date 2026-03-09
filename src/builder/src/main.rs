@@ -3,8 +3,8 @@ mod applications;
 use std::{io::Result, path::Path};
 
 use applications::{
-    engine::engine_application, intro::intro_application, set_black_border::set_black_border_application,
-    senimul::senimul_application
+    engine::engine_application, intro::intro_application, senimul::senimul_application,
+    set_black_border::set_black_border_application,
 };
 use c64::create_disk::PackageDisk;
 use cbm::{
@@ -88,7 +88,6 @@ fn package_senimul() -> Result<()> {
     )?;
 
     disk.add_bytes(&senimul_application(), Petscii::from_str("senimul"), FileType::PRG)?;
-
 
     Ok(())
 }
