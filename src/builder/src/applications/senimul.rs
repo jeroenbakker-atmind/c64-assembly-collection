@@ -25,8 +25,29 @@ pub fn senimul_application() -> Vec<u8> {
             include_basic_header
             main_entry_point:
                 "Load black color into accumulator"
+                jsr charset_init
                 jsr screen_init
+                jsr screen_clear
                 rts
+            )
+        )
+        module!(
+            name="charset"
+            function!(
+                name="charset_init"
+                instructions!(
+                    ldx #$00
+                charset_init_loop:
+                    lda CHARSET_DATA, x
+                    sta CHARSET_PTR_PAGE0, x
+                    inx
+                    bne charset_init_loop
+                    lda #$0
+                    rts
+
+                CHARSET_DATA:
+                     //byte %00000000
+                )
             )
         )
         module!(
@@ -34,6 +55,21 @@ pub fn senimul_application() -> Vec<u8> {
             function!(
                 name="screen_clear"
                 instructions!(
+                    ldx #$00
+                screen_clear_loop:
+                    lda #$30
+                    sta SCREEN_CHARS_PAGE0, x
+                    sta SCREEN_CHARS_PAGE1, x
+                    sta SCREEN_CHARS_PAGE2, x
+                    sta SCREEN_CHARS_PAGE3, x
+                    lda #$00
+                    sta SCREEN_COLORS_PAGE0, x
+                    sta SCREEN_COLORS_PAGE1, x
+                    sta SCREEN_COLORS_PAGE2, x
+                    sta SCREEN_COLORS_PAGE3, x
+                    inx
+                    bne screen_clear_loop
+                    lda #$0
                     rts
                 )
             )
