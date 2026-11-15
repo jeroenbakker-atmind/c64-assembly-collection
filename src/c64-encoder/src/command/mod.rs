@@ -110,7 +110,9 @@ pub fn all_decoder_modules() -> Vec<(u8, Module)> {
         (CLEAR_SCREEN_CHAR, ClearScreenChars::module()),
         (SET_BORDER_COLOR, SetBorderColor::module()),
         (SET_PALETTE4, SetPalette4::module()),
+        (UPDATE_CHARS_U16, UpdateCharsU16Encoded::module()),
         (UPDATE_CHARS_RANGED_U16, UpdateCharsRangedU16Encoded::module()),
+        (PARTIAL_UPDATE_TEXT_MODE_SCREEN, PartialUpdateTextModeScreen::module()),
         (UPDATE_SCREEN_CHARS_RLE, UpdateScreenCharsRLE::module()),
     ]
 }

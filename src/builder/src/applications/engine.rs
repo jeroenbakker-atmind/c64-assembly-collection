@@ -45,7 +45,7 @@ pub fn engine_application() -> AssemblerResult<Vec<u8>> {
                         .add_basic_header()
                         .label("main_entry_point")
                         .jsr_addr("engine__init")
-                        .jsr_addr("engine__frame__process")
+                        .jsr_addr("engine__play")
                         //.jsr_addr("engine__deinit")
                         .rts()
                         .build(),

@@ -93,7 +93,7 @@ fn package_senimul() -> Result<()> {
 }
 
 fn main() -> std::io::Result<()> {
-    //package_disk1a()?;
-    //package_dev()?;
-    package_senimul()
+    //package_disk1a()
+    package_dev()
+    //package_senimul()
 }

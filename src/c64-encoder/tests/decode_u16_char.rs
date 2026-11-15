@@ -7,6 +7,7 @@ use c64_encoder::{
     charmap::encoding::{decode_char, encode_char},
     command::{
         modules::{CurrentPTR, DecodeU16Char},
+        update_chars::{UpdateChar, UpdateCharsU16Encoded},
         update_chars_ranged::{UpdateCharRanged, UpdateCharsRangedU16Encoded},
         DecoderModule,
     },
@@ -125,6 +126,170 @@ fn decode_update_chars_ranged_u16() -> AssemblerResult<()> {
     assert_eq!(0b00001111, cpu.memory.get_byte(0x051D));
     assert_eq!(0b00001111, cpu.memory.get_byte(0x051E));
     assert_eq!(0b00001111, cpu.memory.get_byte(0x051F));
+
+    Ok(())
+}
+
+#[test]
+fn decode_update_chars_ranged_u16_crosses_page() -> AssemblerResult<()> {
+    let encoded_chars = [(0u8, 0x1234_u16), (1u8, 0xABCD_u16)];
+    let update_chars = UpdateCharsRangedU16Encoded {
+        // Character 16 has bit 4 set, which used to corrupt the charset page, and
+        // its destination ends at an address where the increment needs to carry.
+        offset: 16,
+        chars: encoded_chars
+            .iter()
+            .map(|(_, encoded)| UpdateCharRanged {
+                data: decode_char(*encoded),
+            })
+            .collect(),
+    };
+    let mut command = vec![0; update_chars.byte_size() + 1];
+    update_chars.encode(&mut command[1..]);
+
+    let application = ApplicationBuilder::default()
+        .define_address("CHAR_DECODE_SRC_PTR", 0xFE)
+        .define_address("CHAR_DECODE_DST_PTR", 0xFC)
+        .define_address("CURRENT_PTR", 0xFE)
+        .define_address("CHARSET_PTR_PAGE0", 0x0500)
+        .module(
+            ModuleBuilder::default()
+                .instructions(
+                    InstructionBuilder::default()
+                        .jsr_addr("update_chars_ranged_u16__process")
+                        .raw(&[0xFF])
+                        .build(),
+                )
+                .build(),
+        )
+        .module(CurrentPTR::module())
+        .module(UpdateCharsRangedU16Encoded::module())
+        .module(DecodeU16Char::module())
+        .build()?;
+    let bytes = ProgramGenerator::default().generate(application)?;
+
+    let mut cpu = CPU::new(Memory::new(), Nmos6502);
+    cpu.memory.set_bytes(0x00FE, &[0x00, 0x04]);
+    cpu.memory.set_bytes(0x0800, &bytes[2..]);
+    cpu.memory.set_bytes(0x0400, &command);
+    cpu.registers.program_counter = 0x0800;
+
+    cpu.run();
+
+    let table = [
+        0b00000000, 0b00000011, 0b00001100, 0b00001111, 0b00110000, 0b00110011, 0b00111100, 0b00111111, 0b11000000,
+        0b11000011, 0b11001100, 0b11001111, 0b11110000, 0b11110011, 0b11111100, 0b11111111,
+    ];
+    for (char_offset, encoded) in encoded_chars {
+        let low = (encoded & 0xFF) as usize;
+        let high = (encoded >> 8) as usize;
+        let expected = [
+            table[low >> 4],
+            table[low >> 4],
+            table[low & 0x0F],
+            table[low & 0x0F],
+            table[high >> 4],
+            table[high >> 4],
+            table[high & 0x0F],
+            table[high & 0x0F],
+        ];
+        let base = 0x0500 + (16 + u16::from(char_offset)) * 8;
+        for (index, expected_byte) in expected.iter().enumerate() {
+            let address = base + index as u16;
+            assert_eq!(
+                *expected_byte,
+                cpu.memory.get_byte(address),
+                "character {} at {address:04X}",
+                16 + char_offset
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn decode_update_chars_u16() -> AssemblerResult<()> {
+    let encoded_chars = [
+        (0u8, 0x1234_u16),
+        // Characters 16..31 have bit 4 set. This used to corrupt the charset page
+        // because the carry of the five LSRs was not cleared before adding the page.
+        (16u8, 0xABCD_u16),
+        (17u8, 0x00FF_u16),
+        (33u8, 0x8001_u16),
+    ];
+    let update_chars = UpdateCharsU16Encoded {
+        chars: encoded_chars
+            .iter()
+            .map(|(char, encoded)| UpdateChar {
+                char: *char,
+                data: decode_char(*encoded),
+            })
+            .collect(),
+    };
+    let mut command = vec![0; update_chars.byte_size() + 1];
+    update_chars.encode(&mut command[1..]);
+
+    let application = ApplicationBuilder::default()
+        .define_address("CHAR_DECODE_SRC_PTR", 0xFE)
+        .define_address("CHAR_DECODE_DST_PTR", 0xFC)
+        .define_address("CURRENT_PTR", 0xFE)
+        .define_address("CHARSET_PTR_PAGE0", 0x0500)
+        .module(
+            ModuleBuilder::default()
+                .instructions(
+                    InstructionBuilder::default()
+                        .jsr_addr("update_chars_u16__process")
+                        .raw(&[0xFF])
+                        .build(),
+                )
+                .build(),
+        )
+        .module(CurrentPTR::module())
+        .module(UpdateCharsU16Encoded::module())
+        .module(DecodeU16Char::module())
+        .build()?;
+    let bytes = ProgramGenerator::default().generate(application)?;
+
+    let mut cpu = CPU::new(Memory::new(), Nmos6502);
+    cpu.memory.set_bytes(0x00FE, &[0x00, 0x04]);
+    cpu.memory.set_bytes(0x0800, &bytes[2..]);
+    cpu.memory.set_bytes(0x0400, &command);
+    cpu.registers.program_counter = 0x0800;
+
+    cpu.run();
+
+    let table = [
+        0b00000000, 0b00000011, 0b00001100, 0b00001111, 0b00110000, 0b00110011, 0b00111100, 0b00111111, 0b11000000,
+        0b11000011, 0b11001100, 0b11001111, 0b11110000, 0b11110011, 0b11111100, 0b11111111,
+    ];
+    for (char, encoded) in encoded_chars {
+        let low = (encoded & 0xFF) as usize;
+        let high = (encoded >> 8) as usize;
+        let expected = [
+            table[low >> 4],
+            table[low >> 4],
+            table[low & 0x0F],
+            table[low & 0x0F],
+            table[high >> 4],
+            table[high >> 4],
+            table[high & 0x0F],
+            table[high & 0x0F],
+        ];
+        let base = 0x0500 + u16::from(char) * 8;
+        for (index, expected_byte) in expected.iter().enumerate() {
+            let address = base + index as u16;
+            assert_eq!(
+                *expected_byte,
+                cpu.memory.get_byte(address),
+                "character {char} at {address:04X}"
+            );
+        }
+    }
+
+    let end = 0x0400 + command.len() as u16;
+    assert_eq!((end & 0xFF) as u8, cpu.memory.get_byte(0x00FE));
+    assert_eq!((end >> 8) as u8, cpu.memory.get_byte(0x00FF));
 
     Ok(())
 }

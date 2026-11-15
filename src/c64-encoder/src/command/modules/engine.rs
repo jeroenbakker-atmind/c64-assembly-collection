@@ -4,7 +4,7 @@ use c64_assembler::{
 };
 use c64_assembler_macro::function;
 
-use super::{CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char, ScreenCharPTR};
+use super::{CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char, FramesLeft, ScreenCharPTR};
 use crate::command::{all_decoder_modules, DecoderModule};
 
 pub trait EngineBuilder {
@@ -35,6 +35,7 @@ impl EngineBuilder for ApplicationBuilder {
             .module(CurrentPTR::module())
             .module(ScreenCharPTR::module())
             .module(CommandsLeft::module())
+            .module(FramesLeft::module())
             .module(DecodeU16Char::module());
         for (_, module) in all_decoder_modules() {
             self.module(module);
@@ -55,6 +56,7 @@ impl DecoderModule for Engine {
                         "Initialize the engine.",
                         "",
                         " - assumes engine data is stored at 'engine-data'",
+                        " - reads the frame count from the start of engine data",
                         " - sets the current pointer to the first frame",
                     ])
                     .instructions(
@@ -63,9 +65,10 @@ impl DecoderModule for Engine {
                             .sta_addr("CURRENT_PTR")
                             .lda_imm_high("engine_data")
                             .sta_addr_offs("CURRENT_PTR", 1)
+                            .jsr_addr("engine__frames_left__init")
+                            .comment("Read the number of frames before advancing the pointer.")
                             .inc_current_ptr(2)
                             .comment("Advance the pointer with 2 bytes.")
-                            .comment("Number of frames is only needed when reading directly from disk.")
                             .lda_imm(0)
                             .comment("Attach the VIC-II to bank 3 ($C000-$FFFF)")
                             .sta_addr("C64_BANK_SELECTION")
@@ -103,9 +106,9 @@ impl DecoderModule for Engine {
                 bne engine__frame_command__process
             engine__frame__exit:
                 "All commands in frame have been processed."
-                "Update VIC2 registries"
-                "TODO: use shadow registries"
-                "TODO: wait for vblank"
+                "Wait for the next vertical refresh so each frame is displayed once."
+                jsr engine__vblank__wait
+                "TODO: flush shadow VIC2 registries here once commands use shadows."
                 rts
 
             engine__frame_command__process:
@@ -115,6 +118,60 @@ impl DecoderModule for Engine {
 
                 )
             ))
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__vblank__wait")
+                    .doc(&[
+                        "Wait for the next vertical refresh.",
+                        "",
+                        "Polls bit 7 of the VIC-II raster register. This bit is set from line 256",
+                        "to the end of the frame on both PAL and NTSC, which places the caller in",
+                        "the bottom border/vblank. The relatively wide window makes the wait robust",
+                        "against interrupts that could make an exact raster line comparison miss.",
+                        "",
+                        "If the caller is already in vblank, the end of the current vblank is",
+                        "waited for first, so the function always waits for the next frame.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .bit_addr("VIC2_CONTROL_1")
+                            .comment("N contains bit 8 of the current raster line.")
+                            .bmi_addr("engine__vblank__wait__in_vblank")
+                            .label("engine__vblank__wait__for_vblank")
+                            .bit_addr("VIC2_CONTROL_1")
+                            .bpl_addr("engine__vblank__wait__for_vblank")
+                            .rts()
+                            .label("engine__vblank__wait__in_vblank")
+                            .bit_addr("VIC2_CONTROL_1")
+                            .bmi_addr("engine__vblank__wait__in_vblank")
+                            .jmp_addr("engine__vblank__wait__for_vblank")
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__play")
+                    .doc(&[
+                        "Play all frames from engine_data, one frame per vertical refresh.",
+                        "",
+                        "When all frames have been played the final frame is kept on screen",
+                        "by looping forever instead of returning to the caller.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .label("engine__play__next")
+                            .jsr_addr("engine__frames_left__is_zero")
+                            .beq_addr("engine__play__done")
+                            .jsr_addr("engine__frame__process")
+                            .jsr_addr("engine__frames_left__decrease")
+                            .jmp_addr("engine__play__next")
+                            .label("engine__play__done")
+                            .jmp_addr("engine__play__done")
+                            .build(),
+                    )
+                    .build(),
+            )
             .function(
                 FunctionBuilder::default()
                     .name("engine__frame_command__switch")

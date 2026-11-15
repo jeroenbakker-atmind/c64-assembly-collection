@@ -1,7 +1,14 @@
+use c64_assembler::{
+    builder::{FunctionBuilder, InstructionBuilder, ModuleBuilder},
+    Module,
+};
+
 use crate::{
     charmap::encoding::encode_char,
     encoder::{writer::Writer, Encoder},
 };
+
+use super::{modules::CurrentPtrMacros, DecoderModule};
 
 #[derive(Default, Debug, Clone)]
 pub struct UpdateCharsU16Encoded {
@@ -41,5 +48,55 @@ impl Encoder for UpdateCharsU16Encoded {
         }
 
         encoded_data
+    }
+}
+
+impl DecoderModule for UpdateCharsU16Encoded {
+    fn module() -> Module {
+        ModuleBuilder::default()
+            .name("update_chars_u16")
+            .function(
+                FunctionBuilder::default()
+                    .name("update_chars_u16__process")
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_current_ptr_offs(1, "Load the number of characters to update.")
+                            .pha()
+                            .inc_current_ptr(2)
+                            .label("update_chars_u16__decode_next")
+                            .lda_current_ptr_offs(0, "Load the character index to update.")
+                            .comment("Calculate the destination address: CHARSET_PTR_PAGE0 + character * 8.")
+                            .pha()
+                            .asl_acc()
+                            .asl_acc()
+                            .asl_acc()
+                            .sta_addr("CHAR_DECODE_DST_PTR")
+                            .pla()
+                            .comment("Shift 5 times to calculate the page of the character.")
+                            .lsr_acc()
+                            .lsr_acc()
+                            .lsr_acc()
+                            .lsr_acc()
+                            .lsr_acc()
+                            .clc()
+                            .adc_imm_high("CHARSET_PTR_PAGE0")
+                            .sta_addr_offs("CHAR_DECODE_DST_PTR", 1)
+                            .inc_current_ptr(1)
+                            .jsr_addr("char__decode_u16")
+                            .inc_current_ptr(2)
+                            .pla()
+                            .tax()
+                            .dex()
+                            .beq_addr("update_chars_u16__exit")
+                            .txa()
+                            .pha()
+                            .jmp_addr("update_chars_u16__decode_next")
+                            .label("update_chars_u16__exit")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build()
     }
 }
