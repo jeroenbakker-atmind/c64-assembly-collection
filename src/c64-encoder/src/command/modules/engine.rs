@@ -106,7 +106,9 @@ impl DecoderModule for Engine {
                 bne engine__frame_command__process
             engine__frame__exit:
                 "All commands in frame have been processed."
-                "Wait for the next vertical refresh so each frame is displayed once."
+                "Wait for three vertical refreshes so each frame is displayed for three frames."
+                jsr engine__vblank__wait
+                jsr engine__vblank__wait
                 jsr engine__vblank__wait
                 "TODO: flush shadow VIC2 registries here once commands use shadows."
                 rts
@@ -153,7 +155,7 @@ impl DecoderModule for Engine {
                 FunctionBuilder::default()
                     .name("engine__play")
                     .doc(&[
-                        "Play all frames from engine_data, one frame per vertical refresh.",
+                        "Play all frames from engine_data, one frame every three vertical refreshes.",
                         "",
                         "When all frames have been played the final frame is kept on screen",
                         "by looping forever instead of returning to the caller.",
