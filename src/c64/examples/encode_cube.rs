@@ -280,9 +280,13 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
     // Always add a leading and trailing frame to guarantee repeating zones.
     // continue until the usage list is empty. fail when more then 256 locations are needed.
     let mut usage_keys = usages.keys().map(|key| *key).collect::<Vec<BitEncodedChar>>();
-    usage_keys.sort_by_key(|key| usages[key].len());
+    // Sort by usage count and then by character bits to make the generated data deterministic.
+    usage_keys.sort_by_key(|key| (usages[key].len(), *key));
     let max_frame = images.len() + 1;
     let mut inner_result = Vec::<Vec<Option<BitEncodedChar>>>::default();
+    // Per frame, the character slot that holds each glyph. This is the slot the screen must
+    // reference; other slots may hold the same bits because of the dilation below.
+    let mut slots_per_frame = vec![HashMap::<BitEncodedChar, u8>::new(); max_frame];
     while let Some(key) = usage_keys.pop() {
         let mut location = None;
         // improvement could be to do it per range of frames instead of a collection of frames.
@@ -291,8 +295,17 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
         for (loc, frame_slots) in inner_result.iter().enumerate() {
             let mut loc_possible = true;
             for frame in frames {
+                // A slot can only hold one glyph per frame.
                 if matches!(frame_slots.get(*frame), Some(Some(_bit_char))) {
                     loc_possible = false;
+                    break;
+                }
+                // After the last frame of a run the glyph is still displayed until the next
+                // frame is written. Reserve that frame as well, so the slot cannot be reused
+                // by another glyph while the old glyph is still visible.
+                if is_usage_run_end(frames, *frame) && matches!(frame_slots.get(frame + 1), Some(Some(_bit_char))) {
+                    loc_possible = false;
+                    break;
                 }
             }
             if loc_possible {
@@ -302,13 +315,21 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
         }
 
         let location = if let Some(location) = location {
-            inner_result.get_mut(location).unwrap()
+            location
         } else {
             inner_result.push(vec![None; max_frame]);
-            inner_result.last_mut().unwrap()
+            inner_result.len() - 1
         };
         for frame in frames {
-            location.get_mut(*frame).map(|slot| *slot = Some(key));
+            inner_result[location][*frame] = Some(key);
+            slots_per_frame[*frame].insert(key, location as u8);
+            if is_usage_run_end(frames, *frame) {
+                if let Some(guard) = inner_result[location].get_mut(frame + 1) {
+                    if guard.is_none() {
+                        *guard = Some(key);
+                    }
+                }
+            }
         }
     }
     assert!(
@@ -355,42 +376,53 @@ fn build_frames_initial(images: &ImageSequence<BitCharImage>) -> Vec<FrameBuilde
         demo_frame.extend(&best_charmap_commands);
 
         let image = &images[frame - 1];
-        let text_mode_screen: UpdateTextModeScreen = create_text_mode_screen(image, &to_charset);
+        let text_mode_screen: UpdateTextModeScreen = create_text_mode_screen_from_slots(image, &slots_per_frame[frame]);
         let previous_text_mode_screen = if frame > 1 {
             let previous_image = &images[frame - 2];
-            create_text_mode_screen(previous_image, &from_charset)
+            create_text_mode_screen_from_slots(previous_image, &slots_per_frame[frame - 1])
         } else {
             // TODO: find most used char in text_mode_screen.
             UpdateTextModeScreen::filled(0xFF)
         };
+
+        // Character updates are applied while the previous frame is still visible. A slot that
+        // is on screen at that moment must not change, or the animation shows a mix of old and
+        // new glyphs.
+        debug_assert!(
+            from_charset
+                .iter()
+                .zip(to_charset.iter())
+                .enumerate()
+                .all(|(slot, (from, to))| from == to || !previous_text_mode_screen.chars.contains(&(slot as u8))),
+            "frame {frame} updates a character slot that is still visible in the previous frame"
+        );
+
+        // Do not clear the text screen: the previous frame is still visible while commands are
+        // processed, so a clear would flash the whole screen before the new characters are written.
+        // RLE and partial updates only write the cells that actually change.
         demo_frame.extend(
-            &choose_best_text_mode_update(&previous_text_mode_screen.chars, &text_mode_screen.chars, true, true).0,
+            &choose_best_text_mode_update(&previous_text_mode_screen.chars, &text_mode_screen.chars, true, false).0,
         );
         result.push(demo_frame);
     }
     result
 }
 
-fn create_text_mode_screen(image: &BitCharImage, charmap: &[u64]) -> UpdateTextModeScreen {
-    let mut text_mode_screen = UpdateTextModeScreen::default();
-    let image_charcodes = image
-        .chars
-        .iter()
-        .map(|char_bits| {
-            for (charcode, charmap_bits) in charmap.iter().enumerate() {
-                if charmap_bits == char_bits {
-                    return charcode as u8;
-                }
-            }
-            panic!()
-        })
-        .collect::<Vec<u8>>();
-    text_mode_screen
-        .chars
-        .iter_mut()
-        .zip(image_charcodes.iter())
-        .for_each(|(out_screen, in_char)| *out_screen = *in_char);
+/// Returns true when `frame` is the last frame of a run of consecutive frames.
+fn is_usage_run_end(frames: &[usize], frame: usize) -> bool {
+    !frames.contains(&(frame + 1))
+}
 
+fn create_text_mode_screen_from_slots(
+    image: &BitCharImage,
+    slots: &HashMap<BitEncodedChar, u8>,
+) -> UpdateTextModeScreen {
+    let mut text_mode_screen = UpdateTextModeScreen::default();
+    for (index, char_bits) in image.chars.iter().enumerate() {
+        text_mode_screen.chars[index] = *slots
+            .get(char_bits)
+            .unwrap_or_else(|| panic!("no character slot assigned for glyph {char_bits:016X}"))
+    }
     text_mode_screen
 }
 
