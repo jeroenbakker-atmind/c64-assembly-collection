@@ -4,7 +4,10 @@ use c64_assembler::{
 };
 use c64_assembler_macro::function;
 
-use super::{CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char, FramesLeft, ScreenCharPTR};
+use super::{
+    BlockScratchBuilder, CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char, FramesLeft, ScreenCharPTR,
+    UpdateScreenBlocksDecoder,
+};
 use crate::command::{all_decoder_modules, DecoderModule};
 
 pub trait EngineBuilder {
@@ -31,12 +34,14 @@ impl EngineBuilder for ApplicationBuilder {
             .define_address("CHARSET_PTR_PAGE3", 0xCB00)
             .define_address("C64_BANK_SELECTION", 0xDD00)
             .define_address("SCRATCH_SPACE_00", 0xFB)
+            .add_block_scratch_addresses()
             .module(Engine::module())
             .module(CurrentPTR::module())
             .module(ScreenCharPTR::module())
             .module(CommandsLeft::module())
             .module(FramesLeft::module())
-            .module(DecodeU16Char::module());
+            .module(DecodeU16Char::module())
+            .module(UpdateScreenBlocksDecoder::module());
         for (_, module) in all_decoder_modules() {
             self.module(module);
         }

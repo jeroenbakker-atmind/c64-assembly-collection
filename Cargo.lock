@@ -62,6 +62,7 @@ dependencies = [
  "c64-colors",
  "c64-dithering",
  "c64-encoder",
+ "c64-encoder-reporting",
  "cbm",
  "clap 4.0.26",
  "png",
@@ -113,6 +114,14 @@ dependencies = [
  "c64-assembler-macro",
  "c64-colors",
  "mos6502",
+]
+
+[[package]]
+name = "c64-encoder-reporting"
+version = "0.1.0"
+dependencies = [
+ "c64",
+ "c64-encoder",
 ]
 
 [[package]]

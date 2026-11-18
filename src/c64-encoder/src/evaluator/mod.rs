@@ -3,6 +3,7 @@ use state::State;
 use crate::{
     charmap::encoding::decode_char,
     command::{
+        update_screen_blocks::{decode_block_payload, BlockKind},
         update_screen_chars_rle::{
             RLE_MASK_AUTO_INCREMENT, RLE_MASK_BITS, RLE_MASK_SKIP_VALUES, RLE_MASK_UPDATE_VALUES,
             RLE_MASK_UPDATE_WITH_SINGLE_VALUE,
@@ -125,6 +126,9 @@ pub fn evaluate(demo_bytes: &[u8]) -> Vec<State> {
                     }
                     println!();
                 }
+            } else if let Some(kind) = BlockKind::from_opcode(command_type) {
+                println!(" command=UpdateScreenBlocks({})", kind.name());
+                decode_block_payload(kind, demo_bytes, &mut current_ptr, &mut state.text_screen.screen_chars);
             } else if command_type == CLEAR_SCREEN_CHAR {
                 println!(" command=ClearScreenChar");
                 let char = read_u8(demo_bytes, &mut current_ptr);

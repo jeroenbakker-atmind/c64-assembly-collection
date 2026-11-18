@@ -1,0 +1,8 @@
+[package]
+name = "c64-encoder-reporting"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+c64 = { path = "../c64" }
+c64-encoder = { path = "../c64-encoder" }
