@@ -12,7 +12,7 @@
 - **Streaming is command-driven within the demo/frame stream:** a frame chunk can issue a **request to read a range of sectors** (async, serviced by the IRQ loader) and later issue a **wait** until that request is fully read. **Bytes read are stored after that wait command** (so the data becomes available to the decoder/engine at that point in the stream).
 - **RAM buffer:** stream data uses a **cyclic (ring) buffer of ~16 KB** in RAM.
 
-**Baseline (measured, Act 1 `encode_cube` 100 frames):** 11,624 B total stream, 116.2 B/frame avg, 2–590 B/frame (bursty). Payload split ~67.8% screen RLE, ~32.1% charset updates, ~1.7% structural headers. Act 2: 368 B, 1 frame. (Compression work such as plan 1A/A2/B1 reduces these numbers; this plan assumes streaming of the encoded command stream as-is or compressed.)
+**Current baseline (measured, `encode_cube` with all frames on disk):** 12,361 B total stream for 200 encoded frames, i.e. 61.8 B/frame overall. Act 1 is 10,405 B / 100 frames; Act 2 is 1,956 B / 100 frames. The older Act-1-only baseline was 11,624 B / 100 frames (116.2 B/frame, 2–590 B/frame, payload split ~67.8% screen RLE, ~32.1% charset updates, ~1.7% structural headers) and the older Act 2 was 368 B / 1 frame; those figures are historical. This plan assumes streaming of the encoded command stream as-is or compressed.
 
 ## 2. Throughput & timing budget
 
@@ -26,7 +26,7 @@
 - `avg(chunk_bytes) / chunk_duration_frames <= sustained_Bps / fps`
 - and buffer must absorb `max(chunk_bytes)` and worst-case I/O gaps (track step, speed-zone change, rotation miss).
 
-**Against Act 1 (11,624 B, 100 frames, avg 116 B/frame, peak frame 590 B):**
+**Against the historical Act 1 baseline (11,624 B, 100 frames, avg 116 B/frame, peak frame 590 B; current stream is 10,405 B):**
 - At 4 KB/s end-to-end stream time ≈ 2.9 s (budget headroom in aggregate) but **per-frame average (116 B) exceeds 80 B/frame @50 Hz** and peaks (590 B) far exceed it.
 - **Conclusion:** streaming-at-frame-rate requires (a) **ahead buffering sized to bursts**, (b) **hold/repeat frames** when data not ready, and/or (c) **reduced bytes/frame** via compression/encoding improvements and/or fewer changed glyphs/cells. Design the pipeline to the conservative rate and add smoothing.
 
@@ -164,4 +164,4 @@ For every `RequestReadRange` → `WaitRead` pair the encoder computes and report
 *Notes:* verify the exact raw track/sector streaming mode, interleave configuration, and 1541-only assumptions in the chosen loader’s docs before relying on specific throughput figures. Some projects/mirrors move over time; CSDB entries are stable indexes to releases and docs.
 
 ## 11. Summary
-A software-only, IRQ-driven loader reads **raw 256 B sectors** in a **hardcoded, mastered linear/interleaved** sequence, controlled by **in-stream commands**: a frame chunk issues a **request to read a sector range** (async), later a **wait** ensures the last request is fully read, and the **loaded bytes are stored after the wait command** so decoding continues into them within a **~16 KB cyclic (ring) buffer** in RAM. With mastered 1541 layout plan for **~4 KB/s sustained** (~80 B/frame @50 Hz), request/wait pipelining and ring-buffered flow control against bursts/gaps—combined with payload reduction (screen/charset encoding, chunk smoothing)—make load-during-animation feasible with bounded resident stream memory (~16 KB) instead of holding the full ~11.6 KB (and larger) animation stream in RAM.
+A software-only, IRQ-driven loader reads **raw 256 B sectors** in a **hardcoded, mastered linear/interleaved** sequence, controlled by **in-stream commands**: a frame chunk issues a **request to read a sector range** (async), later a **wait** ensures the last request is fully read, and the **loaded bytes are stored after the wait command** so decoding continues into them within a **~16 KB cyclic (ring) buffer** in RAM. With mastered 1541 layout plan for **~4 KB/s sustained** (~80 B/frame @50 Hz), request/wait pipelining and ring-buffered flow control against bursts/gaps—combined with payload reduction (screen/charset encoding, chunk smoothing)—make load-during-animation feasible with bounded resident stream memory (~16 KB) instead of holding the full ~12.4 KB (and larger) animation stream in RAM.

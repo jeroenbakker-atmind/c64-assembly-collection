@@ -80,8 +80,8 @@ Current output of `encode_cube`:
 | act | uploads | unique glyphs | first uploads | reuploads after eviction | duplicates while resident | same-slot rewrites | redundant uploads | upload payload B | command overhead B | redundant B | redundant % |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 1 | 1,207 | 846 | 845 | 361 | 1 | 0 | 362 | 3,437 | 51 | 1,085 | 31.57% |
-| 2 | 39 | 39 | 38 | 0 | 1 | 0 | 1 | 78 | 2 | 2 | 2.56% |
-| **total** | 1,246 | - | 883 | 361 | 2 | 0 | 363 | 3,515 | 53 | 1,087 | 30.92% |
+| 2 | 170 | 170 | 169 | 0 | 1 | 0 | 1 | 340 | 2 | 2 | 0.59% |
+| **total** | 1,377 | - | 1,014 | 361 | 2 | 0 | 363 | 3,777 | 53 | 1,087 | 28.78% |
 
 The single duplicate in each act is the all-zero glyph: the decoder starts with zero in every slot, so the first explicit upload of zero is already resident elsewhere.
 
@@ -91,10 +91,9 @@ The single duplicate in each act is the all-zero glyph: the decoder starts with 
 
 1. per-act stream totals,
 2. emitted command counts/bytes by opcode,
-3. screen-update choice counts,
-4. this redundancy table.
+3. this redundancy table.
 
-All four sections use Markdown tables. This keeps the output copyable into design documents and makes the new metric visible next to the command statistics it explains.
+All three sections use Markdown tables. This keeps the output copyable into design documents and makes the new metric visible next to the command statistics it explains.
 
 ## 6. Possible follow-ups
 

@@ -268,11 +268,11 @@ The decoder writes **only the set mask bits**, in the same row-major order used 
 - Unit tests for `UpdateScreenBlocks::transition`: correct band/block bitmaps, mask/char payload order, `byte_size()` matches `encode()` output length, and heights 3/4 ignore row 24.
 - Round-trip tests for all 10 kinds: `transition(from, to, kind)` → `encode()` → decode helper → assert the resulting 1000-cell screen equals `to` (excluding ignored row 24 for partial-height kinds).
 - Column-first test: each active block-column has its own row bitmap.
-- Full-animation equivalence: re-running `encode_cube` regenerates all 103 debug PNGs with the same aggregate SHA-256. This exercises the evaluator path for the block opcodes on real frames.
+- Full-animation equivalence: at measurement time, re-running `encode_cube` regenerated all 103 debug PNGs with the same aggregate SHA-256. This exercises the evaluator path for the block opcodes on real frames. The current animation has 202 debug PNGs (see §7.5).
 
 ## 7. Measured gain for the used animation
 
-The animation used by this repository is `resources/render/001/*.png` (Act 1, 100 frames) and `resources/render/002/*.png` (Act 2, 1 frame), encoded by `cargo run -p c64 --example encode_cube`.
+At measurement time the animation was `resources/render/001/*.png` (Act 1, 100 frames) and `resources/render/002/*.png` (Act 2, 1 frame), encoded by `cargo run -p c64 --example encode_cube`. The repository now also has 100 Act 2 frames on disk; current totals are in §7.5.
 
 The numbers below are **measured from the implemented encoder and Rust decoder**, not estimates. `encode_cube` reports the baseline (existing screen-update commands only) and the result after enabling all 10 block candidates on every frame. Baseline = the smallest existing screen-update candidate for that frame, including opcode bytes; structural frame headers and charset updates are excluded from the screen-byte totals but included in the stream totals.
 
@@ -342,7 +342,15 @@ The full-animation equivalence check passed: regenerating all 103 debug PNGs pro
 
 ### 7.5 All-acts command and redundancy report
 
-`print_command_summary()` in `c64-encoder-reporting/src/reports/command_report.rs` prints three Markdown tables: per-act stream totals, emitted command counts/bytes by opcode, and charset-upload redundancy. The final stream totals are:
+`print_command_summary()` in `c64-encoder-reporting/src/reports/command_report.rs` prints three Markdown tables: per-act stream totals, emitted command counts/bytes by opcode, and charset-upload redundancy. With all 100 Act 2 frames on disk, the current stream totals are:
+
+| Act | Strategy | Frames | Commands | Stream bytes |
+|---:|---|---:|---:|---:|
+| 1 | initial | 100 | 105 | 10,405 |
+| 2 | one_charmap | 100 | 47 | 1,956 |
+| **total** |  | **200** | **152** | **12,361** |
+
+The remaining tables in this section are the original one-frame Act 2 measurement. Its final stream totals were:
 
 | Act | Strategy | Frames | Commands | Stream bytes |
 |---:|---|---:|---:|---:|
