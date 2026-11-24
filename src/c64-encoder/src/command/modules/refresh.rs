@@ -18,6 +18,7 @@ impl RefreshBuilder for ApplicationBuilder {
             .define_address("C64_IRQ_EPLOGUE", 0xEA81)
             .define_address("CIA1_IRQ_CONTROL", 0xDC0D)
             .define_address("CIA2_IRQ_CONTROL", 0xDD0D)
+            .define_address("REFRESH_WAIT_COUNT", 0x90)
     }
 }
 
@@ -106,9 +107,9 @@ impl DecoderModule for Refresh {
                             .lda_imm(0b0000_0001)
                             .sta_addr("VIC2_IRQ_STATUS")
                             .comment("Install the handler and compare against raster line 0.")
-                            .lda_imm_low("engine__refresh__irq")
+                            .lda_imm_low("engine__irq__handler")
                             .sta_addr("C64_IRQ_VECTOR")
-                            .lda_imm_high("engine__refresh__irq")
+                            .lda_imm_high("engine__irq__handler")
                             .sta_addr_offs("C64_IRQ_VECTOR", 1)
                             .lda_imm(0)
                             .sta_addr("VIC2_RASTER")
@@ -160,6 +161,41 @@ impl DecoderModule for Refresh {
                             .bne_addr("engine__refresh__wait")
                             .lda_imm(REFRESHES_PER_FRAME)
                             .sta_addr("engine__refresh__remaining")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build()
+    }
+}
+
+/// Standalone `wait_n` primitive so CPU tests can stub `engine__refresh__wait`.
+pub struct RefreshWaitN {}
+
+impl DecoderModule for RefreshWaitN {
+    fn module() -> Module {
+        ModuleBuilder::default()
+            .name("engine__refresh__wait_n")
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__refresh__wait_n")
+                    .doc(&[
+                        "Wait A refresh intervals by calling `engine__refresh__wait` A times.",
+                        "",
+                        "Each call waits for the refreshes still owed by the current frame,",
+                        "so sequential calls impose n * REFRESHES_PER_FRAME raster refreshes.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .sta_addr("REFRESH_WAIT_COUNT")
+                            .label("engine__refresh__wait_n__next")
+                            .lda_addr("REFRESH_WAIT_COUNT")
+                            .beq_addr("engine__refresh__wait_n__done")
+                            .jsr_addr("engine__refresh__wait")
+                            .dec_addr("REFRESH_WAIT_COUNT")
+                            .jmp_addr("engine__refresh__wait_n__next")
+                            .label("engine__refresh__wait_n__done")
                             .rts()
                             .build(),
                     )

@@ -5,13 +5,24 @@ use c64_assembler::{
 use c64_assembler_macro::function;
 
 use super::{
-    BlockScratchBuilder, CommandsLeft, CurrentPTR, CurrentPtrMacros, DecodeU16Char, FramesLeft, Refresh,
-    RefreshBuilder, ScreenCharPTR, UpdateScreenBlocksDecoder,
+    Bank, BankBuilder, BlockScratchBuilder, CommandsLeft, Condition, ConditionBuilder, CurrentPTR, CurrentPtrMacros,
+    DecodeU16Char, FramesLeft, Irq, Loader, LoaderBuilder, Refresh, RefreshBuilder, RefreshWaitN, Resource,
+    ResourceBuilder, ScreenCharPTR, UpdateScreenBlocksDecoder,
 };
 use crate::command::{all_decoder_modules, DecoderModule};
 
 pub trait EngineBuilder {
     fn add_engine(&mut self) -> &mut Self;
+}
+
+pub trait FramePlayBuilder {
+    fn add_frame_play_addresses(&mut self) -> &mut Self;
+}
+
+impl FramePlayBuilder for ApplicationBuilder {
+    fn add_frame_play_addresses(&mut self) -> &mut Self {
+        self.define_address("FRAME_PLAY_COUNT", 0x8A)
+    }
 }
 
 impl EngineBuilder for ApplicationBuilder {
@@ -36,12 +47,24 @@ impl EngineBuilder for ApplicationBuilder {
             .define_address("SCRATCH_SPACE_00", 0xFB)
             .add_block_scratch_addresses()
             .add_refresh_addresses()
+            .add_frame_play_addresses()
+            .add_resource_addresses()
+            .add_loader_addresses()
+            .add_bank_addresses()
+            .add_condition_addresses()
             .module(Engine::module())
+            .module(FramePlay::module())
+            .module(Irq::module())
+            .module(Resource::module())
+            .module(Loader::module())
+            .module(Bank::module())
+            .module(Condition::module())
             .module(CurrentPTR::module())
             .module(ScreenCharPTR::module())
             .module(CommandsLeft::module())
             .module(FramesLeft::module())
             .module(Refresh::module())
+            .module(RefreshWaitN::module())
             .module(DecodeU16Char::module())
             .module(UpdateScreenBlocksDecoder::module());
         for (_, module) in all_decoder_modules() {
@@ -50,6 +73,7 @@ impl EngineBuilder for ApplicationBuilder {
         self
     }
 }
+
 pub struct Engine {}
 
 impl DecoderModule for Engine {
@@ -60,11 +84,37 @@ impl DecoderModule for Engine {
                 FunctionBuilder::default()
                     .name("engine__init")
                     .doc(&[
-                        "Initialize the engine.",
+                        "Initialize the VIC setup, ROM bank-out, and shared raster IRQ.",
                         "",
-                        " - assumes engine data is stored at 'engine-data'",
-                        " - reads the frame count from the start of engine data",
-                        " - sets the current pointer to the first frame",
+                        "The emitted scripted sequence is responsible for loading resources and",
+                        "pointing CURRENT_PTR at them. Legacy applications additionally call",
+                        "`engine__stream__init`.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_imm(0)
+                            .comment("Attach the VIC-II to bank 3 ($C000-$FFFF)")
+                            .sta_addr("C64_BANK_SELECTION")
+                            .lda_imm(0b00000011)
+                            .comment("Set screen chars to $C000 and charset to $C800.")
+                            .sta_addr("VIC2_MEMORY_SETUP")
+                            .comment("Make RAM visible at $A000..$BFFF before any music load.")
+                            .jsr_addr("engine__bank__init")
+                            .comment("Install the shared raster IRQ after the VIC is configured.")
+                            .jsr_addr("engine__refresh__init")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__stream__init")
+                    .doc(&[
+                        "Legacy: point CURRENT_PTR at the monolithic engine_data stream.",
+                        "",
+                        "Reads the frame count from the start of the stream before advancing",
+                        "CURRENT_PTR to the first frame record.",
                     ])
                     .instructions(
                         InstructionBuilder::default()
@@ -75,15 +125,6 @@ impl DecoderModule for Engine {
                             .jsr_addr("engine__frames_left__init")
                             .comment("Read the number of frames before advancing the pointer.")
                             .inc_current_ptr(2)
-                            .comment("Advance the pointer with 2 bytes.")
-                            .lda_imm(0)
-                            .comment("Attach the VIC-II to bank 3 ($C000-$FFFF)")
-                            .sta_addr("C64_BANK_SELECTION")
-                            .lda_imm(0b00000011)
-                            .comment("Set screen chars to $C000 and charset to $C800.")
-                            .sta_addr("VIC2_MEMORY_SETUP")
-                            .comment("Install the raster IRQ after the VIC is configured.")
-                            .jsr_addr("engine__refresh__init")
                             .rts()
                             .build(),
                     )
@@ -95,6 +136,7 @@ impl DecoderModule for Engine {
                     .instructions(
                         InstructionBuilder::default()
                             .jsr_addr("engine__refresh__deinit")
+                            .jsr_addr("engine__bank__restore")
                             .lda_imm(3)
                             .comment("Attach the VIC-II to bank 0 ($0000-$7FFF")
                             .sta_addr("C64_BANK_SELECTION")
@@ -156,8 +198,60 @@ impl DecoderModule for Engine {
             )
             .function(
                 FunctionBuilder::default()
+                    .name("engine__play_stream")
+                    .doc(&["Legacy alias for `engine__play`."])
+                    .instructions(InstructionBuilder::default().jmp_addr("engine__play").build())
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
                     .name("engine__frame_command__switch")
                     .instructions(command_dispatcher())
+                    .build(),
+            )
+            .build()
+    }
+}
+
+/// Standalone frame-count primitive so CPU tests can stub `engine__frame__process`.
+pub struct FramePlay {}
+
+impl DecoderModule for FramePlay {
+    fn module() -> Module {
+        ModuleBuilder::default()
+            .name("engine__frame__play_n")
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__frame__play_n")
+                    .doc(&[
+                        "Decode A/X frame records from CURRENT_PTR.",
+                        "",
+                        "A = count low byte, X = count high byte. The counter lives in zero",
+                        "page because the frame decoder clobbers all registers.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .sta_addr("FRAME_PLAY_COUNT")
+                            .stx_addr_offs("FRAME_PLAY_COUNT", 1)
+                            .label("engine__frame__play_n__next")
+                            .lda_addr("FRAME_PLAY_COUNT")
+                            .bne_addr("engine__frame__play_n__frame")
+                            .lda_addr_offs("FRAME_PLAY_COUNT", 1)
+                            .beq_addr("engine__frame__play_n__done")
+                            .label("engine__frame__play_n__frame")
+                            .jsr_addr("engine__frame__process")
+                            .lda_addr("FRAME_PLAY_COUNT")
+                            .sec()
+                            .sbc_imm(1)
+                            .sta_addr("FRAME_PLAY_COUNT")
+                            .lda_addr_offs("FRAME_PLAY_COUNT", 1)
+                            .sbc_imm(0)
+                            .sta_addr_offs("FRAME_PLAY_COUNT", 1)
+                            .jmp_addr("engine__frame__play_n__next")
+                            .label("engine__frame__play_n__done")
+                            .rts()
+                            .build(),
+                    )
                     .build(),
             )
             .build()

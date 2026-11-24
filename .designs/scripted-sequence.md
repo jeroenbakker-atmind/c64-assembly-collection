@@ -333,6 +333,8 @@ Emitted shape:
 ```asm
     ldx #REPEAT_COUNT
 seq_repeat_0:
+    txa
+    pha
     lda #R_TITLE_LOOP
     ldx #$00
     ldy #$00
@@ -340,11 +342,13 @@ seq_repeat_0:
     lda #<FRAMES_TITLE_LOOP
     ldx #>FRAMES_TITLE_LOOP
     jsr engine__frame__play_n
+    pla
+    tax
     dex
     bne seq_repeat_0
 ```
 
-There is no loop stack. Nesting is just generated assembly structure with unique labels.
+The counter is saved on the stack because the emitted primitives clobber X. There is no loop stack; nesting is just generated assembly structure with unique labels.
 
 ### 4.5 Future condition-driven loops
 
@@ -363,7 +367,7 @@ Emitted shape:
 ```asm
 seq_wait_disk_0:
     jsr engine__condition__disk_turned
-    bne seq_wait_disk_0_done
+    beq seq_wait_disk_0_done
     lda #R_WAIT_LOOP
     ldx #$00
     ldy #$00
@@ -389,7 +393,7 @@ Emitted shape:
 seq_music_wait_0:
     lda #MUSIC_TARGET_POSITION
     jsr engine__condition__music_before
-    bne seq_music_wait_0_done
+    beq seq_music_wait_0_done
     lda #R_INTRO_LOOP
     ldx #$00
     ldy #$00
@@ -483,7 +487,7 @@ This is what makes development practical: sector counts are unknown while author
 |---|---|
 | `$0000..$00FF` | Zero page/workspace. Existing engine keeps `$FB`, `$FC`, `$FE`; loader uses the ranges below. |
 | `$0801..$3DFF` | Generated program: BASIC stub, engine, frame decoders, Rust-emitted sequence assembly, loader, resource table. Build asserts the program ends below `$3E00`. |
-| `$3E00..$3EFF` | Runtime condition/status blackboard (`MUSIC_POSITION_ADDR`, `DISK_TURNED_LATCH`) and loader scratch. |
+| `$3E00..$3EFF` | Runtime condition/status blackboard: `$3E00` `MUSIC_POSITION_ADDR`, `$3E01` `DISK_TURNED_LATCH`, `$3E02/$3E03` saved processor-port state. |
 | `$3F00..$3FFF` | Spare program-area RAM / growth margin. |
 | `$4000..$4FFF` | Frame resource/slot 0. |
 | `$5000..$5FFF` | Frame resource/slot 1. |
@@ -505,13 +509,19 @@ Zero-page allocation:
 | `$80` | `LOADER_STATUS` | bit 0 done, bit 1 busy, bit 2 error. |
 | `$81` | `LOADER_CURRENT_RESOURCE` | Resource id of last request. |
 | `$82/$83` | `LOADER_DST_PTR` | Current write pointer for the loader. |
-| `$84/$85` | `LOADER_REMAINING` | Bytes/sectors left in current request. |
+| `$84/$85` | `LOADER_REMAINING` | Exact bytes left in current request. |
 | `$86` | `LOADER_ERROR` | Sticky loader error code for real transfer failures. |
-| `$87` | Spare | Reserved for future loader diagnostics; no wait-required latch exists. |
-| `$FB/$FC` | `CURRENT_PTR` | Existing frame-command pointer. |
-| `$FE` | Existing engine workspace | Preserved. |
+| `$87` | `RESOURCE_SCRATCH_ID` | Scratch for seven-byte resource-table indexing. |
+| `$88/$89` | `RESOURCE_SCRATCH_OFFSET_LO/HI` | Scratch for `engine__resource__use`. |
+| `$8A/$8B` | `FRAME_PLAY_COUNT` | 16-bit count for `engine__frame__play_n`. |
+| `$8C/$8D` | `LOADER_STUB_SRC` | Stub backend source pointer. |
+| `$8E` | `CONDITION_VALUE` | Scratch for music-position comparison. |
+| `$8F` | `REFRESH_WAIT_COUNT` | Count for `engine__refresh__wait_n`. |
+| `$FB` | `SCRATCH_SPACE_00` | Existing engine scratch. |
+| `$FC` | `SCREEN_CHAR_PTR` | Existing screen-character pointer. |
+| `$FE/$FF` | `CURRENT_PTR` | Existing frame-command pointer. |
 
-There is no `SEQUENCE_PTR`, no interpreter loop state, and no loop stack.
+There is no `SEQUENCE_PTR`, no interpreter loop state, and no loop stack. In particular, `$87` is ordinary scratch; no `LOADER_WAIT_REQUIRED` latch exists at runtime.
 
 The VIC setup remains `C64_BANK_SELECTION = 0`, `VIC2_MEMORY_SETUP = 3` from `src/c64-encoder/src/command/modules/engine.rs`. In addition, `engine__init` banks out BASIC ROM for `$A000..$BFFF` before the first music load; `engine__deinit` restores the original processor-port state.
 
@@ -561,7 +571,15 @@ engine__play_stream:
     ; legacy: loop engine__frames_left times, call engine__frame__process
 ```
 
-The intro no longer calls `engine__stream__init` or `engine__play_stream`. Legacy applications/tests can keep using them.
+Legacy applications call the three entry points explicitly:
+
+```asm
+    jsr engine__init
+    jsr engine__stream__init
+    jsr engine__play_stream
+```
+
+The intro no longer calls `engine__stream__init` or `engine__play_stream`; it calls the Rust-emitted sequence after `engine__init`.
 
 ### 7.3 Loader contract
 
@@ -821,22 +839,24 @@ pub fn intro_application(plan: &ResourcePlan) -> AssemblerResult<Vec<u8>> {
         )
         .build();
 
-    let application = ApplicationBuilder::default()
+    let mut builder = ApplicationBuilder::default();
+    let application = builder
         .name("Intro")
         .include_vic2_defines()
         .add_engine()
-        .add_loader_stub() // or add_loader_backend(...)
-        .add_condition()
-        .add_bank()
-        .define_all(&plan.constants)
-        .module(assembly_sequence_module())
-        .module(resource_data)
-        .build()?;
+        .module(assembly_sequence_module(&plan))
+        .module(resource_data);
+    for (name, value) in plan.constants.iter() {
+        application.define_address(name, *value);
+    }
+    let application = application.build()?;
 
     application.validate()?;
     ProgramGenerator::default().generate(application)
 }
 ```
+
+`add_engine()` installs the bank, reset, IRQ, loader, resource-lookup, and condition modules together, so every application using it must provide a `resource_table` label. Legacy monolithic-stream applications use `dummy_resource_table_module()` until they are migrated; the intro uses the generated multi-entry table.
 
 `assembly_sequence_module()` contains the ordinary 6502 control flow from §4.2. It calls JSR primitives and uses generated defines; there is no embedded frame-data literal and no bytecode script.
 
@@ -1060,13 +1080,13 @@ New tests:
 - [x] Add unit tests for sizing, stability, planner, geometry, bank-out flags, emitted assembly, and sequence validation.
 
 ### Phase 2 — 6502 runtime
-- [ ] Add `resource.rs` with resource-table lookups and `CURRENT_PTR` setup.
-- [ ] Add `loader.rs` with the Rust-validated single-job async state machine and stub backend; no wait-required flag.
-- [ ] Add `bank.rs` for `$A000..$BFFF` bank-out/restore.
-- [ ] Add `condition.rs` with music-position and disk-turned checks.
-- [ ] Add `irq.rs`; move refresh vector installation behind the shared dispatcher.
-- [ ] Refactor `engine.rs` into setup, frame primitive, and legacy playback path.
-- [ ] Add CPU-level and structural tests.
+- [x] Add `resource.rs` with resource-table lookups and `CURRENT_PTR` setup.
+- [x] Add `loader.rs` with the Rust-validated single-job async state machine and stub backend; no wait-required flag.
+- [x] Add `bank.rs` for `$A000..$BFFF` bank-out/restore.
+- [x] Add `condition.rs` with music-position and disk-turned checks.
+- [x] Add `irq.rs`; move refresh vector installation behind the shared dispatcher.
+- [x] Refactor `engine.rs` into setup, frame primitive, and legacy playback path.
+- [x] Add CPU-level and structural tests.
 
 ### Phase 3 — builder integration
 - [ ] Remove the embedded stream literal from `intro.rs`.

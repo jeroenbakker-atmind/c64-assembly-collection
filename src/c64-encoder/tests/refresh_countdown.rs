@@ -17,11 +17,20 @@ use mos6502::{
 const PROGRAM_ADDRESS: u16 = 0x0800;
 
 fn build_refresh_program(stub: Instructions) -> AssemblerResult<Vec<u8>> {
+    let irq_stub = ModuleBuilder::default()
+        .instructions(
+            InstructionBuilder::default()
+                .label("engine__irq__handler")
+                .rts()
+                .build(),
+        )
+        .build();
     let application = ApplicationBuilder::default()
         .add_refresh_addresses()
         .include_vic2_defines()
         .module(ModuleBuilder::default().instructions(stub).build())
         .module(Refresh::module())
+        .module(irq_stub)
         .build()?;
     application.validate()?;
     ProgramGenerator::default().generate(application)
@@ -87,6 +96,17 @@ fn engine_uses_irq_countdown_instead_of_vblank_polling() -> AssemblerResult<()> 
                 )
                 .build(),
         )
+        .module(
+            ModuleBuilder::default()
+                .name("resource_data")
+                .instructions(
+                    InstructionBuilder::default()
+                        .label("resource_table")
+                        .raw(&[0; 7])
+                        .build(),
+                )
+                .build(),
+        )
         .add_engine()
         .build()?;
     application.validate()?;
@@ -96,7 +116,10 @@ fn engine_uses_irq_countdown_instead_of_vblank_polling() -> AssemblerResult<()> 
     assert!(source.contains("  jsr engine__refresh__on_refresh"));
     assert!(source.contains("  asl VIC2_IRQ_STATUS"));
     assert!(source.contains("  jmp C64_IRQ_EPLOGUE"));
-    assert_eq!(source.matches("  jsr engine__refresh__wait").count(), 1);
+    assert_eq!(source.matches("  jsr engine__refresh__wait").count(), 2);
+    assert!(source.contains("engine__refresh__wait_n:"));
+    assert!(source.contains("lda #<engine__irq__handler"));
+    assert!(source.contains("lda #>engine__irq__handler"));
     assert!(!source.contains("engine__vblank__wait"));
     Ok(())
 }

@@ -3,7 +3,7 @@ use c64_assembler::{
     generator::{print_hexdump, DasmGenerator, Generator, ProgramGenerator},
     validator::{AssemblerResult, Validator},
 };
-use c64_encoder::command::modules::EngineBuilder;
+use c64_encoder::command::modules::{dummy_resource_table_module, EngineBuilder};
 
 pub fn intro_application() -> AssemblerResult<Vec<u8>> {
     let data = vec![
@@ -670,7 +670,8 @@ pub fn intro_application() -> AssemblerResult<Vec<u8>> {
                         .add_basic_header()
                         .label("main_entry_point")
                         .jsr_addr("engine__init")
-                        .jsr_addr("engine__play")
+                        .jsr_addr("engine__stream__init")
+                        .jsr_addr("engine__play_stream")
                         .rts()
                         .build(),
                 )
@@ -678,6 +679,7 @@ pub fn intro_application() -> AssemblerResult<Vec<u8>> {
         )
         .add_engine()
         .module(engine_data)
+        .module(dummy_resource_table_module())
         .build()
         .unwrap();
 

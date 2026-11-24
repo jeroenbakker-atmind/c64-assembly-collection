@@ -2,6 +2,7 @@ use c64_assembler::{
     builder::{ApplicationBuilder, InstructionBuilder, ModuleBuilder},
     generator::{Generator, ProgramGenerator},
     validator::{AssemblerResult, Validator},
+    Module,
 };
 use c64_encoder::{
     command::{
@@ -20,6 +21,18 @@ use mos6502::{
 
 const STREAM_ADDRESS: u16 = 0x0400;
 const PROGRAM_ADDRESS: u16 = 0x0800;
+
+fn resource_table_module() -> Module {
+    ModuleBuilder::default()
+        .name("resource_data")
+        .instructions(
+            InstructionBuilder::default()
+                .label("resource_table")
+                .raw(&[0; 7])
+                .build(),
+        )
+        .build()
+}
 
 fn build_program(kind: BlockKind) -> AssemblerResult<Vec<u8>> {
     let process = format!("update_screen_blocks_{}__process", kind.name());
@@ -198,6 +211,7 @@ fn dispatcher_decodes_block_command() -> AssemblerResult<()> {
                 )
                 .build(),
         )
+        .module(resource_table_module())
         .add_engine()
         .build()?;
     application.validate()?;
@@ -244,6 +258,7 @@ fn engine_with_block_decoders_validates() -> AssemblerResult<()> {
                 )
                 .build(),
         )
+        .module(resource_table_module())
         .add_engine()
         .build()?;
     application.validate()?;
