@@ -9,6 +9,12 @@ pub const LOADER_STATUS_DONE: u8 = 0b0000_0001;
 pub const LOADER_STATUS_BUSY: u8 = 0b0000_0010;
 pub const LOADER_STATUS_ERROR: u8 = 0b0000_0100;
 
+/// A backend provides the implementation of the backend hooks called by the
+/// shared `engine__loader__*` entry points.
+pub trait LoaderBackend {
+    fn module() -> Module;
+}
+
 pub trait LoaderBuilder {
     fn add_loader_addresses(&mut self) -> &mut Self;
 }
@@ -24,11 +30,13 @@ impl LoaderBuilder for ApplicationBuilder {
     }
 }
 
-/// Single-job loader with a deterministic copy stub backend.
+/// Shared single-job loader contract.
 ///
 /// Build-time sequence validation guarantees that `start` is never called
 /// while a job is active, so there is deliberately no runtime
-/// wait-required latch here.
+/// wait-required latch here. Backend selection happens in Rust when the
+/// application is built; both backends expose the same entry points to the
+/// emitted sequence.
 pub struct Loader {}
 
 impl DecoderModule for Loader {
@@ -39,9 +47,10 @@ impl DecoderModule for Loader {
                 FunctionBuilder::default()
                     .name("engine__loader__init")
                     .doc(&[
-                        "Reset the loader state.",
+                        "Reset the shared loader state and initialize the selected backend.",
                         "",
-                        "The stub backend reads from LOADER_STUB_SRC; no CIA source is enabled here.",
+                        "The regular backend is installed by `add_engine()`; tests can select",
+                        "the deterministic stub backend with `add_engine_with_loader()`.",
                     ])
                     .instructions(
                         InstructionBuilder::default()
@@ -55,6 +64,7 @@ impl DecoderModule for Loader {
                             .sta_addr("LOADER_ERROR")
                             .sta_addr("LOADER_STUB_SRC")
                             .sta_addr_offs("LOADER_STUB_SRC", 1)
+                            .jsr_addr("engine__loader__backend__init")
                             .rts()
                             .build(),
                     )
@@ -67,8 +77,8 @@ impl DecoderModule for Loader {
                         "Publish a single asynchronous load request.",
                         "",
                         "A = resource id. The resource table supplies the destination and exact",
-                        "payload size. This routine returns immediately; `engine__loader__on_irq`",
-                        "performs the stub transfer.",
+                        "payload size. This routine returns immediately; the selected backend",
+                        "completes the transfer through `engine__loader__on_irq`.",
                     ])
                     .instructions(
                         InstructionBuilder::default()
@@ -84,6 +94,7 @@ impl DecoderModule for Loader {
                             .sta_addr("LOADER_ERROR")
                             .lda_imm(LOADER_STATUS_BUSY)
                             .sta_addr("LOADER_STATUS")
+                            .jsr_addr("engine__loader__backend__start")
                             .rts()
                             .build(),
                     )
@@ -93,42 +104,17 @@ impl DecoderModule for Loader {
                 FunctionBuilder::default()
                     .name("engine__loader__on_irq")
                     .doc(&[
-                        "Advance the one active stub load.",
+                        "Advance the one active load through the selected backend.",
                         "",
-                        "The production backend replaces this routine with a drive protocol;",
-                        "the sequence and resource table stay unchanged.",
+                        "The regular backend performs a bounded slice of its IEC/U1 state",
+                        "machine here; the stub backend copies a preloaded image.",
                     ])
                     .instructions(
                         InstructionBuilder::default()
                             .lda_addr("LOADER_STATUS")
                             .and_imm(LOADER_STATUS_BUSY)
                             .beq_addr("engine__loader__on_irq__idle")
-                            .ldy_imm(0)
-                            .label("engine__loader__on_irq__next")
-                            .lda_addr("LOADER_REMAINING")
-                            .bne_addr("engine__loader__on_irq__copy")
-                            .lda_addr_offs("LOADER_REMAINING", 1)
-                            .beq_addr("engine__loader__on_irq__complete")
-                            .label("engine__loader__on_irq__copy")
-                            .lda_ind_y("LOADER_STUB_SRC")
-                            .sta_ind_y("LOADER_DST_PTR")
-                            .inc_addr("LOADER_DST_PTR")
-                            .bne_addr("engine__loader__on_irq__src")
-                            .inc_addr_offs("LOADER_DST_PTR", 1)
-                            .label("engine__loader__on_irq__src")
-                            .inc_addr("LOADER_STUB_SRC")
-                            .bne_addr("engine__loader__on_irq__decrement")
-                            .inc_addr_offs("LOADER_STUB_SRC", 1)
-                            .label("engine__loader__on_irq__decrement")
-                            .dec_addr("LOADER_REMAINING")
-                            .bne_addr("engine__loader__on_irq__next")
-                            .lda_addr_offs("LOADER_REMAINING", 1)
-                            .beq_addr("engine__loader__on_irq__complete")
-                            .dec_addr_offs("LOADER_REMAINING", 1)
-                            .jmp_addr("engine__loader__on_irq__next")
-                            .label("engine__loader__on_irq__complete")
-                            .lda_imm(LOADER_STATUS_DONE)
-                            .sta_addr("LOADER_STATUS")
+                            .jsr_addr("engine__loader__backend__on_irq")
                             .label("engine__loader__on_irq__idle")
                             .rts()
                             .build(),
@@ -170,9 +156,10 @@ impl DecoderModule for Loader {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__deinit")
-                    .doc(&["Stop the stub transfer and unblock any waiter."])
+                    .doc(&["Stop the selected backend and unblock any waiter."])
                     .instructions(
                         InstructionBuilder::default()
+                            .jsr_addr("engine__loader__backend__deinit")
                             .lda_imm(0)
                             .sta_addr("LOADER_STATUS")
                             .sta_addr("LOADER_REMAINING")

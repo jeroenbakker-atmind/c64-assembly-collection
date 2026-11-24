@@ -6,13 +6,17 @@ use c64_assembler_macro::function;
 
 use super::{
     Bank, BankBuilder, BlockScratchBuilder, CommandsLeft, Condition, ConditionBuilder, CurrentPTR, CurrentPtrMacros,
-    DecodeU16Char, FramesLeft, Irq, Loader, LoaderBuilder, Refresh, RefreshBuilder, RefreshWaitN, Resource,
-    ResourceBuilder, ScreenCharPTR, UpdateScreenBlocksDecoder,
+    DecodeU16Char, FramesLeft, Irq, Loader, LoaderBackend, LoaderBuilder, LoaderRegularBuilder, Refresh,
+    RefreshBuilder, RefreshWaitN, RegularLoaderBackend, Resource, ResourceBuilder, ScreenCharPTR,
+    UpdateScreenBlocksDecoder,
 };
 use crate::command::{all_decoder_modules, DecoderModule};
 
 pub trait EngineBuilder {
     fn add_engine(&mut self) -> &mut Self;
+
+    /// Install the engine with an explicitly selected loader backend.
+    fn add_engine_with_loader<B: LoaderBackend>(&mut self) -> &mut Self;
 }
 
 pub trait FramePlayBuilder {
@@ -26,7 +30,15 @@ impl FramePlayBuilder for ApplicationBuilder {
 }
 
 impl EngineBuilder for ApplicationBuilder {
+    /// Install the regular host-side IEC/U1 DOS-sector backend.
+    ///
+    /// CPU tests that need a deterministic transfer select
+    /// `add_engine_with_loader::<StubLoaderBackend>()` explicitly.
     fn add_engine(&mut self) -> &mut Self {
+        self.add_engine_with_loader::<RegularLoaderBackend>()
+    }
+
+    fn add_engine_with_loader<B: LoaderBackend>(&mut self) -> &mut Self {
         self.define_address("CURRENT_PTR", 0xFE)
             .define_address("SCREEN_CHAR_PTR", 0xFC)
             .define_address("CHAR_DECODE_SRC_PTR", 0xFE)
@@ -50,6 +62,7 @@ impl EngineBuilder for ApplicationBuilder {
             .add_frame_play_addresses()
             .add_resource_addresses()
             .add_loader_addresses()
+            .add_loader_regular_addresses()
             .add_bank_addresses()
             .add_condition_addresses()
             .module(Engine::module())
@@ -57,6 +70,7 @@ impl EngineBuilder for ApplicationBuilder {
             .module(Irq::module())
             .module(Resource::module())
             .module(Loader::module())
+            .module(B::module())
             .module(Bank::module())
             .module(Condition::module())
             .module(CurrentPTR::module())
@@ -84,7 +98,7 @@ impl DecoderModule for Engine {
                 FunctionBuilder::default()
                     .name("engine__init")
                     .doc(&[
-                        "Initialize the VIC setup, ROM bank-out, and shared raster IRQ.",
+                        "Initialize the VIC setup, ROM bank-out, and shared IRQ dispatcher.",
                         "",
                         "The emitted scripted sequence is responsible for loading resources and",
                         "pointing CURRENT_PTR at them. Legacy applications additionally call",
@@ -100,7 +114,7 @@ impl DecoderModule for Engine {
                             .sta_addr("VIC2_MEMORY_SETUP")
                             .comment("Make RAM visible at $A000..$BFFF before any music load.")
                             .jsr_addr("engine__bank__init")
-                            .comment("Install the shared raster IRQ after the VIC is configured.")
+                            .comment("Install the shared IRQ dispatcher after the VIC is configured.")
                             .jsr_addr("engine__refresh__init")
                             .rts()
                             .build(),

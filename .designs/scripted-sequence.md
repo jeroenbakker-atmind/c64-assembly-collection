@@ -40,6 +40,7 @@ Terminology used below:
 - Generated resource table and named constants.
 - Emitted assembly sequence using loader/wait/play/wait-refresh primitives.
 - Async single-job loader contract; the one-load-before-next-wait discipline is validated in Rust, while `WaitLoaded` only polls IRQ completion.
+- A selectable loader backend. The default “regular” backend is host-side, IRQ-driven 1541 DOS-sector reads over the standard IEC serial bus (no custom drive code) and is designed so frame playback continues while a load is in flight.
 - Shared IRQ dispatcher for refresh pacing and loader servicing.
 - Frame resource pool at `$4000..$9FFF`.
 - Music region at `$A000..$BFFF`, requiring ROM bank-out.
@@ -48,7 +49,8 @@ Terminology used below:
 
 ### Out of scope / follow-up
 
-- Implementing a full production IRQ fastloader itself. This design defines the host-side contract and a deterministic test stub; wiring Krill/Spindle/Bitfire-style drive code is later.
+- Custom 1541 drive-code fastloaders (Krill/Spindle/Bitfire/DreamLoad-style). The default regular backend uses only standard DOS sector commands and host-side IEC bit-banging; a future backend can replace it without changing the emitted sequence or resource table.
+- Wiring the real music driver. `MUSIC_POSITION_ADDR` remains a placeholder input for now; Phase 6 emits the condition-loop shape but does not claim a music source.
 - A bytecode script interpreter. Earlier versions of this design had one; it is intentionally removed as unnecessary complexity.
 - A hand-maintained intro assembly file for the sequence. Rust is the authoring layer and generates the assembly from the same plan that emits the resource table.
 - Changing the frame-command format (`DemoBuilder` / `FrameBuilder` / `Command`).
@@ -155,7 +157,7 @@ flowchart LR
     I --> K[Frame decoder]
     I --> L[Condition checks]
     K --> M[Refresh IRQ pacing]
-    J --> N[IRQ loader + drive code]
+    J --> N[Regular IRQ DOS-sector backend<br/>host-side IEC, no drive code]
 ```
 
 Runtime responsibilities:
@@ -165,8 +167,9 @@ Runtime responsibilities:
 | Rust `Sequence` model | Control flow, loops, load ordering, frame counts | Physical layout |
 | `SequenceEmitter` | Generating 6502 assembly instructions and labels | Runtime interpretation |
 | Frame decoder | One frame record at `CURRENT_PTR` | Which resource/chunk to play next |
-| Loader host stub | Async resource request, completion flag, destination copy | Timing decisions |
-| IRQ dispatcher | Refresh countdown + loader polling | Sequence control flow |
+| Loader backend | Async resource request, completion flag, destination fill | Timing decisions |
+| Regular DOS-sector backend | Host-side IEC/U1 sector reads advanced from IRQ | Sequence control flow, music-driver specifics |
+| IRQ dispatcher | Refresh countdown + loader backend servicing | Sequence control flow |
 | Condition provider | Current music position, latched disk-turned signal | Choosing loop exits |
 | MasterPlanner | Sector ranges, destinations, reports from encoded resource sizes | Actual drive transfer |
 
@@ -407,7 +410,7 @@ seq_music_wait_0:
 seq_music_wait_0_done:
 ```
 
-Both are post-test loops: the frame body runs at least once, then the condition is sampled. This avoids a zero-iteration display gap at startup.
+Both are label loops with the condition sampled at the top: `Z=1` exits immediately through the generated `_done` label; otherwise the body plays once and the back-edge rechecks the condition. This keeps the condition check a plain JSR call and needs no runtime loop state.
 
 The conditional body still obeys the single-job loader rule: it may contain `Load` / `WaitLoaded` pairs, but never two `Load`s before a wait.
 
@@ -537,7 +540,9 @@ The VIC setup remains `C64_BANK_SELECTION = 0`, `VIC2_MEMORY_SETUP = 3` from `sr
 |---|---|---|
 | `engine.rs` | `engine__init`, `engine__stream__init`, `engine__deinit`, `engine__frame__process`, `engine__frame__play_n`, `engine__play_stream` | Split setup from playback; add frame-count primitive. |
 | `resource.rs` | `engine__resource__use`, `engine__resource__dest`, `engine__resource__sector_count` | Resource-table lookups; no kind or frame-count lookup. |
-| `loader.rs` | `engine__loader__init`, `engine__loader__start`, `engine__loader__wait_loaded`, `engine__loader__is_done`, `engine__loader__on_irq`, `engine__loader__deinit` | Async single-job loader contract and test stub. |
+| `loader.rs` | `engine__loader__init`, `engine__loader__start`, `engine__loader__wait_loaded`, `engine__loader__is_done`, `engine__loader__on_irq`, `engine__loader__deinit` | Async single-job loader contract shared by all backends. |
+| `loader_regular.rs` | backend implementation of the same entry points | Default regular backend: host-side IRQ DOS-sector reads over standard IEC. |
+| `loader_stub.rs` | backend implementation of the same entry points | Deterministic test backend selected explicitly by CPU tests. |
 | `condition.rs` | `engine__condition__init`, `engine__condition__music_before`, `engine__condition__disk_turned`, `engine__condition__mark_disk_turned` | Condition checks for future loops. |
 | `bank.rs` | `engine__bank__init`, `engine__bank__restore` | Bank out/restores `$A000..$BFFF`. |
 | `irq.rs` | `engine__irq__handler` | Owns `$0314`; calls refresh + loader hooks; `JMP $EA81`. |
@@ -604,20 +609,23 @@ The loader is an **asynchronous, single-job state machine**. Single-job correctn
 
 | Function | Contract |
 |---|---|
-| `engine__loader__init` | Initialize state; install/resident drive code later; do not enable CIA IRQ here if the shared IRQ dispatcher already did it. |
-| `engine__loader__start` | `A = resource_id`. Look up `resource_table[resource_id]`, copy the single job descriptor, set `LOADER_DST_PTR`, set busy/clear done, and return immediately. It does not maintain or check a wait-required flag. |
-| `engine__loader__on_irq` | Called from `engine__irq__handler`. If busy, advance the one active job by one sector/byte chunk. Set done when complete. |
+| `engine__loader__init` | Initialize shared state and let the selected backend initialize itself. The regular backend does not enable CIA2 Timer A here; it starts the timer only for an active job. |
+| `engine__loader__start` | `A = resource_id`. Look up `resource_table[resource_id]`, copy the single job descriptor, set `LOADER_DST_PTR`, set busy/clear done, ask the selected backend to begin, and return immediately. It does not maintain or check a wait-required flag. |
+| `engine__loader__on_irq` | Called from `engine__irq__handler`. If busy, advance the one active job by a bounded chunk through the selected backend. Set done when complete. |
 | `engine__loader__is_done` | `Z=1` when bit 0 of `LOADER_STATUS` is set. Byte access is atomic with respect to the IRQ. |
 | `engine__loader__wait_loaded` | Spin on `is_done`, then return. It does not clear a latch or re-arm `Load`. |
 | `engine__loader__deinit` | Stop transfer, restore borrowed vectors/resources. |
 
 Directly calling `engine__loader__start` outside generated code with an active job is outside the contract and would overwrite the single descriptor. All production callers come from the validated Rust AST, so this cannot be emitted by mistake.
 
+Backend selection is a **build-time Rust choice**, not a runtime mode byte. `add_engine()` installs the regular DOS-sector backend; tests may install the stub backend through the engine builder. Both backends expose the same `engine__loader__*` entry points to the emitted sequence, so no generated sequence step changes when the backend changes.
+
 Initial implementation strategy:
 
-1. **Test stub** (`loader_stub.rs`): `start` copies a preloaded byte image into the destination and sets done immediately. This makes the whole sequence testable under `mos6502` without IRQ support.
-2. **Bootstrap path**: first frame/music resource can be loaded by KERNAL `LOAD` from a normal PRG/file before handing control to the IRQ loader, avoiding a cold-start dependency on drive code.
-3. **Production backend**: plug a software-only 1541 IRQ loader into `engine__loader__on_irq`. Its drive-code bytes and exact protocol are configuration; the sequence and resource format do not change.
+1. **Default regular backend** (`loader_regular.rs`): host-side state machine using standard 1541 DOS commands. It opens/uses a buffer, issues `U1` for each physical `(track, sector)`, reads the 256-byte sector over the standard IEC serial bus, and copies it to the resource destination. No custom 1541 drive code is uploaded and no KERNAL serial routine is called from an IRQ. Starting a job enables CIA2 Timer A; each timer IRQ advances one bounded IEC phase, while the raster IRQ stays once-per-frame, so `engine__frame__process` keeps running on the main thread while a load is in flight.
+2. **Test stub** (`loader_stub.rs`): `start` copies a preloaded byte image into the destination and sets done immediately (or in bounded IRQ chunks). This keeps the whole sequence testable under `mos6502` without modelling the serial bus.
+3. **Future backends**: a custom-drive-code loader can replace the regular backend behind the same entry points. Track/sector order, interleave, and D64 mastering remain planner concerns; the sequence never learns the transfer mechanism.
+4. **Bootstrap remains a follow-up**: the regular backend is expected to load the first resources itself. If cold-start reliability later requires KERNAL-loading a bootstrap resource, that changes only the first emitted `Load`/`WaitLoaded` pair, not the backend contract.
 
 ### 7.4 IRQ ownership
 
@@ -625,21 +633,29 @@ Initial implementation strategy:
 
 ```asm
 engine__irq__handler:
-    jsr engine__refresh__on_refresh       ; pacing countdown
-    jsr engine__loader__on_irq            ; advance the single active load
-    ; acknowledge active VIC/CIA source(s)
+    lda VIC2_IRQ_STATUS                   ; raster pending?
+    and #$80
+    beq cia
+    jsr engine__refresh__on_refresh       ; once-per-frame pacing countdown
+    asl VIC2_IRQ_STATUS                   ; acknowledge raster source
+cia:
+    lda CIA2_IRQ_CONTROL                  ; Timer A pending? read also acknowledges
+    and #$01
+    beq done
+    jsr engine__loader__on_irq            ; advance one IEC phase of the active load
+done:
     jmp $EA81
 ```
 
-Actual disk transfers happen here, asynchronously relative to the emitted sequence. A `Load` step must never copy sector bytes itself; `engine__loader__start` only publishes the one job descriptor that the IRQ services.
+Actual disk transfers happen asynchronously relative to the emitted sequence. A `Load` step must never copy sector bytes itself; `engine__loader__start` only publishes the one job descriptor and starts the timer. The raster hook remains dedicated to refresh pacing; CIA2 Timer A drives the IEC state machine only while a regular-backed job is active.
 
 `engine__refresh__irq` becomes a compatibility hook/wrapper that calls the same dispatcher shape for refresh-only tests. `engine__refresh__init` installs `engine__irq__handler` instead of installing itself directly.
 
 Acknowledgement rule:
 
-- VIC raster: `ASL VIC2_IRQ_STATUS` while only raster IRQs are enabled.
-- CIA loader source: read/ack the chosen CIA control register before RTI.
-- If both sources can fire, check status registers and ack only what is pending.
+- Raster: `ASL VIC2_IRQ_STATUS` acknowledges the sole VIC source.
+- CIA2 Timer A: reading `CIA2_IRQ_CONTROL` acknowledges the pending timer flag. The regular backend stops the timer and clears the flag on completion, error, and deinit.
+- If both sources are pending, check both status registers and acknowledge both; the loader hook is only called for the CIA source so refresh stays once per frame.
 
 ### 7.5 Condition provider
 
@@ -655,8 +671,8 @@ engine__condition__disk_turned()         ; Z=1 if DISK_TURNED_LATCH != 0
 The exact production source is backend-specific:
 
 1. **Stub/tests** — a test calls `engine__condition__mark_disk_turned` directly.
-2. **IRQ loader** — the backend sets the latch on first successful sector handshake after spin-up, or on an explicit drive status byte if the protocol provides one.
-3. **Fallback** — if a backend cannot report drive state, a configurable delay from load start can set the latch. This is less accurate but keeps the sequence portable.
+2. **Regular backend** — the first successful sector handshake after the drive starts responding sets the latch. This is a loader signal, not timing guessed by the sequence.
+3. **Future backends** — a backend may set the latch from an explicit drive status byte when its protocol exposes one; otherwise the same first-success signal is used.
 
 If “disk turned” means angular position rather than spin-up, the same latch can be replaced by a current-sector index exposed by the backend and compared with the target sector.
 
@@ -790,7 +806,7 @@ impl<'a> SequenceEmitter<'a> {
 }
 ```
 
-`SequenceStep` is an authoring type, not a runtime opcode. `SequenceEmitter::emit` produces the assembler instructions that become a `Module` in `intro.prg`. Fluent methods on `Sequence` (`init()`, `load()`, `wait_loaded()`, `play()`, `repeat_until()`, etc.) only construct this AST. `RepeatUntil` is accepted by the model but rejected by the phase-1 emitter until the condition routines exist.
+`SequenceStep` is an authoring type, not a runtime opcode. `SequenceEmitter::emit` produces the assembler instructions that become a `Module` in `intro.prg`. Fluent methods on `Sequence` (`init()`, `load()`, `wait_loaded()`, `play()`, `repeat_until()`, etc.) only construct this AST. `RepeatUntil` emits generated labels, a condition JSR, `beq` exit, body instructions, and a back-edge `jmp`.
 
 ### 8.3 MasterPlanner
 
@@ -1044,6 +1060,8 @@ New tests:
 8. **Structural DASM assertions** — full intro application contains the emitted sequence label, `engine__loader__start`, `engine__loader__wait_loaded`, `engine__frame__play_n`, `resource_table`, `engine__irq__handler`, and `engine__bank__init`; no bytecode interpreter symbols are present.
 9. **D64 mastering** — build an in-memory D64, write raw ranges including music, add a DOS PRG, then read back raw sectors and assert BAM allocation prevents overlap.
 10. **Intro application validation** — `application.validate()` passes; generated PRG does not contain the legacy 11,624-byte literal; resource-table size is within expected bounds.
+11. **Backend selection and overlap** — the default engine contains the regular DOS-sector backend, tests can build the same entry points with the stub backend, and a CPU-level sequence test shows frame decoding progressing between `start` and `wait_loaded` for the same job.
+12. **Condition-loop emission** — `RepeatUntil(MusicBefore(_))` and `RepeatUntil(DiskTurned)` emit generated labels, condition JSR calls, `beq ..._done`, body instructions, and a back-edge `jmp`; no condition opcodes or runtime interpreter state are introduced.
 
 ### 12.2 Emulator / hardware
 
@@ -1106,16 +1124,19 @@ New tests:
 - [x] Update `builder::package_dev()` to master the planned resources.
 - [x] Add D64 read-back/BAM tests.
 
-### Phase 5 — production loader
-- [ ] Select backend (Krill/Spindle/Bitfire/DreamLoad).
-- [ ] Replace the stub `engine__loader__on_irq` with the chosen protocol.
-- [ ] Validate real drive timing and tune `interleave`.
+### Phase 5 — regular IRQ DOS-sector loader
+- [x] Make the regular host-side IEC/U1 DOS-sector backend the default selected by `add_engine()`.
+- [x] Keep the deterministic stub backend available through explicit builder/test selection.
+- [x] Service the regular backend from bounded steps of the shared IRQ dispatcher (CIA2 Timer A for IEC phases, raster for refresh) so frame playback continues during loading.
+- [x] Add structural/CPU tests for backend selection, one-job continuity, and overlap of load and frame playback.
+- [ ] Validate real drive timing and tune `interleave` in a later hardware/VICE pass.
 - [ ] Add NTSC config if required.
 
 ### Phase 6 — condition loops and follow-ups
-- [ ] Wire `DISK_TURNED_LATCH` to the selected loader backend.
-- [ ] Wire `MUSIC_POSITION_ADDR` to the real music driver.
-- [ ] Add VICE/real-drive traces for both condition exits.
+- [ ] Emit `RepeatUntil` as label loops plus condition JSR calls.
+- [ ] Wire `DISK_TURNED_LATCH` to the regular loader’s first-successful-sector signal.
+- [ ] Keep `MUSIC_POSITION_ADDR` as a placeholder blackboard byte until a music driver is chosen; no music driver is wired in this phase.
+- [ ] Add VICE/real-drive traces for both condition exits when a real music driver and drive are available.
 - [ ] Decide whether to delete `src/engine_gen.asm` or regenerate it (`mk.sh` still assembles it directly).
 - [ ] Consider variable frame-slot sizes if 4 KiB slots prove inefficient.
 - [ ] Add Huffman/decompression primitives from `.designs/ideas.md` without changing frame command opcodes.
@@ -1143,13 +1164,13 @@ New tests:
 
 ## 15. Open decisions
 
-1. **Music driver hook** — address and encoding of the current position byte used by `TEST_MUSIC_BEFORE`.
-2. **`DISK_TURNED` source** — spin-up vs requested sector index; first successful sector handshake, explicit drive status byte, or configurable delay fallback.
-3. **Wrap-aware `BEFORE`** — half-range vs monotonic-window comparison for cyclic music positions.
-4. **Loader backend** — which software-only 1541 IRQ loader to integrate. The sequence and resource format are backend-neutral.
+1. **Music driver hook** — no music driver is being wired now. `MUSIC_POSITION_ADDR` stays a placeholder byte so the condition-loop emission can be tested; a real driver and position encoding are a later decision.
+2. **`DISK_TURNED` source** — resolved for this phase: the regular loader sets the latch on its first successful sector handshake. A future explicit drive-status protocol may replace that signal.
+3. **Wrap-aware `BEFORE`** — half-range vs monotonic-window comparison for cyclic music positions; deferred until a real music position source exists.
+4. **Loader backend** — resolved for this phase: default to the regular host-side IEC/U1 DOS-sector backend, with a build-time selector so another backend can be installed later. The sequence and resource format stay backend-neutral.
 5. **Interleave** — default `7` is a safe coprime choice; final value must be measured with true drive emulation/real hardware.
-6. **ROM bank-out coordination** — whether the music driver itself expects ROM visible and needs it restored temporarily.
-7. **Bootstrap** — KERNAL-load first resources from DOS files, or have the IRQ loader handle everything from reset.
+6. **ROM bank-out coordination** — whether a future music driver expects ROM visible and needs it restored temporarily; no music driver is present now.
+7. **Bootstrap** — the regular backend is expected to load the first resources itself. A KERNAL bootstrap remains a fallback option if cold-start testing shows a problem.
 8. **Act separator** — whether to emit `WaitRefreshes(n)` between acts, and with what `n`.
 9. **Legacy compatibility** — keep `engine__play_stream` permanently for tests/other apps, or remove after all applications migrate.
 10. **Error policy** — sticky error + hold on loader failure vs retry. Default: sticky error, hold, report in VICE trace.
@@ -1167,7 +1188,7 @@ The intro becomes a **Rust-authored, emitted-assembly, resource-driven player**:
 - Frame resources use six 4 KiB slots across `$4000..$9FFF`.
 - Music uses `$A000..$BFFF` with ROM banked out.
 - `MasterPlanner` derives each `LoadRange` from the encoded resource size and generates a 7-byte-per-resource table containing only loader metadata, plus constants and the raw D64 sector image.
-- A single IRQ dispatcher owns both frame pacing and loader servicing.
+- A single IRQ dispatcher owns both frame pacing and loader servicing. The default regular backend performs host-side IEC/U1 DOS-sector reads in bounded IRQ steps while frame playback continues; a stub or future custom loader can be selected at build time.
 - Future “until music is before …” and “until disk is turned” loops are implemented as label loops plus condition JSR calls.
 
 This keeps timing explicit and adjustable while preserving the frame-command format, evaluator, and compression work — without adding an unnecessary interpreter layer.

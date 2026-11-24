@@ -71,6 +71,35 @@ impl DecoderModule for Resource {
             )
             .function(
                 FunctionBuilder::default()
+                    .name("engine__resource__track")
+                    .doc(&["Return the 1-based physical track of the resource id in A."])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .jsr_addr("engine__resource__index")
+                            .tay()
+                            .lda_addr_y("resource_table")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__resource__sector")
+                    .doc(&["Return the first physical sector of the resource id in A."])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .jsr_addr("engine__resource__index")
+                            .tay()
+                            .iny()
+                            .lda_addr_y("resource_table")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
                     .name("engine__resource__dest")
                     .doc(&[
                         "Look up the destination of the resource id in A.",
