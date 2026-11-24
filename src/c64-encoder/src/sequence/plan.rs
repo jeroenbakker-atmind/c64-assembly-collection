@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use c64::create_disk::MasteredRange;
+
 use crate::builder::demo::DemoBuilder;
 
 use super::model::{Sequence, SequenceStep};
@@ -508,12 +510,6 @@ pub fn symbol_name(name: &str) -> String {
         .collect()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MasteredRange {
-    pub start: DiskLocation,
-    pub sectors: Vec<[u8; 256]>,
-}
-
 #[derive(Debug, Clone)]
 pub struct ResourcePlan {
     pub resources: Vec<DiskResource>,
@@ -563,12 +559,18 @@ impl ResourcePlan {
     }
 
     pub fn mastered_ranges(&self) -> Vec<MasteredRange> {
+        let locations = self
+            .all_locations()
+            .expect("a built plan always has a valid sector cursor");
         let mut result = Vec::with_capacity(self.ranges.len());
         let mut offset = 0usize;
         for range in &self.ranges {
             let count = range.sector_count as usize;
             result.push(MasteredRange {
-                start: range.start,
+                locations: locations[offset..offset + count]
+                    .iter()
+                    .map(|location| (location.track, location.sector))
+                    .collect(),
                 sectors: self.sector_image[offset..offset + count].to_vec(),
             });
             offset += count;

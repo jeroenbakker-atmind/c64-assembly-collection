@@ -3,10 +3,10 @@ mod applications;
 use std::{io::Result, path::Path};
 
 use applications::{
-    engine::engine_application, intro::intro_application, senimul::senimul_application,
+    engine::engine_application, intro::build_intro, senimul::senimul_application,
     set_black_border::set_black_border_application,
 };
-use c64::create_disk::PackageDisk;
+use c64::create_disk::{write_master_ranges, PackageDisk};
 use cbm::{
     disk::{directory::FileType, Id},
     Petscii,
@@ -64,7 +64,12 @@ fn package_dev() -> Result<()> {
         Id::from_bytes(b"FYR"),
     )?;
 
-    disk.add_bytes(&intro_application().unwrap(), Petscii::from_str("intro"), FileType::PRG)?;
+    let intro = build_intro().unwrap();
+
+    // Reserve the raw resource regions before any DOS file can claim them.
+    write_master_ranges(&mut disk, &intro.plan.mastered_ranges())?;
+
+    disk.add_bytes(&intro.prg, Petscii::from_str("intro"), FileType::PRG)?;
 
     disk.add_bytes(
         &engine_application().unwrap(),

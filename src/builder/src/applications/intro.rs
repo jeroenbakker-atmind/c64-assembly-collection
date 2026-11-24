@@ -15,10 +15,10 @@ use cube_encoder::encode_act_demo;
 /// immutable master plan needed by disk mastering.
 pub struct IntroBuild {
     pub prg: Vec<u8>,
-    #[allow(dead_code)] // Consumed by disk mastering in Phase 4.
     pub plan: ResourcePlan,
 }
 
+#[allow(dead_code)] // Kept as the simple PRG entry point for callers that do not need the plan.
 pub fn intro_application() -> AssemblerResult<Vec<u8>> {
     Ok(build_intro()?.prg)
 }

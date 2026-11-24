@@ -98,6 +98,34 @@ fn sector_cursor_visits_every_usable_sector_exactly_once() {
 }
 
 #[test]
+fn mastered_ranges_match_the_planned_sector_cursor() {
+    let plan = example_plan();
+    let expected_locations: Vec<_> = plan
+        .all_locations()
+        .unwrap()
+        .iter()
+        .map(|location| (location.track, location.sector))
+        .collect();
+    let ranges = plan.mastered_ranges();
+    let locations: Vec<_> = ranges
+        .iter()
+        .flat_map(|range| range.locations.iter().copied())
+        .collect();
+
+    assert_eq!(locations, expected_locations);
+
+    let mut offset = 0usize;
+    for range in &ranges {
+        assert_eq!(range.sectors.len(), range.locations.len());
+        for sector in &range.sectors {
+            assert_eq!(&sector[..], &plan.sector_image[offset][..]);
+            offset += 1;
+        }
+    }
+    assert_eq!(offset, plan.sector_image.len());
+}
+
+#[test]
 fn bank_out_requirement_is_derived_from_the_music_region() {
     let plan = example_plan();
     assert_eq!(plan.constants.get("BANK_OUT_REQUIRED"), Some(1));

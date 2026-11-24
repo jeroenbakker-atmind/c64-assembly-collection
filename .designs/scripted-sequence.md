@@ -921,6 +921,8 @@ Add:
 pub fn write_master_ranges(disk: &mut D64, ranges: &[MasteredRange]) -> Result<()>;
 ```
 
+`MasteredRange` lives in `c64::create_disk` and carries each physical `(track, sector)` alongside its 256-byte payload. `c64-encoder` maps its planner `DiskLocation` values into that type; `c64` never depends on `c64-encoder`.
+
 Implementation notes:
 
 1. For each `(location, sector_bytes)`, obtain `disk.blocks_ref_mut().sector_mut(location)` and copy the 256-byte payload directly.
@@ -1099,10 +1101,10 @@ New tests:
 - [x] Keep legacy `engine` / `senimul` applications working via `engine__stream__init` + `engine__play_stream`.
 
 ### Phase 4 — disk mastering
-- [ ] Add `write_master_ranges()` to `src/c64/src/create_disk.rs`.
-- [ ] Reserve raw sectors in BAM before writing DOS PRGs.
-- [ ] Update `builder::package_dev()` to master the planned resources.
-- [ ] Add D64 read-back/BAM tests.
+- [x] Add `write_master_ranges()` to `src/c64/src/create_disk.rs`.
+- [x] Reserve raw sectors in BAM before writing DOS PRGs.
+- [x] Update `builder::package_dev()` to master the planned resources.
+- [x] Add D64 read-back/BAM tests.
 
 ### Phase 5 — production loader
 - [ ] Select backend (Krill/Spindle/Bitfire/DreamLoad).
