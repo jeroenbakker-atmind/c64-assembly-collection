@@ -14,6 +14,7 @@ c64-assembler-macro={path="../../third_party/c64-assembler/c64-assembler-macro"}
 c64-assembler={path="../../third_party/c64-assembler/c64-assembler"}
 c64-encoder={path="../c64-encoder"}
 c64-colors={path="../c64-colors"}
+cube-encoder={path="../cube-encoder"}
 
 [[bin]]
 name="builder"

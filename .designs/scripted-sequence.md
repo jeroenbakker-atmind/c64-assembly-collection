@@ -59,9 +59,9 @@ Terminology used below:
 
 ## 2. Current state and why an explicit sequence is needed
 
-### 2.1 What `intro.rs` does today
+### 2.1 What `intro.rs` used to do
 
-`src/builder/src/applications/intro.rs` embeds a ~11,624-byte literal stream:
+Before Phase 3, `src/builder/src/applications/intro.rs` embedded a ~11,624-byte literal stream:
 
 ```rust
 let data = vec![
@@ -100,6 +100,8 @@ Problems:
 4. The literal in `intro.rs` is a stale 100-frame/11,624-byte baseline; `.designs/streaming.md` already uses newer 200-frame measurements (12,361 B total).
 5. The application is still named `"Engine"`, showing that the intro is a copy/adaptation of the engine application.
 
+Phase 3 removed this literal. `intro.rs` now calls the `cube-encoder` crate to encode both rendered acts, plans their disk resources, and emits a Rust-authored 6502 sequence plus the generated `resource_table`.
+
 ### 2.2 Existing stream format (unchanged)
 
 `DemoBuilder` (`src/c64-encoder/src/builder/demo.rs`) emits:
@@ -134,7 +136,7 @@ Therefore control remains in emitted PRG assembly, authored by Rust. The existin
 
 ```mermaid
 flowchart LR
-    A[encode_cube / animation encoder] --> B[DemoBuilder<br/>frame records]
+    A[cube-encoder crate / animation encoder] --> B[DemoBuilder<br/>frame records]
     B --> C[ResourceBuilder<br/>named encoded disk resources]
     C --> D[MasterPlanner<br/>sector + slot + timing plan]
     D --> E[Resource table + constants]
@@ -828,37 +830,38 @@ All allocation is deterministic: same encoded resources + same config ⇒ same t
 `intro_application()` becomes roughly:
 
 ```rust
-pub fn intro_application(plan: &ResourcePlan) -> AssemblerResult<Vec<u8>> {
-    let resource_data = ModuleBuilder::default()
-        .name("resource_data")
-        .instructions(
-            InstructionBuilder::default()
-                .label("resource_table")
-                .raw(&plan.encode_resource_table())
-                .build(),
-        )
-        .build();
+pub fn intro_application() -> AssemblerResult<Vec<u8>> {
+    Ok(build_intro()?.prg)
+}
+
+fn build_intro_from_demos(act1: &DemoBuilder, act2: &DemoBuilder) -> AssemblerResult<IntroBuild> {
+    let plan = build_plan(act1, act2);
+    let sequence = build_sequence(&plan);
+    let sequence_instructions = SequenceEmitter::new(&plan).emit(&sequence)?;
 
     let mut builder = ApplicationBuilder::default();
-    let application = builder
-        .name("Intro")
-        .include_vic2_defines()
-        .add_engine()
-        .module(assembly_sequence_module(&plan))
-        .module(resource_data);
+    builder.name("Intro").include_vic2_defines();
     for (name, value) in plan.constants.iter() {
-        application.define_address(name, *value);
+        builder.define_address(name, *value);
     }
-    let application = application.build()?;
+
+    let application = builder
+        .module(main_module_that_jsrs("intro_main"))
+        .module(ModuleBuilder::default().name("intro_sequence").instructions(sequence_instructions).build())
+        .module(resource_table_module(&plan))
+        .module(legacy_stream_placeholder_module())
+        .add_engine()
+        .build()?;
 
     application.validate()?;
-    ProgramGenerator::default().generate(application)
+    let prg = ProgramGenerator::default().generate(application)?;
+    Ok(IntroBuild { prg, plan })
 }
 ```
 
-`add_engine()` installs the bank, reset, IRQ, loader, resource-lookup, and condition modules together, so every application using it must provide a `resource_table` label. Legacy monolithic-stream applications use `dummy_resource_table_module()` until they are migrated; the intro uses the generated multi-entry table.
+`add_engine()` installs the bank, reset, IRQ, loader, resource-lookup, and condition modules together, so every application using it must provide a `resource_table` label. Legacy monolithic-stream applications use `dummy_resource_table_module()` until they are migrated; the intro uses the generated multi-entry table. The intro also provides a two-byte `engine_data` placeholder because `add_engine()` still installs the legacy `engine__stream__init` routine; the scripted sequence never calls it.
 
-`assembly_sequence_module()` contains the ordinary 6502 control flow from §4.2. It calls JSR primitives and uses generated defines; there is no embedded frame-data literal and no bytecode script.
+The emitted sequence module contains the ordinary 6502 control flow from §4.2. It calls JSR primitives and uses generated defines; there is no embedded frame-data literal and no bytecode script.
 
 The 11,624-byte `data` literal is removed. The PRG contains code, assembly control flow, and a small resource table; **no frame bytes are embedded in the PRG**.
 
@@ -1089,11 +1092,11 @@ New tests:
 - [x] Add CPU-level and structural tests.
 
 ### Phase 3 — builder integration
-- [ ] Remove the embedded stream literal from `intro.rs`.
-- [ ] Emit the assembly control sequence with the requested load/wait/play ordering.
-- [ ] Generate `resource_table` and constants into the intro application.
-- [ ] Update `main` to call `engine__init` → loader init → condition init → assembly sequence → deinit.
-- [ ] Keep legacy `engine` / `senimul` applications working via `engine__stream__init` + `engine__play_stream`.
+- [x] Remove the embedded stream literal from `intro.rs`; the renderer/encoder moved to the `cube-encoder` crate.
+- [x] Emit the assembly control sequence with the requested load/wait/play ordering.
+- [x] Generate `resource_table` and constants into the intro application.
+- [x] Make the intro `main` module call the emitted sequence; the sequence’s `Init`/`End` steps call engine/loader/condition setup and teardown.
+- [x] Keep legacy `engine` / `senimul` applications working via `engine__stream__init` + `engine__play_stream`.
 
 ### Phase 4 — disk mastering
 - [ ] Add `write_master_ranges()` to `src/c64/src/create_disk.rs`.

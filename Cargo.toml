@@ -8,6 +8,7 @@ members = [
     "src/c64-colors", 
     "src/c64-charset", 
     "src/c64-encoder", 
-    "src/c64-encoder-reporting", 
+    "src/c64-encoder-reporting",
+    "src/cube-encoder",
 ]
 resolver="2"

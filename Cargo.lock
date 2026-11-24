@@ -51,6 +51,7 @@ dependencies = [
  "c64-encoder",
  "cbm",
  "clap 4.0.26",
+ "cube-encoder",
  "png",
 ]
 
@@ -65,6 +66,7 @@ dependencies = [
  "c64-encoder-reporting",
  "cbm",
  "clap 4.0.26",
+ "cube-encoder",
  "png",
 ]
 
@@ -210,6 +212,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "cube-encoder"
+version = "0.1.0"
+dependencies = [
+ "c64",
+ "c64-colors",
+ "c64-encoder",
+ "c64-encoder-reporting",
 ]
 
 [[package]]

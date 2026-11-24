@@ -1,0 +1,10 @@
+[package]
+name = "cube-encoder"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+c64 = { path = "../c64" }
+c64-colors = { path = "../c64-colors" }
+c64-encoder = { path = "../c64-encoder" }
+c64-encoder-reporting = { path = "../c64-encoder-reporting" }
