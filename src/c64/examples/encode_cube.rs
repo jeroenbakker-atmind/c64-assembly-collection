@@ -29,7 +29,7 @@ use c64_encoder_reporting::reports::command_report::{build_command_summary, prin
 
 fn main() {
     let act1_summary = encode_act(1, 100);
-    let act2_summary = encode_act(2, 1);
+    let act2_summary = encode_act(2, 100);
     print_command_summary(&[act1_summary, act2_summary]);
 }
 

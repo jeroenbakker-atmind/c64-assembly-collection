@@ -80,14 +80,12 @@ impl UpdateScreenCharsRLE {
                 && to_screen_chars[offset + 1] > 0
                 && to_screen_chars[offset] == to_screen_chars[offset + 1] - 1
             {
-                println!("{}, {}", to_screen_chars[offset], to_screen_chars[offset + 1]);
                 commands_per_screen_char[offset] = RLE_MASK_AUTO_INCREMENT;
             }
             if offset != 0
                 && to_screen_chars[offset - 1] != 255
                 && to_screen_chars[offset] == to_screen_chars[offset - 1] + 1
             {
-                println!("{}, {}", to_screen_chars[offset - 1], to_screen_chars[offset]);
                 commands_per_screen_char[offset] = RLE_MASK_AUTO_INCREMENT;
             }
         }
@@ -144,14 +142,18 @@ impl UpdateScreenCharsRLE {
                             num_screen_chars: 0,
                             command: RLECommand::AutoIncrement(screen_char),
                         }];
+                        let mut packet_start_offset = 0;
                         for add_offset in 0..num_screen_chars_in_packet {
+                            let offset_in_packet = add_offset as usize - packet_start_offset;
                             let screen_char_at_offset = to_screen_chars[offset + add_offset as usize];
-                            if screen_char_at_offset != screen_char + add_offset {
+                            let expected_screen_char = screen_char.checked_add(offset_in_packet as u8);
+                            if expected_screen_char != Some(screen_char_at_offset) {
                                 packets.push(RLEPacket {
                                     num_screen_chars: 0,
                                     command: RLECommand::AutoIncrement(screen_char_at_offset),
                                 });
                                 screen_char = screen_char_at_offset;
+                                packet_start_offset = add_offset as usize;
                             }
 
                             let packet = packets.last_mut().unwrap();
@@ -204,12 +206,6 @@ fn validate_decode(from_screen: &[u8], to_screen: &[u8], packets: &[RLEPacket]) 
         for _char in 0..packet.num_screen_chars {
             packet_per_offset.push(packet.clone());
         }
-    }
-
-    let mut offset = 0;
-    for packet in packets {
-        println!("- {}: {:?}", offset, packet);
-        offset += packet.num_screen_chars as usize;
     }
 
     let mut offset = 0;
@@ -454,5 +450,93 @@ impl DecoderModule for UpdateScreenCharsRLE {
                     .build(),
             )
             .build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn decode(from: &[u8], command: &UpdateScreenCharsRLE) -> Vec<u8> {
+        let mut decoded = from.to_vec();
+        let mut offset = 0;
+        for packet in &command.rle_packets {
+            match &packet.command {
+                RLECommand::UpdateWithSingleValue(value) => {
+                    for _ in 0..packet.num_screen_chars {
+                        decoded[offset] = *value;
+                        offset += 1;
+                    }
+                }
+                RLECommand::UpdateValues(values) => {
+                    assert_eq!(packet.num_screen_chars as usize, values.len());
+                    for value in values {
+                        decoded[offset] = *value;
+                        offset += 1;
+                    }
+                }
+                RLECommand::SkipValues => offset += packet.num_screen_chars as usize,
+                RLECommand::AutoIncrement(start_value) => {
+                    for add_offset in 0..packet.num_screen_chars {
+                        decoded[offset] = start_value + add_offset;
+                        offset += 1;
+                    }
+                }
+            }
+        }
+        decoded
+    }
+
+    fn auto_increment_packets(command: &UpdateScreenCharsRLE) -> Vec<(u8, u8)> {
+        command
+            .rle_packets
+            .iter()
+            .filter_map(|packet| match &packet.command {
+                RLECommand::AutoIncrement(start_value) => Some((*start_value, packet.num_screen_chars)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn auto_increment_packets_restart_at_value_changes() {
+        let from = vec![0; 1024];
+        let mut to = from.clone();
+        for (index, value) in [30, 31, 80, 81, 85, 86, 93].into_iter().enumerate() {
+            to[713 + index] = value;
+        }
+
+        let command = UpdateScreenCharsRLE::transition(&from, &to);
+
+        assert_eq!(decode(&from, &command), to);
+        assert_eq!(auto_increment_packets(&command), vec![(30, 2), (80, 2), (85, 2)]);
+    }
+
+    #[test]
+    fn auto_increment_run_is_split_into_63_character_packets() {
+        let from = vec![0xFF; 1024];
+        let mut to = from.clone();
+        for index in 0..100 {
+            to[100 + index] = index as u8;
+        }
+
+        let command = UpdateScreenCharsRLE::transition(&from, &to);
+
+        assert_eq!(decode(&from, &command), to);
+        assert_eq!(auto_increment_packets(&command), vec![(0, 63), (63, 37)]);
+    }
+
+    #[test]
+    fn auto_increment_stops_before_u8_overflow() {
+        let from = vec![0; 1024];
+        let mut to = from.clone();
+        for index in 0..11 {
+            to[100 + index] = 245 + index as u8;
+        }
+
+        let command = UpdateScreenCharsRLE::transition(&from, &to);
+
+        assert_eq!(decode(&from, &command), to);
+        assert_eq!(auto_increment_packets(&command), vec![(245, 11)]);
     }
 }
