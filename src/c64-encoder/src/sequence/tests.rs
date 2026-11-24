@@ -245,16 +245,38 @@ fn counted_loops_emit_labels_and_branches() {
 }
 
 #[test]
-fn condition_loops_are_accepted_by_the_model_but_not_phase_one_emitter() {
+fn condition_loops_emit_labels_condition_jsrs_and_back_edges() {
     let plan = example_plan();
-    let sequence = Sequence::new("wait")
+    let disk_sequence = Sequence::new("wait_disk")
         .init()
         .repeat_until(Condition::DiskTurned, |body| body.play(plan.id("act1_p0"), 0, 10))
         .end();
 
-    let error = SequenceEmitter::new(&plan).emit(&sequence).unwrap_err();
-    assert!(matches!(error, super::EmitError::UnsupportedCondition(_)));
-    assert!(SequenceEmitter::validate(&sequence).is_ok());
+    let disk_text = SequenceEmitter::new(&plan).emit_asm_text(&disk_sequence).unwrap();
+    assert!(disk_text.contains("seq_until_0:"));
+    assert!(disk_text.contains("    jsr engine__condition__disk_turned"));
+    assert!(disk_text.contains("    beq seq_until_0_done"));
+    assert!(disk_text.contains("    jmp seq_until_0"));
+    assert!(disk_text.contains("seq_until_0_done:"));
+
+    let disk_instructions = SequenceEmitter::new(&plan).emit(&disk_sequence).unwrap();
+    let targets = jsr_targets(&disk_instructions);
+    assert!(targets.contains(&"engine__condition__disk_turned".to_string()));
+    assert!(targets.contains(&"engine__resource__use".to_string()));
+    assert!(targets.contains(&"engine__frame__play_n".to_string()));
+
+    let music_sequence = Sequence::new("wait_music")
+        .init()
+        .repeat_until(Condition::MusicBefore(7), |body| body.play(plan.id("act1_p0"), 0, 10))
+        .end();
+
+    let music_text = SequenceEmitter::new(&plan).emit_asm_text(&music_sequence).unwrap();
+    assert!(music_text.contains("seq_until_0:"));
+    assert!(music_text.contains("    lda #7"));
+    assert!(music_text.contains("    jsr engine__condition__music_before"));
+    assert!(music_text.contains("    beq seq_until_0_done"));
+    assert!(music_text.contains("    jmp seq_until_0"));
+    assert!(music_text.contains("seq_until_0_done:"));
 }
 
 #[test]

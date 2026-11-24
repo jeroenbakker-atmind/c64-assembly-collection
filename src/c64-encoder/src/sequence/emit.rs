@@ -1,7 +1,7 @@
 use c64_assembler::{builder::InstructionBuilder, Instructions};
 
 use super::{
-    model::{Sequence, SequenceStep},
+    model::{Condition, Sequence, SequenceStep},
     plan::ResourcePlan,
     resources::ResourceId,
 };
@@ -10,7 +10,6 @@ use super::{
 pub enum EmitError {
     Validation(String),
     Plan(String),
-    UnsupportedCondition(String),
 }
 
 impl std::fmt::Display for EmitError {
@@ -18,9 +17,6 @@ impl std::fmt::Display for EmitError {
         match self {
             EmitError::Validation(message) => write!(f, "invalid sequence: {message}"),
             EmitError::Plan(message) => write!(f, "sequence does not match plan: {message}"),
-            EmitError::UnsupportedCondition(message) => {
-                write!(f, "condition not implemented yet: {message}")
-            }
         }
     }
 }
@@ -135,8 +131,21 @@ impl<'a> SequenceEmitter<'a> {
                     self.emit_steps(body, builder)?;
                     builder.pla().tax().dex().bne_addr(&label);
                 }
-                SequenceStep::RepeatUntil { condition, .. } => {
-                    return Err(EmitError::UnsupportedCondition(format!("{condition:?}")));
+                SequenceStep::RepeatUntil { condition, body } => {
+                    let label = self.unique_label("until");
+                    let done_label = format!("{label}_done");
+                    builder.label(&label);
+                    match condition {
+                        Condition::MusicBefore(position) => {
+                            builder.lda_imm(*position).jsr_addr("engine__condition__music_before");
+                        }
+                        Condition::DiskTurned => {
+                            builder.jsr_addr("engine__condition__disk_turned");
+                        }
+                    }
+                    builder.beq_addr(&done_label);
+                    self.emit_steps(body, builder)?;
+                    builder.jmp_addr(&label).label(&done_label);
                 }
                 SequenceStep::End => {
                     builder
@@ -193,8 +202,23 @@ impl<'a> SequenceEmitter<'a> {
                     lines.push("    dex".to_string());
                     lines.push(format!("    bne {label}"));
                 }
-                SequenceStep::RepeatUntil { condition, .. } => {
-                    return Err(EmitError::UnsupportedCondition(format!("{condition:?}")));
+                SequenceStep::RepeatUntil { condition, body } => {
+                    let label = self.unique_label("until");
+                    let done_label = format!("{label}_done");
+                    lines.push(format!("{label}:"));
+                    match condition {
+                        Condition::MusicBefore(position) => {
+                            lines.push(format!("    lda #{position}"));
+                            lines.push("    jsr engine__condition__music_before".to_string());
+                        }
+                        Condition::DiskTurned => {
+                            lines.push("    jsr engine__condition__disk_turned".to_string());
+                        }
+                    }
+                    lines.push(format!("    beq {done_label}"));
+                    self.emit_text_steps(body, lines)?;
+                    lines.push(format!("    jmp {label}"));
+                    lines.push(format!("{done_label}:"));
                 }
                 SequenceStep::End => {
                     lines.push("    jsr engine__loader__deinit".to_string());

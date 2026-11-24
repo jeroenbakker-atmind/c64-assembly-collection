@@ -1133,9 +1133,9 @@ New tests:
 - [ ] Add NTSC config if required.
 
 ### Phase 6 — condition loops and follow-ups
-- [ ] Emit `RepeatUntil` as label loops plus condition JSR calls.
-- [ ] Wire `DISK_TURNED_LATCH` to the regular loader’s first-successful-sector signal.
-- [ ] Keep `MUSIC_POSITION_ADDR` as a placeholder blackboard byte until a music driver is chosen; no music driver is wired in this phase.
+- [x] Emit `RepeatUntil` as label loops plus condition JSR calls.
+- [x] Wire `DISK_TURNED_LATCH` to the regular loader’s first-successful-sector signal.
+- [x] Keep `MUSIC_POSITION_ADDR` as a placeholder blackboard byte until a music driver is chosen; no music driver is wired in this phase.
 - [ ] Add VICE/real-drive traces for both condition exits when a real music driver and drive are available.
 - [ ] Decide whether to delete `src/engine_gen.asm` or regenerate it (`mk.sh` still assembles it directly).
 - [ ] Consider variable frame-slot sizes if 4 KiB slots prove inefficient.
