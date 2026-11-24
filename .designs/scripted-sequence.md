@@ -1052,12 +1052,12 @@ New tests:
 ✅ Completed by this document.
 
 ### Phase 1 — Rust model, planner, and sequence emitter
-- [ ] Add `src/c64-encoder/src/sequence/{model,resources,plan,emit,report}.rs`.
-- [ ] Expose frame record sizes from `DemoBuilder`/`FrameBuilder` without parsing payloads.
-- [ ] Implement resource splitting, six-slot frame placement, music region validation, sectorization, geometry cursor, and `LoadRange` derivation.
-- [ ] Implement the `Sequence` AST, `SequenceEmitter`, and build-time single-job validation with no runtime latch.
-- [ ] Generate resource-table bytes and named constants.
-- [ ] Add unit tests for sizing, stability, planner, geometry, bank-out flags, emitted assembly, and sequence validation.
+- [x] Add `src/c64-encoder/src/sequence/{model,resources,plan,emit,report}.rs`.
+- [x] Expose frame record sizes from `DemoBuilder`/`FrameBuilder` without parsing payloads.
+- [x] Implement resource splitting, six-slot frame placement, music region validation, sectorization, geometry cursor, and `LoadRange` derivation.
+- [x] Implement the `Sequence` AST, `SequenceEmitter`, and build-time single-job validation with no runtime latch.
+- [x] Generate resource-table bytes and named constants.
+- [x] Add unit tests for sizing, stability, planner, geometry, bank-out flags, emitted assembly, and sequence validation.
 
 ### Phase 2 — 6502 runtime
 - [ ] Add `resource.rs` with resource-table lookups and `CURRENT_PTR` setup.

@@ -60,6 +60,18 @@ impl FrameBuilder {
     pub fn build(&self) -> Self {
         self.clone()
     }
+
+    /// Size of this frame's standalone record: `u16 command_count` + commands.
+    pub fn frame_record_byte_size(&self) -> usize {
+        self.byte_size()
+    }
+
+    /// Encodes this frame as a standalone record without the demo frame-count header.
+    pub fn frame_record_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![0; self.frame_record_byte_size()];
+        self.encode(&mut bytes);
+        bytes
+    }
 }
 
 impl Encoder for FrameBuilder {
