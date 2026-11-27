@@ -655,17 +655,17 @@ Initial implementation strategy:
 
 ### 7.4 Interrupt ownership
 
-`.designs/refresh-rate.md` currently has `engine__refresh__irq` installed directly at `$0314`. The raster source is a maskable IRQ; CIA2 Timer A is wired to the CPU NMI, so the two hooks need separate vectors. `engine__refresh__init` saves and installs both:
+`.designs/refresh-rate.md` currently has `engine__refresh__irq` installed directly at `$0314`. The raster source is a maskable IRQ; CIA2 Timer A is wired to the CPU NMI, so the two hooks need separate vectors. `engine__refresh__init` saves and installs both, clears all VIC latches, and enables only the raster source (`#$01`) in `VIC2_IRQ_ENABLE`. Bits 1-3 select the collision and light-pen sources instead.
 
 ```asm
 engine__irq__handler:                     ; $0314, entered after KERNAL saves A/X/Y
-    lda VIC2_IRQ_STATUS                   ; raster pending?
-    and #$80
-    beq done
+    lda VIC2_IRQ_STATUS                   ; raster pending (bit 0; bit 7 is global IRQ)?
+    and #$01
+    beq clear_latches
     jsr engine__refresh__on_refresh       ; once-per-frame pacing countdown
+clear_latches:
     lda #$FF
     sta VIC2_IRQ_STATUS                   ; acknowledge all VIC IRQ latches
-done:
     jmp engine__irq__epilogue             ; PLA/TAY/PLA/TAX/PLA/RTI
 
 engine__irq__nmi_handler:                 ; $0318, entered after only SEI; JMP ($0318)
@@ -675,6 +675,13 @@ engine__irq__nmi_handler:                 ; $0318, entered after only SEI; JMP (
     sta CIA2_TIMER_A_CONTROL              ; stop both sources at entry
     sta CIA2_TIMER_B_CONTROL
     lda CIA2_IRQ_CONTROL                  ; read acknowledges the timer flag
+    lda VIC2_IRQ_STATUS                   ; cooperative raster service: dense loader
+    and #$01                              ; NMIs otherwise postpone the maskable IRQ
+    beq no_raster
+    jsr engine__refresh__on_refresh
+    lda #$FF
+    sta VIC2_IRQ_STATUS
+no_raster:
     lda ENGINE_NMI_ACTIVE
     cmp #$01
     bne nested                            ; nested entry: leave the owner guard alone
@@ -737,11 +744,11 @@ clear_guard:
     rti                                   ; restore the handler's A/X/Y frame
 ```
 
-The KERNAL IRQ entry at `$EA81` saves A/X/Y before calling the `$0314` hook, so the raster handler uses `engine__irq__epilogue`. The KERNAL NMI entry at `$FE43` is only `SEI; JMP ($0318)`: it does **not** save registers, mask CIA sources, or acknowledge CIA flags. The NMI handler therefore pushes A before touching the re-entrancy guard, pushes X/Y only for the owner that runs a loader phase, reads CIA2 ICR to acknowledge the timer flag, and returns with `RTI`. Nested and Timer B entries restore only A because they never push X/Y; the owner restores all three. This keeps the stack balanced across hundreds of loader phases.
+The KERNAL IRQ entry at `$EA81` saves A/X/Y before calling the `$0314` hook, so the raster handler uses `engine__irq__epilogue`. It acknowledges every VIC latch on both paths: sprite/collision latches can hold the IRQ line asserted even when the raster bit is clear. The KERNAL NMI entry at `$FE43` is only `SEI; JMP ($0318)`: it does **not** save registers, mask CIA sources, or acknowledge CIA flags. The NMI handler therefore pushes A before touching the re-entrancy guard, pushes X/Y only for the owner that runs a loader phase, reads CIA2 ICR to acknowledge the timer flag, and returns with `RTI`. Nested and Timer B entries restore only A because they never push X/Y; the owner restores all three. This keeps the stack balanced across hundreds of loader phases.
 
 The owner never restarts Timer A before it returns: doing so allowed a fresh Timer A NMI to win the owner check while the previous owner was still unwinding. Instead the owner stops both timers, arms one-shot Timer B, and records the software handoff in `ENGINE_NMI_TIMER_B_PENDING`. Timer B fires after the owner has returned; its NMI clears the handoff flag, restarts Timer A, and returns. Timer B is the only source allowed to re-arm Timer A. Both NMI flags are reset by `engine__refresh__init` so a warm start cannot inherit a stale handoff.
 
-Actual disk transfers happen asynchronously relative to the emitted sequence. A `Load` step must never copy sector bytes itself; `engine__loader__start` only publishes the one job descriptor and starts Timer A. The raster hook remains dedicated to refresh pacing; CIA2 Timer A drives the IEC state machine only while a regular-backed job is active.
+Actual disk transfers happen asynchronously relative to the emitted sequence. A `Load` step must never copy sector bytes itself; `engine__loader__start` only publishes the one job descriptor and starts Timer A. CIA2 Timer A drives the IEC state machine only while a regular-backed job is active. Loader NMIs fire much more often than the raster, so the NMI handler also checks the VIC raster latch, decrements the refresh countdown, and acknowledges all VIC latches when needed. This cooperative service prevents the lower-priority raster IRQ from being postponed for the whole transfer; the normal `$0314` handler still owns refresh pacing whenever it gets the CPU.
 
 Receive polling follows KERNAL ACPTR: `ASL CIA2_DATA_PORT` leaves CLK in N and DATA in C, and DATA is latched with `ROR LOADER_IEC_BYTE` from that same read. Each wait uses an inline `DEX`/`BNE` countdown in X; calling `engine__loader__regular__timeout_tick` inside the bit loops added a JSR to every poll and missed short CLK edges, especially the eighth bit of a sector byte. The two-byte `LOADER_IEC_TIMEOUT_HI/LO` counter remains for the slower command/handshake phases.
 
@@ -751,7 +758,7 @@ Acknowledgement rule:
 
 - Raster: writing `#$FF` to `VIC2_IRQ_STATUS` acknowledges every VIC latch. Writing only `#$80` can leave a pending sprite IRQ asserted and starve the main loop; writing `#$01` clears sprite 0 only.
 - CIA2: the `$0318` NMI handler reads `CIA2_IRQ_CONTROL` once at entry to acknowledge the timer flag. Writing `$01`/`$02` masks Timer A/B; writing `$81`/`$82` re-enables them. Timer A is continuous while a job is active; each owner NMI stops it and schedules one-shot Timer B, whose NMI restarts Timer A. The regular backend stops both timers and masks both sources on completion, error, and deinit.
-- The loader hook is only called from the NMI handler, so refresh stays once per frame.
+- The loader hook is only called from the NMI handler. The NMI's cooperative raster check only acknowledges an already-pending raster, so refresh still advances at most once per raster line.
 
 ### 7.5 Condition provider
 

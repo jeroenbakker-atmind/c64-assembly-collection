@@ -60,6 +60,17 @@ impl DecoderModule for Irq {
                             .sta_addr("CIA2_TIMER_A_CONTROL")
                             .sta_addr("CIA2_TIMER_B_CONTROL")
                             .lda_addr("CIA2_IRQ_CONTROL")
+                            .comment("Loader NMIs fire far more often than the raster IRQ.")
+                            .comment("Service a pending raster latch here so frame pacing continues")
+                            .comment("while a load postpones the lower-priority IRQ. The raster")
+                            .comment("handler skips the decrement once this path acknowledges it.")
+                            .lda_addr("VIC2_IRQ_STATUS")
+                            .and_imm(0b0000_0001)
+                            .beq_addr("engine__irq__nmi_handler__no_raster")
+                            .jsr_addr("engine__refresh__on_refresh")
+                            .lda_imm(0b1111_1111)
+                            .sta_addr("VIC2_IRQ_STATUS")
+                            .label("engine__irq__nmi_handler__no_raster")
                             .lda_addr("ENGINE_NMI_ACTIVE")
                             .cmp_imm(1)
                             .bne_addr("engine__irq__nmi_handler__nested")
@@ -130,21 +141,22 @@ impl DecoderModule for Irq {
                     .doc(&[
                         "Service raster refresh pacing from the VIC raster IRQ.",
                         "",
-                        "The VIC raster flag is bit 7, but sprite latches can also be pending.",
-                        "Writing `#$FF` to `VIC2_IRQ_STATUS` acknowledges every VIC source;",
-                        "writing only `#$80` can leave a sprite IRQ asserted and starve the main",
-                        "loop. CIA2 Timer A",
-                        "is an NMI source and is serviced by `engine__irq__nmi_handler`.",
+                        "The VIC raster latch is bit 0; bit 7 is only the global IRQ flag and",
+                        "stays set while any enabled VIC source is pending. Acknowledge every",
+                        "VIC source on every entry, but decrement the refresh countdown only when",
+                        "the raster latch was set. Leaving another latch set can hold the IRQ line",
+                        "and starve frame playback. CIA2 Timer A is an NMI source and is",
+                        "serviced by `engine__irq__nmi_handler`.",
                     ])
                     .instructions(
                         InstructionBuilder::default()
                             .lda_addr("VIC2_IRQ_STATUS")
-                            .and_imm(0b1000_0000)
-                            .beq_addr("engine__irq__handler__done")
+                            .and_imm(0b0000_0001)
+                            .beq_addr("engine__irq__handler__clear_latches")
                             .jsr_addr("engine__refresh__on_refresh")
+                            .label("engine__irq__handler__clear_latches")
                             .lda_imm(0b1111_1111)
                             .sta_addr("VIC2_IRQ_STATUS")
-                            .label("engine__irq__handler__done")
                             .jmp_addr("engine__irq__epilogue")
                             .build(),
                     )

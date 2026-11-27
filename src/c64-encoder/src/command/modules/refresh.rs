@@ -142,6 +142,7 @@ impl DecoderModule for Refresh {
                             .sta_addr_offs("C64_NMI_VECTOR", 1)
                             .lda_imm(0)
                             .sta_addr("VIC2_RASTER")
+                            .comment("Enable raster IRQ source (bit 0); bits 1-3 are other VIC sources.")
                             .lda_imm(0b0000_0001)
                             .sta_addr("VIC2_IRQ_ENABLE")
                             .comment("Four refreshes per frame implement the authored 50/4 framerate.")

@@ -428,8 +428,16 @@ fn nmi_handler_saves_its_own_frame_and_a_timer_b_handoff_flag() -> AssemblerResu
     let source = DasmGenerator::default().generate(application)?;
 
     assert!(source.contains(
-        "engine__irq__nmi_handler:\n  pha\n  inc ENGINE_NMI_ACTIVE\n  lda #$00\n  sta CIA2_TIMER_A_CONTROL\n  sta CIA2_TIMER_B_CONTROL\n  lda CIA2_IRQ_CONTROL\n  lda ENGINE_NMI_ACTIVE\n  cmp #$01\n  bne engine__irq__nmi_handler__nested\n  lda ENGINE_NMI_TIMER_B_PENDING\n  bne engine__irq__nmi_handler__timer_b"
+        "engine__irq__nmi_handler:\n  pha\n  inc ENGINE_NMI_ACTIVE\n  lda #$00\n  sta CIA2_TIMER_A_CONTROL\n  sta CIA2_TIMER_B_CONTROL\n  lda CIA2_IRQ_CONTROL"
     ));
+    // Dense loader NMIs can postpone the raster IRQ indefinitely, so each NMI
+    // acknowledges a pending raster latch and keeps the refresh countdown moving.
+    assert!(source.contains("  lda VIC2_IRQ_STATUS\n  and #$01\n  beq engine__irq__nmi_handler__no_raster"));
+    assert!(source.contains("  jsr engine__refresh__on_refresh\n  lda #$FF\n  sta VIC2_IRQ_STATUS"));
+    assert!(source.contains(
+        "engine__irq__nmi_handler__no_raster:\n  lda ENGINE_NMI_ACTIVE\n  cmp #$01\n  bne engine__irq__nmi_handler__nested"
+    ));
+    assert!(source.contains("  lda ENGINE_NMI_TIMER_B_PENDING\n  bne engine__irq__nmi_handler__timer_b"));
     assert!(source.contains("engine__irq__nmi_handler__nested:\n  dec ENGINE_NMI_ACTIVE\n  pla\n  rti"));
     assert!(source.contains(
         "engine__irq__nmi_handler__timer_b:\n  lda #$00\n  sta ENGINE_NMI_TIMER_B_PENDING\n  lda #$02\n  sta CIA2_IRQ_CONTROL\n  lda #$00\n  sta CIA2_TIMER_B_CONTROL\n  lda #$32\n  sta CIA2_TIMER_A_LO"
@@ -847,6 +855,16 @@ fn full_runtime_application_has_expected_primitives_without_interpreter_state() 
     assert!(source.contains("CIA2_TIMER_A_CONTROL"));
     assert!(source.contains("CIA2_TIMER_B_CONTROL"));
     assert!(source.contains("  lda #$FF\n  sta VIC2_IRQ_STATUS"));
+    // The raster source is VIC IRQ enable bit 0 and status latch bit 0. Bit 7
+    // is only the global IRQ flag, so testing it mistakes other VIC IRQs.
+    assert!(source.contains("  lda #$01\n  sta VIC2_IRQ_ENABLE"));
+    assert!(source.contains("  lda VIC2_IRQ_STATUS\n  and #$01\n  beq engine__irq__handler__clear_latches"));
+    // Acknowledge every VIC latch on both paths. If the raster latch is clear
+    // but another VIC latch is set, the global IRQ flag can stay asserted and
+    // starve playback; only refresh accounting is conditional on bit 0.
+    assert!(source.contains("  beq engine__irq__handler__clear_latches"));
+    assert!(source.contains("engine__irq__handler__clear_latches:\n  lda #$FF\n  sta VIC2_IRQ_STATUS"));
+    assert!(source.contains("  jmp engine__irq__epilogue"));
     assert!(source.contains("  jsr engine__loader__on_irq"));
     assert!(!source.contains("LOADER_WAIT_REQUIRED"));
     assert!(!source.contains("SEQUENCE_PTR"));

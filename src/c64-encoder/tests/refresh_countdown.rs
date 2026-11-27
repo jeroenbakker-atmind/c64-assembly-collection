@@ -119,6 +119,8 @@ fn engine_uses_irq_countdown_instead_of_vblank_polling() -> AssemblerResult<()> 
     assert!(source.contains("engine__refresh__irq:"));
     assert!(source.contains("  jsr engine__refresh__on_refresh"));
     assert!(source.contains("  lda #$FF\n  sta VIC2_IRQ_STATUS"));
+    assert!(source.contains("  lda #$01\n  sta VIC2_IRQ_ENABLE"));
+    assert!(source.contains("  lda VIC2_IRQ_STATUS\n  and #$01\n  beq engine__irq__handler__clear_latches"));
     assert!(source.contains("  jmp C64_IRQ_EPLOGUE"));
     assert_eq!(source.matches("  jsr engine__refresh__wait").count(), 2);
     assert!(source.contains("engine__refresh__wait_n:"));
