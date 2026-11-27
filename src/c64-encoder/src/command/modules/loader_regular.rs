@@ -854,9 +854,15 @@ impl LoaderBackend for RegularLoaderBackend {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__regular__track_modulus")
-                    .doc(&["Set the usable-sector modulus for the current track."])
+                    .doc(&[
+                        "Set the usable-sector modulus for the current track.",
+                        "",
+                        "A carries the caller's computed sector offset. Restore it before returning:",
+                        "`advance_sector` needs that value to build the next interleaved sector.",
+                    ])
                     .instructions(
                         InstructionBuilder::default()
+                            .pha()
                             .lda_addr("LOADER_IEC_TRACK")
                             .cmp_imm(18)
                             .bcc_addr("engine__loader__regular__track_modulus__20")
@@ -866,18 +872,20 @@ impl LoaderBackend for RegularLoaderBackend {
                             .bcc_addr("engine__loader__regular__track_modulus__17")
                             .lda_imm(16)
                             .sta_addr("LOADER_IEC_MODULUS")
-                            .rts()
+                            .jmp_addr("engine__loader__regular__track_modulus__done")
                             .label("engine__loader__regular__track_modulus__20")
                             .lda_imm(20)
                             .sta_addr("LOADER_IEC_MODULUS")
-                            .rts()
+                            .jmp_addr("engine__loader__regular__track_modulus__done")
                             .label("engine__loader__regular__track_modulus__18")
                             .lda_imm(18)
                             .sta_addr("LOADER_IEC_MODULUS")
-                            .rts()
+                            .jmp_addr("engine__loader__regular__track_modulus__done")
                             .label("engine__loader__regular__track_modulus__17")
                             .lda_imm(17)
                             .sta_addr("LOADER_IEC_MODULUS")
+                            .label("engine__loader__regular__track_modulus__done")
+                            .pla()
                             .rts()
                             .build(),
                     )

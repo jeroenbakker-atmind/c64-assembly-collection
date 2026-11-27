@@ -29,6 +29,10 @@ const CIA2_TIMER_A_CONTROL: u16 = 0xDD0E;
 const CIA2_TIMER_B_CONTROL: u16 = 0xDD0F;
 const LOADER_STATUS: u16 = 0x80;
 const LOADER_TEST_CALLS: u16 = 0x3E10;
+const LOADER_IEC_TRACK: u16 = 0x3E26;
+const LOADER_IEC_SECTOR: u16 = 0x3E27;
+const LOADER_IEC_TENS: u16 = 0x3E2A;
+const LOADER_IEC_MODULUS: u16 = 0x3E2C;
 const ENGINE_NMI_TIMER_B_PENDING: u16 = 0x3E34;
 const NMI_FRAME_A: u8 = 0xC3;
 const NMI_FRAME_X: u8 = 0xA7;
@@ -360,6 +364,55 @@ fn regular_turnaround_resets_the_receive_index() -> AssemblerResult<()> {
 
     assert_eq!(cpu.memory.get_byte(STUB_COUNTER), 0);
     assert_eq!(cpu.memory.get_byte(STUB_COUNTER + 1), 40);
+    Ok(())
+}
+
+#[test]
+fn regular_advance_sector_preserves_the_interleaved_sector_offset() -> AssemblerResult<()> {
+    const RESULT_SECTOR: u16 = STUB_COUNTER;
+    const RESULT_TRACK: u16 = STUB_COUNTER + 1;
+    const RESULT_MODULUS: u16 = STUB_COUNTER + 2;
+
+    let main = InstructionBuilder::default()
+        .jsr_addr("engine__loader__regular__advance_sector")
+        .lda_addr("LOADER_IEC_SECTOR")
+        .sta_addr("RESULT_SECTOR")
+        .lda_addr("LOADER_IEC_TRACK")
+        .sta_addr("RESULT_TRACK")
+        .lda_addr("LOADER_IEC_MODULUS")
+        .sta_addr("RESULT_MODULUS")
+        .raw(&[0xFF])
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CURRENT_PTR", 0xFE)
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("RESULT_SECTOR", RESULT_SECTOR)
+        .define_address("RESULT_TRACK", RESULT_TRACK)
+        .define_address("RESULT_MODULUS", RESULT_MODULUS)
+        .add_loader_addresses()
+        .add_loader_regular_addresses()
+        .add_resource_addresses()
+        .add_condition_addresses()
+        .module(ModuleBuilder::default().instructions(main).build())
+        .module(resource_table_module())
+        .module(c64_encoder::command::modules::Resource::module())
+        .module(c64_encoder::command::modules::Condition::module())
+        .module(RegularLoaderBackend::module())
+        .build()?;
+    application.validate()?;
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut cpu = CPU::new(Memory::new(), Nmos6502);
+    cpu.memory.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+    cpu.memory.set_byte(LOADER_IEC_TRACK, 1);
+    cpu.memory.set_byte(LOADER_IEC_SECTOR, 1);
+    cpu.memory.set_byte(LOADER_IEC_TENS, 0);
+    cpu.memory.set_byte(LOADER_IEC_MODULUS, 16);
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    assert_eq!(cpu.memory.get_byte(RESULT_SECTOR), 8);
+    assert_eq!(cpu.memory.get_byte(RESULT_TRACK), 1);
+    assert_eq!(cpu.memory.get_byte(RESULT_MODULUS), 20);
     Ok(())
 }
 
