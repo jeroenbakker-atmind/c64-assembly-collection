@@ -15,10 +15,13 @@ pub trait RefreshBuilder {
 impl RefreshBuilder for ApplicationBuilder {
     fn add_refresh_addresses(&mut self) -> &mut Self {
         self.define_address("C64_IRQ_VECTOR", 0x0314)
+            .define_address("C64_NMI_VECTOR", 0x0318)
             .define_address("C64_IRQ_EPLOGUE", 0xEA81)
             .define_address("CIA1_IRQ_CONTROL", 0xDC0D)
             .define_address("CIA2_IRQ_CONTROL", 0xDD0D)
-            .define_address("REFRESH_WAIT_COUNT", 0x90)
+            .define_address("ENGINE_NMI_ACTIVE", 0x3E31)
+            .define_address("ENGINE_NMI_TIMER_B_PENDING", 0x3E34)
+            .define_address("REFRESH_WAIT_COUNT", 0x3E2F)
     }
 }
 
@@ -35,6 +38,9 @@ impl DecoderModule for Refresh {
                     .raw(&[REFRESHES_PER_FRAME])
                     .label("engine__refresh__irq_vector_save")
                     .comment("Original KERNAL IRQ vector, restored on deinit.")
+                    .raw(&[0x00; 2])
+                    .label("engine__refresh__nmi_vector_save")
+                    .comment("Original KERNAL NMI vector, restored on deinit.")
                     .raw(&[0x00; 2])
                     .build(),
             )
@@ -70,8 +76,9 @@ impl DecoderModule for Refresh {
                     .instructions(
                         InstructionBuilder::default()
                             .jsr_addr("engine__refresh__on_refresh")
-                            .comment("Acknowledge the VIC raster IRQ.")
-                            .asl_addr("VIC2_IRQ_STATUS")
+                            .comment("Acknowledge all VIC IRQ latches, including sprites and raster.")
+                            .lda_imm(0b1111_1111)
+                            .sta_addr("VIC2_IRQ_STATUS")
                             .comment("KERNAL: restore A/X/Y and RTI.")
                             .jmp_addr("C64_IRQ_EPLOGUE")
                             .build(),
@@ -82,9 +89,11 @@ impl DecoderModule for Refresh {
                 FunctionBuilder::default()
                     .name("engine__refresh__init")
                     .doc(&[
-                        "Install the raster IRQ and arm the refresh countdown.",
+                        "Install the raster IRQ/NMI hooks and arm the refresh countdown.",
                         "",
-                        "Call after VIC bank/memory setup and before engine__play.",
+                        "Call after VIC bank/memory setup and before engine__play. The NMI guard",
+                        "and Timer B handoff flag are reset here so a warm start cannot inherit",
+                        "a stale one-shot schedule.",
                     ])
                     .instructions(
                         InstructionBuilder::default()
@@ -99,18 +108,38 @@ impl DecoderModule for Refresh {
                             .sta_addr("CIA1_IRQ_CONTROL")
                             .lda_addr("CIA1_IRQ_CONTROL")
                             .lda_addr("CIA2_IRQ_CONTROL")
+                            .comment("Stop CIA2 timers and mask their IRQ sources before installing the NMI hook.")
+                            .lda_imm(0)
+                            .sta_addr("CIA2_TIMER_A_CONTROL")
+                            .sta_addr("CIA2_TIMER_B_CONTROL")
+                            .lda_imm(0b0000_0011)
+                            .sta_addr("CIA2_IRQ_CONTROL")
+                            .lda_addr("CIA2_IRQ_CONTROL")
                             .comment("Keep raster bit 8 of $D011 clear.")
                             .lda_addr("VIC2_CONTROL_1")
                             .and_imm(0b0111_1111)
                             .sta_addr("VIC2_CONTROL_1")
-                            .comment("Clear a pending raster IRQ before enabling the source.")
-                            .lda_imm(0b0000_0001)
+                            .comment("Clear all VIC IRQ latches before enabling the raster source.")
+                            .lda_imm(0b1111_1111)
                             .sta_addr("VIC2_IRQ_STATUS")
                             .comment("Install the handler and compare against raster line 0.")
                             .lda_imm_low("engine__irq__handler")
                             .sta_addr("C64_IRQ_VECTOR")
                             .lda_imm_high("engine__irq__handler")
                             .sta_addr_offs("C64_IRQ_VECTOR", 1)
+                            .comment("Reset the NMI re-entrancy guard and Timer B handoff flag.")
+                            .lda_imm(0)
+                            .sta_addr("ENGINE_NMI_ACTIVE")
+                            .sta_addr("ENGINE_NMI_TIMER_B_PENDING")
+                            .comment("CIA2 Timer A is an NMI source; install its vector separately.")
+                            .lda_addr("C64_NMI_VECTOR")
+                            .sta_addr("engine__refresh__nmi_vector_save")
+                            .lda_addr_offs("C64_NMI_VECTOR", 1)
+                            .sta_addr_offs("engine__refresh__nmi_vector_save", 1)
+                            .lda_imm_low("engine__irq__nmi_handler")
+                            .sta_addr("C64_NMI_VECTOR")
+                            .lda_imm_high("engine__irq__nmi_handler")
+                            .sta_addr_offs("C64_NMI_VECTOR", 1)
                             .lda_imm(0)
                             .sta_addr("VIC2_RASTER")
                             .lda_imm(0b0000_0001)
@@ -133,12 +162,16 @@ impl DecoderModule for Refresh {
                             .sei()
                             .lda_imm(0)
                             .sta_addr("VIC2_IRQ_ENABLE")
-                            .lda_imm(0b0000_0001)
+                            .lda_imm(0b1111_1111)
                             .sta_addr("VIC2_IRQ_STATUS")
                             .lda_addr("engine__refresh__irq_vector_save")
                             .sta_addr("C64_IRQ_VECTOR")
                             .lda_addr_offs("engine__refresh__irq_vector_save", 1)
                             .sta_addr_offs("C64_IRQ_VECTOR", 1)
+                            .lda_addr("engine__refresh__nmi_vector_save")
+                            .sta_addr("C64_NMI_VECTOR")
+                            .lda_addr_offs("engine__refresh__nmi_vector_save", 1)
+                            .sta_addr_offs("C64_NMI_VECTOR", 1)
                             .cli()
                             .rts()
                             .build(),

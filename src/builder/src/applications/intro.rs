@@ -11,6 +11,11 @@ use c64_encoder::{
 };
 use cube_encoder::encode_act_demo;
 
+/// Refreshes to wait after reset before the first disk command. A real 1541
+/// runs a long RAM self-test before it answers ATN; `engine__refresh__wait_n`
+/// consumes four raster refreshes per call, so 20 calls allow ~1.6 s on PAL.
+const DRIVE_READY_REFRESHES: u8 = 20;
+
 /// Everything the builder needs from the intro build: the PRG plus the
 /// immutable master plan needed by disk mastering.
 pub struct IntroBuild {
@@ -75,7 +80,7 @@ fn build_sequence(plan: &ResourcePlan) -> Sequence {
     let act1 = frame_parts(plan, "act1_p");
     let act2 = frame_parts(plan, "act2_p");
 
-    let mut sequence = Sequence::new("intro_main").init();
+    let mut sequence = Sequence::new("intro_main").init().wait_refreshes(DRIVE_READY_REFRESHES);
     sequence = append_act(sequence, &act1);
     sequence = append_act(sequence, &act2);
     sequence.end()

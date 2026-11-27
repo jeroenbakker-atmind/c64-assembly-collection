@@ -20,6 +20,7 @@ const IEC_EOI_SEEN: u8 = 0b0000_0010;
 const IEC_ATN: u8 = 0b0000_0100;
 const IEC_ERROR: u8 = 0b0000_1000;
 const IEC_RELEASE_ATN: u8 = 0b0001_0000;
+const IEC_RELEASE_ALL: u8 = 0b0010_0000;
 
 /// CIA2 port output bits. The serial drivers invert the line: writing a one
 /// asserts (pulls low) the bus line, while writing a zero releases it.
@@ -28,15 +29,40 @@ const OUT_CLK: u8 = 0b0001_0000;
 const OUT_DATA: u8 = 0b0010_0000;
 
 /// CIA2 port input bits read as one while the line is released/high and zero
-/// while the line is asserted/low.
+/// while the line is asserted/low. KERNAL ACPTR's `ASL $DD00` leaves CLK in N
+/// (original bit 6) and DATA in C (original bit 7) at `$EE5A`; `$EEA9` returns
+/// that same status, so the receive loop must test these exact bits.
 const IN_CLK: u8 = 0b0100_0000;
 const IN_DATA: u8 = 0b1000_0000;
-const PORT_PRESERVE: u8 = 0b1100_0011;
+const PORT_VIC_BANK_MASK: u8 = 0b0000_0011;
+/// KERNAL leaves CIA2 port bit 2 high alongside the two VIC bank bits. VICE
+/// uses the whole written port value when modelling the serial drivers, so the
+/// base image must be `$07`, not just the two bank bits.
+const PORT_VIC_BANK_KERNAL: u8 = 0b0000_0111;
+/// KERNAL writes zero to CIA input bits 6-7. VICE models those writes as the
+/// serial line drivers, so they must stay clear for the 1541 to release CLK and
+/// DATA; this matches KERNAL's `$0F`/`$CF`/`$DF` port images.
+const PORT_PRESERVE: u8 = PORT_VIC_BANK_KERNAL;
 
 /// Timer A period. At ~1 MHz this is 100 cycles / 25 us, short enough to keep
 /// IEC bit timing valid while still yielding the CPU between phases.
-const IEC_TIMER_LATCH_LO: u8 = 100;
+pub const IEC_TIMER_LATCH_LO: u8 = 50;
 const IEC_TIMER_LATCH_HI: u8 = 0;
+
+/// KERNAL's ISOURA holds CLK low for about 1 ms before accepting the first
+/// listener acknowledgement. Each phase includes the NMI handler, so twenty
+/// Timer A periods are roughly one millisecond in practice.
+const IEC_SEND_SETTLE_PHASES: u8 = 20;
+
+/// KERNAL waits about 1 ms after UNLISTEN before asserting ATN for the next
+/// command. The 1541 is still completing the previous job during that gap, so
+/// reasserting ATN too early makes it miss the next LISTEN byte.
+const IEC_ATN_RELEASE_SETTLE_PHASES: u8 = 40;
+
+/// Timer B delay between Timer A phases. Starting Timer B only after the owner
+/// has finished its loader phase means its NMI arrives after the owner's RTI,
+/// so no new phase can begin while an earlier NMI frame is still unwinding.
+pub const TIMER_B_REARM_DELAY: u8 = 100;
 
 pub trait LoaderRegularBuilder {
     fn add_loader_regular_addresses(&mut self) -> &mut Self;
@@ -44,43 +70,49 @@ pub trait LoaderRegularBuilder {
 
 impl LoaderRegularBuilder for ApplicationBuilder {
     fn add_loader_regular_addresses(&mut self) -> &mut Self {
-        self.define_address("LOADER_IEC_STATE", 0x91)
-            .define_address("LOADER_IEC_PHASE", 0x92)
-            .define_address("LOADER_IEC_BIT", 0x93)
-            .define_address("LOADER_IEC_BYTE", 0x94)
-            .define_address("LOADER_IEC_FLAGS", 0x95)
-            .define_address("LOADER_IEC_PORT", 0x96)
-            .define_address("LOADER_IEC_TRACK", 0x97)
-            .define_address("LOADER_IEC_SECTOR", 0x98)
-            .define_address("LOADER_IEC_SECTOR_LEFT", 0x99)
-            .define_address("LOADER_IEC_INDEX", 0x9A)
-            .define_address("LOADER_IEC_TENS", 0x9B)
-            .define_address("LOADER_IEC_ONES", 0x9C)
-            .define_address("LOADER_IEC_MODULUS", 0x9D)
-            .define_address("LOADER_IEC_TIMEOUT", 0x9F)
-            .define_address("LOADER_IEC_TIMEOUT_HI", 0x9E)
+        self.define_address("LOADER_IEC_STATE", 0x3E20)
+            .define_address("LOADER_IEC_PHASE", 0x3E21)
+            .define_address("LOADER_IEC_BIT", 0x3E22)
+            .define_address("LOADER_IEC_BYTE", 0x3E23)
+            .define_address("LOADER_IEC_FLAGS", 0x3E24)
+            .define_address("LOADER_IEC_PORT", 0x3E25)
+            .define_address("LOADER_IEC_TRACK", 0x3E26)
+            .define_address("LOADER_IEC_SECTOR", 0x3E27)
+            .define_address("LOADER_IEC_SECTOR_LEFT", 0x3E28)
+            .define_address("LOADER_IEC_INDEX", 0x3E29)
+            .define_address("LOADER_IEC_TENS", 0x3E2A)
+            .define_address("LOADER_IEC_ONES", 0x3E2B)
+            .define_address("LOADER_IEC_MODULUS", 0x3E2C)
+            .define_address("LOADER_IEC_TIMEOUT_HI", 0x3E2D)
+            .define_address("LOADER_IEC_TIMEOUT", 0x3E2E)
+            .define_address("LOADER_IEC_BUFFER_OPEN", 0x3E30)
+            .define_address("LOADER_IEC_SETTLE", 0x3E32)
             .define_address("LOADER_INTERLEAVE", 7)
             .define_address("CIA2_DATA_PORT", 0xDD00)
-            .define_address("CIA2_DATA_DDR", 0xDD03)
+            .define_address("CIA2_DATA_DDR", 0xDD02)
             .define_address("CIA2_TIMER_A_LO", 0xDD04)
             .define_address("CIA2_TIMER_A_HI", 0xDD05)
+            .define_address("CIA2_TIMER_B_LO", 0xDD06)
+            .define_address("CIA2_TIMER_B_HI", 0xDD07)
             .define_address("CIA2_TIMER_A_CONTROL", 0xDD0E)
+            .define_address("CIA2_TIMER_B_CONTROL", 0xDD0F)
     }
 }
 
 /// Default regular loader backend.
 ///
-/// The C64 drives the standard IEC bus directly from a CIA2 Timer A IRQ: no
+/// The C64 drives the standard IEC bus directly from a CIA2 Timer A NMI: no
 /// KERNAL serial routine is called from the handler and no 1541 drive code is
 /// uploaded. Channel 2 is allocated once with `#2`; each sector is fetched
 /// with `U1:2,0,track,sector`, and exactly 256 bytes are read back. Only the
 /// payload bytes still owed by the resource are copied to its destination.
 ///
-/// One IEC phase runs per timer IRQ (~25 us), so the main thread keeps
-/// decoding frames and the music hook keeps running while the transfer is in
-/// flight. ATN, EOI, turnaround, and byte handshakes follow the polarity and
-/// LSB-first order of the KERNAL serial routines. Real-drive timing and the
-/// final interleave remain a hardware/VICE tuning pass.
+/// One bounded IEC step runs per timer NMI (~50 us): a handshake phase for
+/// commands and a complete byte handshake for receive data. The main thread
+/// keeps decoding frames and the music hook keeps running while the transfer
+/// is in flight. ATN, EOI, turnaround, and byte handshakes follow the polarity
+/// and LSB-first order of the KERNAL serial routines. Real-drive timing and
+/// the final interleave remain a hardware/VICE tuning pass.
 pub struct RegularLoaderBackend {}
 
 impl LoaderBackend for RegularLoaderBackend {
@@ -116,6 +148,8 @@ impl LoaderBackend for RegularLoaderBackend {
                             .sta_addr("LOADER_IEC_FLAGS")
                             .sta_addr("LOADER_IEC_TIMEOUT")
                             .sta_addr("LOADER_IEC_TIMEOUT_HI")
+                            .sta_addr("LOADER_IEC_BUFFER_OPEN")
+                            .sta_addr("LOADER_IEC_SETTLE")
                             .rts()
                             .build(),
                     )
@@ -146,8 +180,18 @@ impl LoaderBackend for RegularLoaderBackend {
                             .lda_imm(0)
                             .sta_addr("LOADER_IEC_INDEX")
                             .sta_addr("LOADER_IEC_FLAGS")
-                            .jsr_addr("engine__loader__regular__enable_timer")
+                            .comment("Prepare the first byte before arming the timer; otherwise an NMI can interrupt prepare_send.")
+                            .lda_addr("LOADER_IEC_BUFFER_OPEN")
+                            .bne_addr("engine__loader__backend__start__reuse")
                             .jsr_addr("engine__loader__regular__prepare_listen_buffer")
+                            .jmp_addr("engine__loader__backend__start__armed")
+                            .label("engine__loader__backend__start__reuse")
+                            .comment("The previous resource ended with UNLISTEN; wait before ATN falls again.")
+                            .lda_imm(IEC_ATN_RELEASE_SETTLE_PHASES)
+                            .sta_addr("LOADER_IEC_SETTLE")
+                            .jsr_addr("engine__loader__regular__prepare_listen_command")
+                            .label("engine__loader__backend__start__armed")
+                            .jsr_addr("engine__loader__regular__enable_timer")
                             .rts()
                             .build(),
                     )
@@ -161,12 +205,12 @@ impl LoaderBackend for RegularLoaderBackend {
                         InstructionBuilder::default()
                             .lda_addr("LOADER_IEC_STATE")
                             .beq_addr("engine__loader__backend__regular__idle")
-                            .cmp_imm(10)
+                            .cmp_imm(12)
                             .bne_addr("engine__loader__backend__regular__not_turnaround")
                             .jsr_addr("engine__loader__regular__turnaround_phase")
                             .rts()
                             .label("engine__loader__backend__regular__not_turnaround")
-                            .cmp_imm(11)
+                            .cmp_imm(13)
                             .bne_addr("engine__loader__backend__regular__send_phase")
                             .jsr_addr("engine__loader__regular__recv_phase")
                             .rts()
@@ -209,11 +253,48 @@ impl LoaderBackend for RegularLoaderBackend {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__regular__release_all")
-                    .doc(&["Release ATN, CLK and DATA while preserving the VIC bank bits."])
+                    .doc(&[
+                        "Release ATN, CLK and DATA while preserving the VIC bank bits.",
+                        "",
+                        "Writing zero to the CIA input bits keeps their serial drivers released.",
+                        "The drive floats DATA after acknowledging, so it must not be held by",
+                        "a stale output bit.",
+                    ])
                     .instructions(
                         InstructionBuilder::default()
                             .lda_addr("CIA2_DATA_PORT")
-                            .and_imm(PORT_PRESERVE)
+                            .and_imm(PORT_VIC_BANK_MASK)
+                            .ora_imm(PORT_PRESERVE)
+                            .sta_addr("LOADER_IEC_PORT")
+                            .jsr_addr("engine__loader__regular__port_write")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__loader__regular__release_atn")
+                    .doc(&["Release ATN only, as KERNAL SCATN does after a secondary address."])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_addr("LOADER_IEC_PORT")
+                            .and_imm(!OUT_ATN)
+                            .sta_addr("LOADER_IEC_PORT")
+                            .jsr_addr("engine__loader__regular__port_write")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__loader__regular__release_clk")
+                    .doc(&["Release CLK only during the read turnaround."])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_addr("LOADER_IEC_PORT")
+                            .and_imm(!OUT_CLK)
                             .sta_addr("LOADER_IEC_PORT")
                             .jsr_addr("engine__loader__regular__port_write")
                             .rts()
@@ -231,6 +312,29 @@ impl LoaderBackend for RegularLoaderBackend {
                             .lda_addr("LOADER_IEC_PORT")
                             .and_imm(PORT_PRESERVE)
                             .ora_addr("LOADER_IEC_TENS")
+                            .sta_addr("LOADER_IEC_PORT")
+                            .jsr_addr("engine__loader__regular__port_write")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__loader__regular__line_preserve_clk")
+                    .doc(&[
+                        "Write A's asserted-line mask while retaining the current ATN and CLK outputs.",
+                        "",
+                        "KERNAL sets each DATA bit before releasing CLK. ATN must stay asserted",
+                        "for the whole command byte, and CLK must stay asserted between bits.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .sta_addr("LOADER_IEC_TENS")
+                            .lda_addr("LOADER_IEC_PORT")
+                            .and_imm(OUT_ATN | OUT_CLK)
+                            .ora_addr("LOADER_IEC_TENS")
+                            .ora_imm(PORT_PRESERVE)
                             .sta_addr("LOADER_IEC_PORT")
                             .jsr_addr("engine__loader__regular__port_write")
                             .rts()
@@ -259,12 +363,13 @@ impl LoaderBackend for RegularLoaderBackend {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__regular__disable_timer")
-                    .doc(&["Stop CIA2 Timer A and mask its IRQ without disturbing the port."])
+                    .doc(&["Stop both CIA2 timers and mask their IRQs without disturbing the port."])
                     .instructions(
                         InstructionBuilder::default()
                             .lda_imm(0)
                             .sta_addr("CIA2_TIMER_A_CONTROL")
-                            .lda_imm(0b1000_0001)
+                            .sta_addr("CIA2_TIMER_B_CONTROL")
+                            .lda_imm(0b0000_0011)
                             .sta_addr("CIA2_IRQ_CONTROL")
                             .lda_addr("CIA2_IRQ_CONTROL")
                             .rts()
@@ -275,7 +380,11 @@ impl LoaderBackend for RegularLoaderBackend {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__regular__enable_timer")
-                    .doc(&["Start CIA2 Timer A as a ~25 us periodic source for IEC phases."])
+                    .doc(&[
+                        "Start CIA2 Timer A as a ~50 us periodic source for IEC steps.",
+                        "",
+                        "CRA bit 3 is one-shot, so it stays clear; bit 0 starts the reload timer.",
+                    ])
                     .instructions(
                         InstructionBuilder::default()
                             .lda_imm(0)
@@ -285,7 +394,7 @@ impl LoaderBackend for RegularLoaderBackend {
                             .lda_imm(IEC_TIMER_LATCH_HI)
                             .sta_addr("CIA2_TIMER_A_HI")
                             .lda_addr("CIA2_IRQ_CONTROL")
-                            .lda_imm(0b0000_0001)
+                            .lda_imm(0b1000_0001)
                             .sta_addr("CIA2_IRQ_CONTROL")
                             .lda_imm(0b0000_0001)
                             .sta_addr("CIA2_TIMER_A_CONTROL")
@@ -297,7 +406,13 @@ impl LoaderBackend for RegularLoaderBackend {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__regular__timeout_tick")
-                    .doc(&["Decrement the two-byte phase timeout; return Z=0 while it is still valid."])
+                    .doc(&[
+                        "Decrement the two-byte phase timeout; return Z=1 while it is still valid.",
+                        "",
+                        "A low byte of 0 extends the window by 256 more decrements of that byte.",
+                        "Receive edge polling uses an inline X countdown instead, because the JSR",
+                        "here is too slow to sample short CLK edges.",
+                    ])
                     .instructions(
                         InstructionBuilder::default()
                             .dec_addr("LOADER_IEC_TIMEOUT")
@@ -331,6 +446,8 @@ impl LoaderBackend for RegularLoaderBackend {
                             .sta_addr("LOADER_IEC_FLAGS")
                             .lda_imm(LOADER_STATUS_DONE | LOADER_STATUS_ERROR)
                             .sta_addr("LOADER_STATUS")
+                            .lda_addr("LOADER_IEC_STATE")
+                            .sta_addr("LOADER_ERROR")
                             .lda_imm(0)
                             .sta_addr("LOADER_IEC_STATE")
                             .lda_imm(0)
@@ -352,7 +469,7 @@ impl LoaderBackend for RegularLoaderBackend {
                             .sta_addr("LOADER_IEC_BIT")
                             .lda_imm(255)
                             .sta_addr("LOADER_IEC_TIMEOUT")
-                            .lda_imm(1)
+                            .lda_imm(255)
                             .sta_addr("LOADER_IEC_TIMEOUT_HI")
                             .rts()
                             .build(),
@@ -365,7 +482,7 @@ impl LoaderBackend for RegularLoaderBackend {
                     .doc(&["Start a new receive byte with EOI detection enabled."])
                     .instructions(
                         InstructionBuilder::default()
-                            .lda_imm(11)
+                            .lda_imm(13)
                             .sta_addr("LOADER_IEC_STATE")
                             .lda_imm(0)
                             .sta_addr("LOADER_IEC_PHASE")
@@ -399,10 +516,12 @@ impl LoaderBackend for RegularLoaderBackend {
                 FunctionBuilder::default()
                     .name("engine__loader__regular__recv_phase")
                     .doc(&[
-                        "Advance one IEC receive phase with bounded handshakes.",
+                        "Receive one complete sector byte in a single bounded NMI phase.",
                         "",
-                        "A long CLK release is treated as EOI, acknowledged with a DATA pulse",
-                        "before the final byte.",
+                        "IEC bit edges are much shorter than one Timer A period, so the host polls",
+                        "CLK and latches DATA while CLK is high, matching KERNAL ACPTR at $EE13.",
+                        "A long CLK-high wait is EOI, acknowledged with a DATA pulse before the",
+                        "final byte.",
                     ])
                     .instructions(recv_phase())
                     .build(),
@@ -460,7 +579,7 @@ impl LoaderBackend for RegularLoaderBackend {
                         "engine__loader__regular__prepare_listen_buffer",
                         1,
                         LOADER_REGULAR_DEVICE_LISTEN,
-                        false,
+                        0,
                     ))
                     .build(),
             )
@@ -468,12 +587,17 @@ impl LoaderBackend for RegularLoaderBackend {
                 FunctionBuilder::default()
                     .name("engine__loader__regular__prepare_open_buffer")
                     .doc(&["OPEN 2 under ATN, releasing ATN after this byte."])
-                    .instructions(prepare_atn_byte(
-                        "engine__loader__regular__prepare_open_buffer",
-                        2,
-                        LOADER_REGULAR_OPEN_BUFFER,
-                        true,
-                    ))
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_imm(2)
+                            .sta_addr("LOADER_IEC_STATE")
+                            .lda_imm(IEC_ATN | IEC_RELEASE_ATN)
+                            .sta_addr("LOADER_IEC_FLAGS")
+                            .lda_imm(LOADER_REGULAR_OPEN_BUFFER)
+                            .jsr_addr("engine__loader__regular__prepare_send")
+                            .rts()
+                            .build(),
+                    )
                     .build(),
             )
             .function(
@@ -508,7 +632,7 @@ impl LoaderBackend for RegularLoaderBackend {
                         "engine__loader__regular__prepare_unlisten_buffer",
                         5,
                         LOADER_REGULAR_UNLISTEN,
-                        true,
+                        IEC_RELEASE_ALL,
                     ))
                     .build(),
             )
@@ -520,7 +644,7 @@ impl LoaderBackend for RegularLoaderBackend {
                         "engine__loader__regular__prepare_listen_command",
                         6,
                         LOADER_REGULAR_DEVICE_LISTEN,
-                        false,
+                        0,
                     ))
                     .build(),
             )
@@ -532,7 +656,7 @@ impl LoaderBackend for RegularLoaderBackend {
                         "engine__loader__regular__prepare_open_command",
                         7,
                         LOADER_REGULAR_OPEN_COMMAND,
-                        true,
+                        IEC_RELEASE_ATN,
                     ))
                     .build(),
             )
@@ -551,7 +675,30 @@ impl LoaderBackend for RegularLoaderBackend {
                         "engine__loader__regular__prepare_unlisten_command",
                         9,
                         LOADER_REGULAR_UNLISTEN,
-                        true,
+                        IEC_RELEASE_ALL,
+                    ))
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__loader__regular__prepare_talk")
+                    .doc(&["TALK 8 under ATN before the channel-2 sector read."])
+                    .instructions(prepare_atn_byte(
+                        "engine__loader__regular__prepare_talk",
+                        10,
+                        LOADER_REGULAR_DEVICE_TALK,
+                        0,
+                    ))
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__loader__regular__prepare_talk_second")
+                    .doc(&["TALK secondary 2 under ATN with EOI; turnaround releases ATN after it."])
+                    .instructions(prepare_atn_eoi_byte(
+                        "engine__loader__regular__prepare_talk_second",
+                        11,
+                        LOADER_REGULAR_SECOND_BUFFER,
                     ))
                     .build(),
             )
@@ -561,7 +708,7 @@ impl LoaderBackend for RegularLoaderBackend {
                     .doc(&["Begin the CLK/DATA role reversal for sector reads."])
                     .instructions(
                         InstructionBuilder::default()
-                            .lda_imm(10)
+                            .lda_imm(12)
                             .sta_addr("LOADER_IEC_STATE")
                             .lda_imm(0)
                             .sta_addr("LOADER_IEC_PHASE")
@@ -582,9 +729,9 @@ impl LoaderBackend for RegularLoaderBackend {
                     .doc(&["UNTALK under ATN after all 256 sector bytes."])
                     .instructions(prepare_atn_byte(
                         "engine__loader__regular__prepare_untalk",
-                        12,
+                        14,
                         LOADER_REGULAR_UNTALK,
-                        true,
+                        IEC_RELEASE_ALL,
                     ))
                     .build(),
             )
@@ -747,8 +894,22 @@ impl LoaderBackend for RegularLoaderBackend {
     }
 }
 
-fn prepare_atn_byte(label: &str, state: u8, byte: u8, release: bool) -> Instructions {
-    let flags = if release { IEC_ATN | IEC_RELEASE_ATN } else { IEC_ATN };
+fn prepare_atn_byte(label: &str, state: u8, byte: u8, release: u8) -> Instructions {
+    let flags = IEC_ATN | release;
+    InstructionBuilder::default()
+        .label(label)
+        .lda_imm(state)
+        .sta_addr("LOADER_IEC_STATE")
+        .lda_imm(flags)
+        .sta_addr("LOADER_IEC_FLAGS")
+        .lda_imm(byte)
+        .jsr_addr("engine__loader__regular__prepare_send")
+        .rts()
+        .build()
+}
+
+fn prepare_atn_eoi_byte(label: &str, state: u8, byte: u8) -> Instructions {
+    let flags = IEC_ATN | IEC_EOI;
     InstructionBuilder::default()
         .label(label)
         .lda_imm(state)
@@ -801,18 +962,68 @@ fn send_phase() -> Instructions {
     let label = "engine__loader__regular__send_phase";
     let phase = |number: u8| format!("{label}__phase{number}");
     let wait = |number: u8| format!("{label}__phase{number}_wait");
-    let run = |number: u8| format!("{label}__run_phase{number}");
+    let dispatch = |number: u8| format!("{label}__dispatch{number}");
     let mut b = InstructionBuilder::default();
     b.label(label)
         .lda_addr("LOADER_IEC_PHASE")
-        .beq_addr(&format!("{label}__init"))
+        .bne_addr(&format!("{label}__dispatch"))
+        .lda_addr("LOADER_IEC_SETTLE")
+        .bne_addr(&format!("{label}__phase0_settle"))
+        .comment("Assert ATN and CLK together, then let the listener pull DATA low.")
+        .jsr_addr("engine__loader__regular__atn_mask")
+        .ora_imm(OUT_CLK)
+        .jsr_addr("engine__loader__regular__line")
+        .lda_imm(IEC_SEND_SETTLE_PHASES)
+        .sta_addr("LOADER_IEC_TIMEOUT")
+        .lda_imm(1)
+        .sta_addr("LOADER_IEC_PHASE")
+        .rts();
+    b.label(&format!("{label}__phase0_settle"))
+        .comment("Let the drive finish UNLISTEN before ATN falls for the next command.")
+        .dec_addr("LOADER_IEC_SETTLE")
+        .rts();
+    b.label(&format!("{label}__dispatch"))
         .cmp_imm(1)
-        .bne_addr(&run(2))
-        .label(&phase(1))
-        .lda_addr("CIA2_DATA_PORT")
-        .and_imm(IN_DATA)
+        .bne_addr(&dispatch(2))
+        .jmp_addr(&phase(1));
+    b.label(&dispatch(2))
+        .cmp_imm(2)
+        .bne_addr(&dispatch(3))
+        .jmp_addr(&phase(2));
+    b.label(&dispatch(3))
+        .cmp_imm(3)
+        .bne_addr(&dispatch(4))
+        .jmp_addr(&phase(3));
+    b.label(&dispatch(4))
+        .cmp_imm(4)
+        .bne_addr(&dispatch(5))
+        .jmp_addr(&phase(4));
+    b.label(&dispatch(5))
+        .cmp_imm(5)
+        .bne_addr(&dispatch(6))
+        .jmp_addr(&phase(5));
+    b.label(&dispatch(6))
+        .cmp_imm(6)
+        .bne_addr(&dispatch(7))
+        .jmp_addr(&phase(6));
+    b.label(&dispatch(7))
+        .cmp_imm(7)
+        .bne_addr(&dispatch(8))
+        .jmp_addr(&phase(7));
+    b.label(&dispatch(8))
+        .cmp_imm(8)
+        .bne_addr(&dispatch(9))
+        .jmp_addr(&phase(8));
+    b.label(&dispatch(9))
+        .cmp_imm(9)
+        .bne_addr(&dispatch(10))
+        .jmp_addr(&phase(9));
+    b.label(&dispatch(10)).jmp_addr(&phase(10));
+    b.label(&phase(1))
+        .dec_addr("LOADER_IEC_TIMEOUT")
         .bne_addr(&wait(1))
         .jsr_addr("engine__loader__regular__atn_mask")
+        .ora_imm(OUT_CLK)
         .jsr_addr("engine__loader__regular__line")
         .lda_imm(2)
         .sta_addr("LOADER_IEC_PHASE")
@@ -820,46 +1031,117 @@ fn send_phase() -> Instructions {
         .sta_addr("LOADER_IEC_TIMEOUT")
         .rts()
         .label(&wait(1))
-        .jsr_addr("engine__loader__regular__timeout_tick")
-        .bne_addr("engine__loader__regular__fail")
+        .rts();
+    b.label(&phase(2))
+        .comment("The listener pulls DATA low only after CLK has been held low.")
+        .lda_addr("CIA2_DATA_PORT")
+        .and_imm(IN_DATA)
+        .beq_addr(&format!("{label}__phase2_acked"))
+        .dec_addr("LOADER_IEC_TIMEOUT")
+        .bne_addr(&wait(2))
+        .jsr_addr("engine__loader__regular__fail")
         .rts()
-        .label(&run(2))
-        .cmp_imm(2)
-        .bne_addr(&run(3))
+        .label(&wait(2))
+        .rts()
+        .label(&format!("{label}__phase2_acked"))
+        .jsr_addr("engine__loader__regular__atn_mask")
+        .jsr_addr("engine__loader__regular__line")
         .lda_addr("LOADER_IEC_FLAGS")
         .and_imm(IEC_EOI)
         .beq_addr(&format!("{label}__phase2_data"))
-        .lda_imm(3)
-        .sta_addr("LOADER_IEC_PHASE")
-        .lda_imm(10)
+        .comment("EOI ack is a short DATA-low pulse; complete the whole handshake in this NMI.")
+        .lda_imm(255)
         .sta_addr("LOADER_IEC_TIMEOUT")
+        .label(&format!("{label}__eoi_high1_poll"))
+        .lda_addr("CIA2_DATA_PORT")
+        .and_imm(IN_DATA)
+        .bne_addr(&format!("{label}__eoi_low_poll"))
+        .dec_addr("LOADER_IEC_TIMEOUT")
+        .bne_addr(&format!("{label}__eoi_high1_poll"))
+        .jsr_addr("engine__loader__regular__fail")
         .rts()
-        .label(&format!("{label}__phase2_data"))
-        .lda_imm(5)
+        .label(&format!("{label}__eoi_low_poll"))
+        .lda_imm(255)
+        .sta_addr("LOADER_IEC_TIMEOUT")
+        .label(&format!("{label}__eoi_low_wait"))
+        .lda_addr("CIA2_DATA_PORT")
+        .and_imm(IN_DATA)
+        .beq_addr(&format!("{label}__eoi_high2_poll"))
+        .dec_addr("LOADER_IEC_TIMEOUT")
+        .bne_addr(&format!("{label}__eoi_low_wait"))
+        .jsr_addr("engine__loader__regular__fail")
+        .rts()
+        .label(&format!("{label}__eoi_high2_poll"))
+        .lda_imm(255)
+        .sta_addr("LOADER_IEC_TIMEOUT")
+        .label(&format!("{label}__eoi_high2_wait"))
+        .lda_addr("CIA2_DATA_PORT")
+        .and_imm(IN_DATA)
+        .bne_addr(&format!("{label}__eoi_done"))
+        .dec_addr("LOADER_IEC_TIMEOUT")
+        .bne_addr(&format!("{label}__eoi_high2_wait"))
+        .jsr_addr("engine__loader__regular__fail")
+        .rts()
+        .label(&format!("{label}__eoi_done"))
+        .jsr_addr("engine__loader__regular__atn_mask")
+        .ora_imm(OUT_CLK)
+        .jsr_addr("engine__loader__regular__line")
+        .lda_imm(6)
         .sta_addr("LOADER_IEC_PHASE")
         .lda_imm(255)
         .sta_addr("LOADER_IEC_TIMEOUT")
         .rts()
-        .label(&run(3))
-        .cmp_imm(3)
-        .bne_addr(&run(4))
+        .label(&format!("{label}__phase2_data"))
+        .comment("KERNAL ED5A/ED5F releases CLK, waits for DATA-high, then reasserts CLK.")
+        .jsr_addr("engine__loader__regular__atn_mask")
+        .jsr_addr("engine__loader__regular__line")
+        .lda_imm(5)
+        .sta_addr("LOADER_IEC_PHASE")
+        .lda_imm(255)
+        .sta_addr("LOADER_IEC_TIMEOUT")
+        .lda_imm(0)
+        .sta_addr("LOADER_IEC_TIMEOUT_HI")
+        .rts()
+        .label(&phase(5))
+        .lda_addr("CIA2_DATA_PORT")
+        .and_imm(IN_DATA)
+        .beq_addr(&format!("{label}__phase5_wait"))
+        .jsr_addr("engine__loader__regular__atn_mask")
+        .ora_imm(OUT_CLK)
+        .jsr_addr("engine__loader__regular__line")
+        .lda_imm(6)
+        .sta_addr("LOADER_IEC_PHASE")
+        .lda_imm(255)
+        .sta_addr("LOADER_IEC_TIMEOUT")
+        .lda_imm(0)
+        .sta_addr("LOADER_IEC_TIMEOUT_HI")
+        .rts()
+        .label(&format!("{label}__phase5_wait"))
+        .jsr_addr("engine__loader__regular__timeout_tick")
+        .beq_addr(&format!("{label}__phase5_wait_done"))
+        .jsr_addr("engine__loader__regular__fail")
+        .rts()
+        .label(&format!("{label}__phase5_wait_done"))
+        .rts()
+        .label(&phase(3))
         .lda_addr("CIA2_DATA_PORT")
         .and_imm(IN_DATA)
         .beq_addr(&wait(3))
         .lda_imm(4)
         .sta_addr("LOADER_IEC_PHASE")
-        .lda_imm(10)
+        .comment("The drive's EOI DATA-low pulse is short; allow a full bounded window.")
+        .lda_imm(255)
         .sta_addr("LOADER_IEC_TIMEOUT")
+        .sta_addr("LOADER_IEC_TIMEOUT_HI")
         .rts()
         .label(&wait(3))
-        .dec_addr("LOADER_IEC_TIMEOUT")
-        .bne_addr(&format!("{}__done", wait(3)))
-        .jmp_addr("engine__loader__regular__fail")
+        .jsr_addr("engine__loader__regular__timeout_tick")
+        .beq_addr(&format!("{}__done", wait(3)))
+        .jsr_addr("engine__loader__regular__fail")
+        .rts()
         .label(&format!("{}__done", wait(3)))
         .rts()
-        .label(&run(4))
-        .cmp_imm(4)
-        .bne_addr(&run(5))
+        .label(&phase(4))
         .lda_addr("CIA2_DATA_PORT")
         .and_imm(IN_DATA)
         .bne_addr(&wait(4))
@@ -867,74 +1149,72 @@ fn send_phase() -> Instructions {
         .sta_addr("LOADER_IEC_PHASE")
         .lda_imm(255)
         .sta_addr("LOADER_IEC_TIMEOUT")
+        .sta_addr("LOADER_IEC_TIMEOUT_HI")
         .rts()
         .label(&wait(4))
-        .dec_addr("LOADER_IEC_TIMEOUT")
-        .bne_addr(&format!("{}__done", wait(4)))
-        .jmp_addr("engine__loader__regular__fail")
+        .jsr_addr("engine__loader__regular__timeout_tick")
+        .beq_addr(&format!("{}__done", wait(4)))
+        .jsr_addr("engine__loader__regular__fail")
+        .rts()
         .label(&format!("{}__done", wait(4)))
         .rts()
-        .label(&run(5))
-        .cmp_imm(5)
-        .bne_addr(&run(6))
+        .label(&phase(6))
+        .comment("KERNAL DATAHI/DATALO are inverted: a one bit releases DATA, a zero asserts it.")
+        .comment("Wait for the listener to release DATA before setting the next bit, as ISR01 does.")
+        .label(&format!("{label}__phase6_wait"))
         .lda_addr("CIA2_DATA_PORT")
         .and_imm(IN_DATA)
-        .beq_addr(&wait(5))
-        .jmp_addr(&phase(6))
-        .label(&wait(5))
+        .bne_addr(&format!("{label}__phase6_ready"))
         .dec_addr("LOADER_IEC_TIMEOUT")
-        .bne_addr(&format!("{}__done", wait(5)))
-        .jmp_addr("engine__loader__regular__fail")
-        .label(&format!("{}__done", wait(5)))
+        .bne_addr(&format!("{label}__phase6_wait"))
+        .jsr_addr("engine__loader__regular__fail")
         .rts()
-        .label(&run(6))
-        .cmp_imm(6)
-        .bne_addr(&run(7))
-        .label(&phase(6))
+        .label(&format!("{label}__phase6_ready"))
+        .comment("Set DATA while preserving CLK; phase 7 releases CLK to validate the bit.")
         .jsr_addr("engine__loader__regular__atn_mask")
         .sta_addr("LOADER_IEC_TENS")
         .lda_addr("LOADER_IEC_BYTE")
         .ror_addr("LOADER_IEC_BYTE")
-        .bcc_addr(&format!("{label}__phase6_zero"))
         .lda_addr("LOADER_IEC_TENS")
+        .bcs_addr(&format!("{label}__phase6_one"))
         .ora_imm(OUT_DATA)
-        .jmp_addr(&format!("{label}__phase6_line"))
-        .label(&format!("{label}__phase6_zero"))
-        .lda_addr("LOADER_IEC_TENS")
-        .label(&format!("{label}__phase6_line"))
-        .jsr_addr("engine__loader__regular__line")
+        .label(&format!("{label}__phase6_one"))
+        .sta_addr("LOADER_IEC_ONES")
+        .jsr_addr("engine__loader__regular__line_preserve_clk")
         .lda_imm(7)
         .sta_addr("LOADER_IEC_PHASE")
         .rts()
-        .label(&run(7))
-        .cmp_imm(7)
-        .bne_addr(&run(8))
-        .jsr_addr("engine__loader__regular__atn_mask")
-        .sta_addr("LOADER_IEC_TENS")
-        .lda_addr("LOADER_IEC_BYTE")
-        .and_imm(0x80)
-        .beq_addr(&format!("{label}__phase7_line"))
-        .lda_addr("LOADER_IEC_TENS")
-        .ora_imm(OUT_DATA)
-        .sta_addr("LOADER_IEC_TENS")
-        .label(&format!("{label}__phase7_line"))
-        .lda_addr("LOADER_IEC_TENS")
+        .label(&phase(7))
+        .comment("Hold DATA for the whole CLK-high interval, as KERNAL ISR01 does.")
+        .lda_addr("LOADER_IEC_ONES")
         .jsr_addr("engine__loader__regular__line")
         .lda_imm(8)
         .sta_addr("LOADER_IEC_PHASE")
         .rts()
-        .label(&run(8))
-        .cmp_imm(8)
-        .bne_addr(&run(9))
+        .label(&phase(8))
+        .comment("Release DATA and assert CLK as KERNAL does after the final bit.")
         .jsr_addr("engine__loader__regular__atn_mask")
         .ora_imm(OUT_CLK)
         .jsr_addr("engine__loader__regular__line")
         .dec_addr("LOADER_IEC_BIT")
         .bne_addr(&format!("{label}__phase8_more"))
-        .lda_imm(9)
-        .sta_addr("LOADER_IEC_PHASE")
+        .comment("The end-of-byte DATA ack can be shorter than one timer phase, so poll it here.")
         .lda_imm(255)
         .sta_addr("LOADER_IEC_TIMEOUT")
+        .label(&format!("{label}__phase9_poll"))
+        .lda_addr("CIA2_DATA_PORT")
+        .and_imm(IN_DATA)
+        .beq_addr(&format!("{label}__phase9_acked"))
+        .dec_addr("LOADER_IEC_TIMEOUT")
+        .bne_addr(&format!("{label}__phase9_poll"))
+        .jsr_addr("engine__loader__regular__fail")
+        .rts()
+        .label(&format!("{label}__phase9_acked"))
+        .comment("KERNAL leaves CLK asserted after a byte ACK; the EDCC release/wait is only for bus end.")
+        .jsr_addr("engine__loader__regular__atn_mask")
+        .ora_imm(OUT_CLK)
+        .jsr_addr("engine__loader__regular__line")
+        .jsr_addr("engine__loader__regular__on_send_done")
         .rts()
         .label(&format!("{label}__phase8_more"))
         .lda_imm(6)
@@ -942,25 +1222,27 @@ fn send_phase() -> Instructions {
         .lda_imm(255)
         .sta_addr("LOADER_IEC_TIMEOUT")
         .rts()
-        .label(&run(9))
+        .label(&phase(9))
+        .comment("Retained for state-machine completeness; phase 8 completes the byte.")
+        .rts()
+        .label(&phase(10))
+        .comment("Wait across phases for the drive to float DATA before the next ATN edge.")
         .lda_addr("CIA2_DATA_PORT")
         .and_imm(IN_DATA)
-        .bne_addr(&wait(9))
-        .jsr_addr("engine__loader__regular__atn_mask")
-        .jsr_addr("engine__loader__regular__line")
-        .jsr_addr("engine__loader__regular__on_send_done")
-        .rts()
-        .label(&wait(9))
+        .bne_addr(&format!("{label}__phase10_ready"))
         .jsr_addr("engine__loader__regular__timeout_tick")
-        .bne_addr("engine__loader__regular__fail")
+        .beq_addr(&format!("{label}__phase10_wait_done"))
+        .jsr_addr("engine__loader__regular__fail")
         .rts()
-        .label(&format!("{label}__init"))
-        .jsr_addr("engine__loader__regular__atn_mask")
-        .jsr_addr("engine__loader__regular__line")
-        .lda_imm(1)
-        .sta_addr("LOADER_IEC_PHASE")
-        .lda_imm(255)
-        .sta_addr("LOADER_IEC_TIMEOUT")
+        .label(&format!("{label}__phase10_wait_done"))
+        .rts()
+        .label(&format!("{label}__phase10_ready"))
+        .lda_addr("LOADER_IEC_FLAGS")
+        .and_imm(!(IEC_RELEASE_ATN | IEC_RELEASE_ALL))
+        .sta_addr("LOADER_IEC_FLAGS")
+        .lda_imm(IEC_ATN_RELEASE_SETTLE_PHASES)
+        .sta_addr("LOADER_IEC_SETTLE")
+        .jsr_addr("engine__loader__regular__on_send_done")
         .rts();
     b.build()
 }
@@ -968,133 +1250,119 @@ fn send_phase() -> Instructions {
 fn recv_phase() -> Instructions {
     let label = "engine__loader__regular__recv_phase";
     let complete = format!("{label}__complete");
-    let enter_eoi_ack = format!("{label}__enter_eoi_ack");
-    let enter_eoi_hold = format!("{label}__enter_eoi_hold");
+    let fail = format!("{label}__fail");
+    let unexpected = format!("{label}__unexpected_phase");
+    let start = format!("{label}__start");
+    let high_wait = format!("{label}__high_wait");
+    let high_tick = format!("{label}__high_tick");
+    let high_ready = format!("{label}__high_ready");
+    let first_low_wait = format!("{label}__first_low_wait");
+    let first_low_tick = format!("{label}__first_low_tick");
+    let first_low = format!("{label}__first_low");
+    let eoi_start = format!("{label}__eoi_start");
+    let eoi_ack_delay = format!("{label}__eoi_ack_delay");
+    let eoi_low_wait = format!("{label}__eoi_low_wait");
+    let eoi_low_tick = format!("{label}__eoi_low_tick");
+    let bit_loop = format!("{label}__bit_loop");
+    let bit_high_wait = format!("{label}__bit_high_wait");
+    let bit_high_tick = format!("{label}__bit_high_tick");
+    let bit_low_wait = format!("{label}__bit_low_wait");
+    let bit_low_tick = format!("{label}__bit_low_tick");
+    let byte_ack = format!("{label}__byte_ack");
+    let eoi_end_delay = format!("{label}__eoi_end_delay");
+    let normal_end = format!("{label}__normal_end");
+
     let mut b = InstructionBuilder::default();
     b.label(label)
         .lda_addr("LOADER_IEC_PHASE")
-        .beq_addr(&format!("{label}__init"))
-        .cmp_imm(1)
-        .bne_addr(&format!("{label}__run_phase2"))
-        .label(&format!("{label}__phase1"))
+        .beq_addr(&start)
+        .jmp_addr(&unexpected)
+        .label(&start)
+        .comment("One NMI receives one complete byte; X is the only loop counter so polling stays tight.")
+        .comment("Release CLK while keeping the previous byte's DATA ACK asserted.")
+        .jsr_addr("engine__loader__regular__release_clk")
+        .ldx_imm(255);
+    b.label(&high_wait)
+        .comment("ASL leaves CLK in N and DATA in C, exactly like KERNAL ACPTR at $EE5A.")
         .lda_addr("CIA2_DATA_PORT")
-        .and_imm(IN_CLK)
-        .bne_addr(&format!("{label}__phase1_high"))
-        .dec_addr("LOADER_IEC_TIMEOUT")
-        .bne_addr(&format!("{label}__phase1_wait"))
-        .lda_addr("LOADER_IEC_FLAGS")
-        .and_imm(IEC_EOI_SEEN)
-        .bne_addr("engine__loader__regular__fail")
+        .asl_acc()
+        .bpl_addr(&high_tick)
+        .jmp_addr(&high_ready);
+    b.label(&high_tick).dex().bne_addr(&high_wait).jmp_addr(&fail);
+    b.label(&high_ready)
+        .comment("Release DATA so the drive may start clocking the next byte.")
+        .lda_imm(0)
+        .jsr_addr("engine__loader__regular__line")
+        .ldx_imm(255);
+    b.label(&first_low_wait)
+        .lda_addr("CIA2_DATA_PORT")
+        .asl_acc()
+        .bmi_addr(&first_low_tick)
+        .jmp_addr(&first_low);
+    b.label(&first_low_tick)
+        .dex()
+        .bne_addr(&first_low_wait)
+        .jmp_addr(&eoi_start);
+    b.label(&first_low).jmp_addr(&bit_loop);
+    b.label(&eoi_start)
+        .comment("A long CLK-high wait is EOI: pulse DATA, then wait for the final byte's bits.")
         .lda_addr("LOADER_IEC_FLAGS")
         .ora_imm(IEC_EOI_SEEN)
         .sta_addr("LOADER_IEC_FLAGS")
-        .jmp_addr(&enter_eoi_ack)
-        .label(&format!("{label}__phase1_high"))
-        .lda_imm(2)
-        .sta_addr("LOADER_IEC_PHASE")
-        .rts()
-        .label(&format!("{label}__phase1_wait"))
-        .rts()
-        .label(&format!("{label}__run_phase2"))
-        .cmp_imm(2)
-        .bne_addr(&format!("{label}__run_phase3"))
-        .lda_addr("CIA2_DATA_PORT")
-        .and_imm(IN_DATA)
-        .beq_addr(&format!("{label}__phase2_zero"))
-        .sec()
-        .jmp_addr(&format!("{label}__phase2_shift"))
-        .label(&format!("{label}__phase2_zero"))
-        .clc()
-        .label(&format!("{label}__phase2_shift"))
-        .ror_addr("LOADER_IEC_BYTE")
+        .lda_imm(OUT_DATA)
+        .jsr_addr("engine__loader__regular__line")
+        .ldx_imm(64);
+    b.label(&eoi_ack_delay)
+        .dex()
+        .bne_addr(&eoi_ack_delay)
         .lda_imm(0)
         .jsr_addr("engine__loader__regular__line")
-        .lda_imm(3)
-        .sta_addr("LOADER_IEC_PHASE")
-        .lda_imm(255)
-        .sta_addr("LOADER_IEC_TIMEOUT")
-        .rts()
-        .label(&format!("{label}__run_phase3"))
-        .cmp_imm(3)
-        .bne_addr(&format!("{label}__run_phase5"))
+        .ldx_imm(255);
+    b.label(&eoi_low_wait)
         .lda_addr("CIA2_DATA_PORT")
-        .and_imm(IN_CLK)
-        .bne_addr(&format!("{label}__phase3_wait"))
+        .asl_acc()
+        .bmi_addr(&eoi_low_tick)
+        .jmp_addr(&bit_loop);
+    b.label(&eoi_low_tick).dex().bne_addr(&eoi_low_wait).jmp_addr(&fail);
+
+    b.label(&bit_loop).lda_imm(8).sta_addr("LOADER_IEC_BIT").ldx_imm(64);
+    b.label(&bit_high_wait)
+        .comment("Latch DATA from the same read that observed CLK high, as KERNAL ACPTR does.")
+        .lda_addr("CIA2_DATA_PORT")
+        .asl_acc()
+        .bpl_addr(&bit_high_tick)
+        .ror_addr("LOADER_IEC_BYTE")
+        .ldx_imm(64)
+        .jmp_addr(&bit_low_wait);
+    b.label(&bit_high_tick).dex().bne_addr(&bit_high_wait).jmp_addr(&fail);
+    b.label(&bit_low_wait)
+        .lda_addr("CIA2_DATA_PORT")
+        .asl_acc()
+        .bmi_addr(&bit_low_tick)
         .dec_addr("LOADER_IEC_BIT")
-        .bne_addr(&format!("{label}__phase3_more"))
+        .bne_addr(&bit_high_wait)
+        .jmp_addr(&byte_ack);
+    b.label(&bit_low_tick).dex().bne_addr(&bit_low_wait).jmp_addr(&fail);
+    b.label(&byte_ack)
+        .comment("After eight bits the receiver holds DATA low as the byte ACK.")
         .lda_imm(OUT_DATA)
         .jsr_addr("engine__loader__regular__line")
         .lda_addr("LOADER_IEC_FLAGS")
         .and_imm(IEC_EOI_SEEN)
-        .bne_addr(&enter_eoi_hold)
-        .jmp_addr(&complete)
-        .label(&format!("{label}__phase3_more"))
-        .lda_imm(1)
-        .sta_addr("LOADER_IEC_PHASE")
-        .lda_imm(10)
-        .sta_addr("LOADER_IEC_TIMEOUT")
-        .rts()
-        .label(&format!("{label}__phase3_wait"))
-        .dec_addr("LOADER_IEC_TIMEOUT")
-        .bne_addr(&format!("{label}__phase3_wait_done"))
-        .jmp_addr("engine__loader__regular__fail")
-        .label(&format!("{label}__phase3_wait_done"))
-        .rts()
-        .label(&format!("{label}__run_phase5"))
-        .cmp_imm(5)
-        .bne_addr(&format!("{label}__run_phase8"))
-        .dec_addr("LOADER_IEC_TIMEOUT")
-        .bne_addr(&format!("{label}__phase5_wait"))
-        .jmp_addr(&complete)
-        .label(&format!("{label}__phase5_wait"))
-        .rts()
-        .label(&format!("{label}__run_phase8"))
-        .cmp_imm(8)
-        .bne_addr(&format!("{label}__run_phase9"))
-        .jmp_addr(&enter_eoi_ack)
-        .label(&format!("{label}__run_phase9"))
-        .dec_addr("LOADER_IEC_TIMEOUT")
-        .bne_addr(&format!("{label}__phase9_wait"))
+        .beq_addr(&normal_end)
+        .ldx_imm(64);
+    b.label(&eoi_end_delay)
+        .dex()
+        .bne_addr(&eoi_end_delay)
         .lda_imm(0)
         .jsr_addr("engine__loader__regular__line")
-        .lda_imm(10)
-        .sta_addr("LOADER_IEC_TIMEOUT")
-        .lda_imm(1)
-        .sta_addr("LOADER_IEC_PHASE")
-        .rts()
-        .label(&format!("{label}__phase9_wait"))
-        .rts()
-        .label(&enter_eoi_ack)
-        .lda_imm(OUT_DATA)
-        .jsr_addr("engine__loader__regular__line")
-        .lda_imm(9)
-        .sta_addr("LOADER_IEC_PHASE")
-        .lda_imm(3)
-        .sta_addr("LOADER_IEC_TIMEOUT")
-        .rts()
-        .label(&enter_eoi_hold)
-        .lda_imm(5)
-        .sta_addr("LOADER_IEC_PHASE")
-        .lda_imm(3)
-        .sta_addr("LOADER_IEC_TIMEOUT")
-        .rts()
-        .label(&format!("{label}__init"))
-        .lda_imm(0)
-        .jsr_addr("engine__loader__regular__line")
-        .lda_imm(0)
-        .sta_addr("LOADER_IEC_BYTE")
-        .lda_imm(IEC_EOI)
-        .sta_addr("LOADER_IEC_FLAGS")
-        .lda_imm(8)
-        .sta_addr("LOADER_IEC_BIT")
-        .lda_imm(10)
-        .sta_addr("LOADER_IEC_TIMEOUT")
-        .lda_imm(1)
-        .sta_addr("LOADER_IEC_PHASE")
-        .rts()
-        .label(&complete)
-        .lda_imm(0)
-        .jsr_addr("engine__loader__regular__line")
+        .jmp_addr(&complete);
+    b.label(&normal_end)
+        .comment("Keep DATA asserted until the next NMI releases CLK and waits for CLK-high.")
+        .jmp_addr(&complete);
+    b.label(&unexpected).rts();
+    b.label(&fail).jsr_addr("engine__loader__regular__fail").rts();
+    b.label(&complete)
         .jsr_addr("engine__loader__regular__on_recv_done")
         .rts();
     b.build()
@@ -1102,26 +1370,34 @@ fn recv_phase() -> Instructions {
 
 fn turnaround_phase() -> Instructions {
     let label = "engine__loader__regular__turnaround_phase";
+    let wait = format!("{label}__wait");
     InstructionBuilder::default()
         .label(label)
         .lda_addr("LOADER_IEC_PHASE")
-        .bne_addr(&format!("{label}__wait"))
-        .lda_imm(OUT_DATA)
+        .bne_addr(&wait)
+        .comment("KERNAL TKATN: assert DATA, release ATN, release CLK, then wait for CLK.")
+        .jsr_addr("engine__loader__regular__atn_mask")
+        .ora_imm(OUT_CLK)
+        .ora_imm(OUT_DATA)
         .jsr_addr("engine__loader__regular__line")
+        .comment("KERNAL TKATN releases ATN and CLK back-to-back; the drive acknowledges quickly.")
+        .jsr_addr("engine__loader__regular__release_atn")
+        .jsr_addr("engine__loader__regular__release_clk")
         .lda_imm(1)
         .sta_addr("LOADER_IEC_PHASE")
         .lda_imm(255)
         .sta_addr("LOADER_IEC_TIMEOUT")
-        .rts()
-        .label(&format!("{label}__wait"))
+        .comment("The drive's turnaround CLK pulse lasts ~68 cycles; poll inside this NMI.")
+        .label(&wait)
         .lda_addr("CIA2_DATA_PORT")
         .and_imm(IN_CLK)
-        .bne_addr(&format!("{label}__still"))
-        .jsr_addr("engine__loader__regular__prepare_recv")
+        .beq_addr(&format!("{label}__ready"))
+        .dec_addr("LOADER_IEC_TIMEOUT")
+        .bne_addr(&wait)
+        .jsr_addr("engine__loader__regular__fail")
         .rts()
-        .label(&format!("{label}__still"))
-        .jsr_addr("engine__loader__regular__timeout_tick")
-        .bne_addr("engine__loader__regular__fail")
+        .label(&format!("{label}__ready"))
+        .jsr_addr("engine__loader__regular__prepare_recv")
         .rts()
         .build()
 }
@@ -1131,10 +1407,23 @@ fn on_send_done() -> Instructions {
     let mut b = InstructionBuilder::default();
     b.label(label)
         .lda_addr("LOADER_IEC_FLAGS")
-        .and_imm(IEC_RELEASE_ATN)
+        .and_imm(IEC_RELEASE_ATN | IEC_RELEASE_ALL)
         .beq_addr(&format!("{label}__no_release"))
+        .lda_addr("LOADER_IEC_FLAGS")
+        .and_imm(IEC_RELEASE_ALL)
+        .bne_addr(&format!("{label}__release_all"))
+        .jsr_addr("engine__loader__regular__release_atn")
+        .jmp_addr(&format!("{label}__no_release"))
+        .label(&format!("{label}__release_all"))
+        .jsr_addr("engine__loader__regular__release_all")
+        .comment("After UNLISTEN/UNTALK the drive must float DATA high before ATN is reasserted.")
+        .lda_imm(10)
+        .sta_addr("LOADER_IEC_PHASE")
+        .lda_imm(255)
+        .sta_addr("LOADER_IEC_TIMEOUT")
         .lda_imm(0)
-        .jsr_addr("engine__loader__regular__line")
+        .sta_addr("LOADER_IEC_TIMEOUT_HI")
+        .rts()
         .label(&format!("{label}__no_release"))
         .lda_addr("LOADER_IEC_STATE")
         .cmp_imm(1)
@@ -1159,6 +1448,8 @@ fn on_send_done() -> Instructions {
         .label(&format!("{label}__state5"))
         .cmp_imm(5)
         .bne_addr(&format!("{label}__state6"))
+        .lda_imm(1)
+        .sta_addr("LOADER_IEC_BUFFER_OPEN")
         .jsr_addr("engine__loader__regular__prepare_listen_command")
         .rts()
         .label(&format!("{label}__state6"))
@@ -1187,11 +1478,21 @@ fn on_send_done() -> Instructions {
         .rts()
         .label(&format!("{label}__state9"))
         .cmp_imm(9)
-        .bne_addr(&format!("{label}__state12"))
+        .bne_addr(&format!("{label}__state10"))
+        .jsr_addr("engine__loader__regular__prepare_talk")
+        .rts()
+        .label(&format!("{label}__state10"))
+        .cmp_imm(10)
+        .bne_addr(&format!("{label}__state11"))
+        .jsr_addr("engine__loader__regular__prepare_talk_second")
+        .rts()
+        .label(&format!("{label}__state11"))
+        .cmp_imm(11)
+        .bne_addr(&format!("{label}__state14"))
         .jsr_addr("engine__loader__regular__prepare_turnaround")
         .rts()
-        .label(&format!("{label}__state12"))
-        .cmp_imm(12)
+        .label(&format!("{label}__state14"))
+        .cmp_imm(14)
         .bne_addr(&format!("{label}__done"))
         .jsr_addr("engine__loader__regular__sector_done")
         .label(&format!("{label}__done"))

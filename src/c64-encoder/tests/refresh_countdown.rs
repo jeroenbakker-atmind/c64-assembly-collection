@@ -22,11 +22,15 @@ fn build_refresh_program(stub: Instructions) -> AssemblerResult<Vec<u8>> {
             InstructionBuilder::default()
                 .label("engine__irq__handler")
                 .rts()
+                .label("engine__irq__nmi_handler")
+                .rts()
                 .build(),
         )
         .build();
     let application = ApplicationBuilder::default()
         .add_refresh_addresses()
+        .define_address("CIA2_TIMER_A_CONTROL", 0xDD0E)
+        .define_address("CIA2_TIMER_B_CONTROL", 0xDD0F)
         .include_vic2_defines()
         .module(ModuleBuilder::default().instructions(stub).build())
         .module(Refresh::module())
@@ -114,12 +118,14 @@ fn engine_uses_irq_countdown_instead_of_vblank_polling() -> AssemblerResult<()> 
 
     assert!(source.contains("engine__refresh__irq:"));
     assert!(source.contains("  jsr engine__refresh__on_refresh"));
-    assert!(source.contains("  asl VIC2_IRQ_STATUS"));
+    assert!(source.contains("  lda #$FF\n  sta VIC2_IRQ_STATUS"));
     assert!(source.contains("  jmp C64_IRQ_EPLOGUE"));
     assert_eq!(source.matches("  jsr engine__refresh__wait").count(), 2);
     assert!(source.contains("engine__refresh__wait_n:"));
     assert!(source.contains("lda #<engine__irq__handler"));
     assert!(source.contains("lda #>engine__irq__handler"));
+    assert!(source.contains("lda #<engine__irq__nmi_handler"));
+    assert!(source.contains("lda #>engine__irq__nmi_handler"));
     assert!(!source.contains("engine__vblank__wait"));
     Ok(())
 }

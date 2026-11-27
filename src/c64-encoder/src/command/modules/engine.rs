@@ -56,6 +56,7 @@ impl EngineBuilder for ApplicationBuilder {
             .define_address("CHARSET_PTR_PAGE2", 0xCA00)
             .define_address("CHARSET_PTR_PAGE3", 0xCB00)
             .define_address("C64_BANK_SELECTION", 0xDD00)
+            .define_address("ENGINE_NMI_A", 0x3E33)
             .define_address("SCRATCH_SPACE_00", 0xFB)
             .add_block_scratch_addresses()
             .add_refresh_addresses()

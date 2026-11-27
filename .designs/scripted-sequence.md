@@ -39,9 +39,9 @@ Terminology used below:
 - Rust sequence model and assembly emitter.
 - Generated resource table and named constants.
 - Emitted assembly sequence using loader/wait/play/wait-refresh primitives.
-- Async single-job loader contract; the one-load-before-next-wait discipline is validated in Rust, while `WaitLoaded` only polls IRQ completion.
-- A selectable loader backend. The default “regular” backend is host-side, IRQ-driven 1541 DOS-sector reads over the standard IEC serial bus (no custom drive code) and is designed so frame playback continues while a load is in flight.
-- Shared IRQ dispatcher for refresh pacing and loader servicing.
+- Async single-job loader contract; the one-load-before-next-wait discipline is validated in Rust, while `WaitLoaded` only polls interrupt-driven completion.
+- A selectable loader backend. The default “regular” backend is host-side, CIA2 Timer A NMI-driven 1541 DOS-sector reads over the standard IEC serial bus (no custom drive code) and is designed so frame playback continues while a load is in flight.
+- Separate interrupt hooks for raster refresh pacing and CIA2 Timer A loader servicing.
 - Frame resource pool at `$4000..$9FFF`.
 - Music region at `$A000..$BFFF`, requiring ROM bank-out.
 - D64 raw-sector mastering.
@@ -168,8 +168,8 @@ Runtime responsibilities:
 | `SequenceEmitter` | Generating 6502 assembly instructions and labels | Runtime interpretation |
 | Frame decoder | One frame record at `CURRENT_PTR` | Which resource/chunk to play next |
 | Loader backend | Async resource request, completion flag, destination fill | Timing decisions |
-| Regular DOS-sector backend | Host-side IEC/U1 sector reads advanced from IRQ | Sequence control flow, music-driver specifics |
-| IRQ dispatcher | Refresh countdown + loader backend servicing | Sequence control flow |
+| Regular DOS-sector backend | Host-side IEC/U1 sector reads advanced from CIA2 Timer A NMIs | Sequence control flow, music-driver specifics |
+| Interrupt hooks | Refresh countdown via raster IRQ + loader backend servicing via CIA2 Timer A NMI | Sequence control flow |
 | Condition provider | Current music position, latched disk-turned signal | Choosing loop exits |
 | MasterPlanner | Sector ranges, destinations, reports from encoded resource sizes | Actual drive transfer |
 
@@ -202,7 +202,7 @@ The first column names the Rust sequence step; the second column is the emitted 
 | Sequence step | Emitted instruction pattern | Runtime action |
 |---|---|---|
 | `Init` | `jsr engine__init` / `jsr engine__loader__init` / `jsr engine__condition__init` | VIC/IRQ setup, ROM bank-out, loader and condition initialization. |
-| `Load(resource)` | `lda #R_ID` / `jsr engine__loader__start` | Schedule the async IRQ load of resource `R_ID`. Rust validation has already proven no other job is pending. |
+| `Load(resource)` | `lda #R_ID` / `jsr engine__loader__start` | Schedule the async load of resource `R_ID`. Rust validation has already proven no other job is pending. |
 | `WaitLoaded` | `jsr engine__loader__wait_loaded` | Poll until the in-flight resource is done. No runtime latch is cleared here. |
 | `PlayFrames(resource, offset, count)` | `lda #R_ID`, offset bytes, `jsr engine__resource__use`, count bytes, `jsr engine__frame__play_n` | Set `CURRENT_PTR`, then call `engine__frame__process` `count` times. |
 | `WaitRefreshes(n)` | `lda #n` / `jsr engine__refresh__wait_n` | Wait `n` refresh intervals. Useful for holds/act separators. |
@@ -521,10 +521,36 @@ Zero-page allocation:
 | `$8A/$8B` | `FRAME_PLAY_COUNT` | 16-bit count for `engine__frame__play_n`. |
 | `$8C/$8D` | `LOADER_STUB_SRC` | Stub backend source pointer. |
 | `$8E` | `CONDITION_VALUE` | Scratch for music-position comparison. |
-| `$8F` | `REFRESH_WAIT_COUNT` | Count for `engine__refresh__wait_n`. |
 | `$FB` | `SCRATCH_SPACE_00` | Existing engine scratch. |
 | `$FC` | `SCREEN_CHAR_PTR` | Existing screen-character pointer. |
 | `$FE/$FF` | `CURRENT_PTR` | Existing frame-command pointer. |
+
+Blackboard RAM (kept out of KERNAL/BASIC zero page because those routines still use `$90..$9F`):
+
+| Address | Name | Purpose |
+|---|---|---|
+| `$3E00` | `MUSIC_POSITION_ADDR` | Music driver position placeholder. |
+| `$3E01` | `DISK_TURNED_LATCH` | Sticky loader signal. |
+| `$3E02/$3E03` | Bank port saves | Saved processor-port state. |
+| `$3E20` | `LOADER_IEC_STATE` | Current regular-loader IEC send/receive state. |
+| `$3E21` | `LOADER_IEC_PHASE` | Current phase inside that state. |
+| `$3E22` | `LOADER_IEC_BIT` | Bit index in the current byte. |
+| `$3E23` | `LOADER_IEC_BYTE` | Byte currently being sent/received. |
+| `$3E24` | `LOADER_IEC_FLAGS` | ATN/EOI/error flags. |
+| `$3E25` | `LOADER_IEC_PORT` | Cached CIA2 port output image. |
+| `$3E26` | `LOADER_IEC_TRACK` | Current physical track. |
+| `$3E27` | `LOADER_IEC_SECTOR` | Current physical sector. |
+| `$3E28` | `LOADER_IEC_SECTOR_LEFT` | Sectors still owed by this job. |
+| `$3E29` | `LOADER_IEC_INDEX` | Byte/sector index. |
+| `$3E2A/$3E2B` | `LOADER_IEC_TENS/ONES` | ASCII command-digit scratch. |
+| `$3E2C` | `LOADER_IEC_MODULUS` | Usable-sector count for the current track. |
+| `$3E2D/$3E2E` | `LOADER_IEC_TIMEOUT_HI/LO` | Two-byte phase timeout. |
+| `$3E2F` | `REFRESH_WAIT_COUNT` | Count for `engine__refresh__wait_n`. |
+| `$3E30` | `LOADER_IEC_BUFFER_OPEN` | Remembers that DOS buffer 2 is already allocated. |
+| `$3E31` | `ENGINE_NMI_ACTIVE` | NMI re-entrancy guard; prevents a nested Timer A entry from running another loader phase. |
+| `$3E32` | `LOADER_IEC_SETTLE` | Post-UNLISTEN/settle countdown before the next ATN. |
+| `$3E33` | `ENGINE_NMI_A` | Still defined for compatibility; the emitted handler does not use it. |
+| `$3E34` | `ENGINE_NMI_TIMER_B_PENDING` | Software handoff from owner NMI to Timer B NMI; the ICR flag is consumed by the handler itself. |
 
 There is no `SEQUENCE_PTR`, no interpreter loop state, and no loop stack. In particular, `$87` is ordinary scratch; no `LOADER_WAIT_REQUIRED` latch exists at runtime.
 
@@ -541,11 +567,11 @@ The VIC setup remains `C64_BANK_SELECTION = 0`, `VIC2_MEMORY_SETUP = 3` from `sr
 | `engine.rs` | `engine__init`, `engine__stream__init`, `engine__deinit`, `engine__frame__process`, `engine__frame__play_n`, `engine__play_stream` | Split setup from playback; add frame-count primitive. |
 | `resource.rs` | `engine__resource__use`, `engine__resource__dest`, `engine__resource__sector_count` | Resource-table lookups; no kind or frame-count lookup. |
 | `loader.rs` | `engine__loader__init`, `engine__loader__start`, `engine__loader__wait_loaded`, `engine__loader__is_done`, `engine__loader__on_irq`, `engine__loader__deinit` | Async single-job loader contract shared by all backends. |
-| `loader_regular.rs` | backend implementation of the same entry points | Default regular backend: host-side IRQ DOS-sector reads over standard IEC. |
+| `loader_regular.rs` | backend implementation of the same entry points | Default regular backend: host-side DOS-sector reads over standard IEC, advanced by CIA2 Timer A NMIs. |
 | `loader_stub.rs` | backend implementation of the same entry points | Deterministic test backend selected explicitly by CPU tests. |
 | `condition.rs` | `engine__condition__init`, `engine__condition__music_before`, `engine__condition__disk_turned`, `engine__condition__mark_disk_turned` | Condition checks for future loops. |
 | `bank.rs` | `engine__bank__init`, `engine__bank__restore` | Bank out/restores `$A000..$BFFF`. |
-| `irq.rs` | `engine__irq__handler` | Owns `$0314`; calls refresh + loader hooks; `JMP $EA81`. |
+| `irq.rs` | `engine__irq__handler`, `engine__irq__nmi_handler` | Owns `$0314` for raster refresh and `$0318` for CIA2 Timer A loader phases. |
 | `refresh.rs` | `engine__refresh__on_refresh` remains; `engine__refresh__irq` becomes a hook | Keeps countdown logic testable. |
 
 The stale `src/engine_gen.asm` is not edited.
@@ -590,7 +616,7 @@ The intro no longer calls `engine__stream__init` or `engine__play_stream`; it ca
 
 ### 7.3 Loader contract
 
-The loader is an **asynchronous, single-job state machine**. Single-job correctness is a **Rust build-time property**: `SequenceEmitter::validate` rejects any sequence that reaches another `Load` or `End` with a pending job. Runtime has no wait-required latch; it trusts the emitted sequence. The emitted sequence only schedules and polls; the actual transfer is advanced by `engine__loader__on_irq` from the IRQ handler. There is no queue and no second job descriptor.
+The loader is an **asynchronous, single-job state machine**. Single-job correctness is a **Rust build-time property**: `SequenceEmitter::validate` rejects any sequence that reaches another `Load` or `End` with a pending job. Runtime has no wait-required latch; it trusts the emitted sequence. The emitted sequence only schedules and polls; the actual transfer is advanced by `engine__loader__on_irq` from the CIA2 Timer A NMI handler. There is no queue and no second job descriptor.
 
 ```text
                    Load
@@ -611,8 +637,8 @@ The loader is an **asynchronous, single-job state machine**. Single-job correctn
 |---|---|
 | `engine__loader__init` | Initialize shared state and let the selected backend initialize itself. The regular backend does not enable CIA2 Timer A here; it starts the timer only for an active job. |
 | `engine__loader__start` | `A = resource_id`. Look up `resource_table[resource_id]`, copy the single job descriptor, set `LOADER_DST_PTR`, set busy/clear done, ask the selected backend to begin, and return immediately. It does not maintain or check a wait-required flag. |
-| `engine__loader__on_irq` | Called from `engine__irq__handler`. If busy, advance the one active job by a bounded chunk through the selected backend. Set done when complete. |
-| `engine__loader__is_done` | `Z=1` when bit 0 of `LOADER_STATUS` is set. Byte access is atomic with respect to the IRQ. |
+| `engine__loader__on_irq` | Called from `engine__irq__nmi_handler`. If busy, advance the one active job by a bounded chunk through the selected backend. Set done when complete. |
+| `engine__loader__is_done` | `Z=1` when bit 0 of `LOADER_STATUS` is set. Byte access is atomic with respect to the interrupt handlers. |
 | `engine__loader__wait_loaded` | Spin on `is_done`, then return. It does not clear a latch or re-arm `Load`. |
 | `engine__loader__deinit` | Stop transfer, restore borrowed vectors/resources. |
 
@@ -622,40 +648,110 @@ Backend selection is a **build-time Rust choice**, not a runtime mode byte. `add
 
 Initial implementation strategy:
 
-1. **Default regular backend** (`loader_regular.rs`): host-side state machine using standard 1541 DOS commands. It opens/uses a buffer, issues `U1` for each physical `(track, sector)`, reads the 256-byte sector over the standard IEC serial bus, and copies it to the resource destination. No custom 1541 drive code is uploaded and no KERNAL serial routine is called from an IRQ. Starting a job enables CIA2 Timer A; each timer IRQ advances one bounded IEC phase, while the raster IRQ stays once-per-frame, so `engine__frame__process` keeps running on the main thread while a load is in flight.
+1. **Default regular backend** (`loader_regular.rs`): host-side state machine using standard 1541 DOS commands. It opens/uses a buffer, issues `U1` for each physical `(track, sector)`, reads the 256-byte sector over the standard IEC serial bus, and copies it to the resource destination. No custom 1541 drive code is uploaded and no KERNAL serial routine is called from an interrupt handler. Starting a job enables CIA2 Timer A; each Timer A NMI advances one bounded IEC step (a handshake phase for commands, a complete byte handshake for receive data), while the raster IRQ stays once-per-frame, so `engine__frame__process` keeps running on the main thread while a load is in flight.
 2. **Test stub** (`loader_stub.rs`): `start` copies a preloaded byte image into the destination and sets done immediately (or in bounded IRQ chunks). This keeps the whole sequence testable under `mos6502` without modelling the serial bus.
 3. **Future backends**: a custom-drive-code loader can replace the regular backend behind the same entry points. Track/sector order, interleave, and D64 mastering remain planner concerns; the sequence never learns the transfer mechanism.
 4. **Bootstrap remains a follow-up**: the regular backend is expected to load the first resources itself. If cold-start reliability later requires KERNAL-loading a bootstrap resource, that changes only the first emitted `Load`/`WaitLoaded` pair, not the backend contract.
 
-### 7.4 IRQ ownership
+### 7.4 Interrupt ownership
 
-`.designs/refresh-rate.md` currently has `engine__refresh__irq` installed directly at `$0314`. With a loader, two components need IRQ time. Introduce one owner:
+`.designs/refresh-rate.md` currently has `engine__refresh__irq` installed directly at `$0314`. The raster source is a maskable IRQ; CIA2 Timer A is wired to the CPU NMI, so the two hooks need separate vectors. `engine__refresh__init` saves and installs both:
 
 ```asm
-engine__irq__handler:
+engine__irq__handler:                     ; $0314, entered after KERNAL saves A/X/Y
     lda VIC2_IRQ_STATUS                   ; raster pending?
     and #$80
-    beq cia
-    jsr engine__refresh__on_refresh       ; once-per-frame pacing countdown
-    asl VIC2_IRQ_STATUS                   ; acknowledge raster source
-cia:
-    lda CIA2_IRQ_CONTROL                  ; Timer A pending? read also acknowledges
-    and #$01
     beq done
-    jsr engine__loader__on_irq            ; advance one IEC phase of the active load
+    jsr engine__refresh__on_refresh       ; once-per-frame pacing countdown
+    lda #$FF
+    sta VIC2_IRQ_STATUS                   ; acknowledge all VIC IRQ latches
 done:
-    jmp $EA81
+    jmp engine__irq__epilogue             ; PLA/TAY/PLA/TAX/PLA/RTI
+
+engine__irq__nmi_handler:                 ; $0318, entered after only SEI; JMP ($0318)
+    pha                                   ; own A frame; X/Y are pushed by the owner
+    inc ENGINE_NMI_ACTIVE
+    lda #$00
+    sta CIA2_TIMER_A_CONTROL              ; stop both sources at entry
+    sta CIA2_TIMER_B_CONTROL
+    lda CIA2_IRQ_CONTROL                  ; read acknowledges the timer flag
+    lda ENGINE_NMI_ACTIVE
+    cmp #$01
+    bne nested                            ; nested entry: leave the owner guard alone
+    lda ENGINE_NMI_TIMER_B_PENDING
+    bne timer_b                           ; one-shot Timer B restarts Timer A
+    txa
+    pha
+    tya
+    pha
+    jsr engine__loader__on_irq            ; advance one IEC phase
+    jmp owner_done
+nested:
+    dec ENGINE_NMI_ACTIVE
+    pla
+    rti                                   ; only A was saved; X/Y are untouched
+timer_b:
+    lda #$00
+    sta ENGINE_NMI_TIMER_B_PENDING
+    lda #$02
+    sta CIA2_IRQ_CONTROL                  ; mask Timer B
+    lda #$00
+    sta CIA2_TIMER_B_CONTROL
+    lda #50
+    sta CIA2_TIMER_A_LO                   ; Timer A latch
+    lda #$00
+    sta CIA2_TIMER_A_HI
+    lda #$81
+    sta CIA2_IRQ_CONTROL                  ; enable Timer A IRQ
+    lda #$01
+    sta CIA2_TIMER_A_CONTROL              ; Timer A is ready for the next phase
+    dec ENGINE_NMI_ACTIVE
+    pla
+    rti
+owner_done:
+    lda LOADER_STATUS
+    and #LOADER_STATUS_BUSY
+    beq clear_guard
+    lda #$00
+    sta CIA2_TIMER_A_CONTROL              ; do not let Timer A nest inside this owner
+    lda #100
+    sta CIA2_TIMER_B_LO                   ; one-shot delay, ~100 cycles
+    lda #$00
+    sta CIA2_TIMER_B_HI
+    lda #$02
+    sta CIA2_IRQ_CONTROL                  ; mask Timer B before arming it
+    lda #$82
+    sta CIA2_IRQ_CONTROL                  ; enable Timer B IRQ
+    lda #$01
+    sta ENGINE_NMI_TIMER_B_PENDING
+    lda #$09
+    sta CIA2_TIMER_B_CONTROL              ; start one-shot Timer B
+clear_guard:
+    lda #$00
+    sta ENGINE_NMI_ACTIVE
+    pla
+    tay
+    pla
+    tax
+    pla
+    rti                                   ; restore the handler's A/X/Y frame
 ```
 
-Actual disk transfers happen asynchronously relative to the emitted sequence. A `Load` step must never copy sector bytes itself; `engine__loader__start` only publishes the one job descriptor and starts the timer. The raster hook remains dedicated to refresh pacing; CIA2 Timer A drives the IEC state machine only while a regular-backed job is active.
+The KERNAL IRQ entry at `$EA81` saves A/X/Y before calling the `$0314` hook, so the raster handler uses `engine__irq__epilogue`. The KERNAL NMI entry at `$FE43` is only `SEI; JMP ($0318)`: it does **not** save registers, mask CIA sources, or acknowledge CIA flags. The NMI handler therefore pushes A before touching the re-entrancy guard, pushes X/Y only for the owner that runs a loader phase, reads CIA2 ICR to acknowledge the timer flag, and returns with `RTI`. Nested and Timer B entries restore only A because they never push X/Y; the owner restores all three. This keeps the stack balanced across hundreds of loader phases.
 
-`engine__refresh__irq` becomes a compatibility hook/wrapper that calls the same dispatcher shape for refresh-only tests. `engine__refresh__init` installs `engine__irq__handler` instead of installing itself directly.
+The owner never restarts Timer A before it returns: doing so allowed a fresh Timer A NMI to win the owner check while the previous owner was still unwinding. Instead the owner stops both timers, arms one-shot Timer B, and records the software handoff in `ENGINE_NMI_TIMER_B_PENDING`. Timer B fires after the owner has returned; its NMI clears the handoff flag, restarts Timer A, and returns. Timer B is the only source allowed to re-arm Timer A. Both NMI flags are reset by `engine__refresh__init` so a warm start cannot inherit a stale handoff.
+
+Actual disk transfers happen asynchronously relative to the emitted sequence. A `Load` step must never copy sector bytes itself; `engine__loader__start` only publishes the one job descriptor and starts Timer A. The raster hook remains dedicated to refresh pacing; CIA2 Timer A drives the IEC state machine only while a regular-backed job is active.
+
+Receive polling follows KERNAL ACPTR: `ASL CIA2_DATA_PORT` leaves CLK in N and DATA in C, and DATA is latched with `ROR LOADER_IEC_BYTE` from that same read. Each wait uses an inline `DEX`/`BNE` countdown in X; calling `engine__loader__regular__timeout_tick` inside the bit loops added a JSR to every poll and missed short CLK edges, especially the eighth bit of a sector byte. The two-byte `LOADER_IEC_TIMEOUT_HI/LO` counter remains for the slower command/handshake phases.
+
+`engine__refresh__irq` becomes a compatibility hook/wrapper that calls the same dispatcher shape for refresh-only tests.
 
 Acknowledgement rule:
 
-- Raster: `ASL VIC2_IRQ_STATUS` acknowledges the sole VIC source.
-- CIA2 Timer A: reading `CIA2_IRQ_CONTROL` acknowledges the pending timer flag. The regular backend stops the timer and clears the flag on completion, error, and deinit.
-- If both sources are pending, check both status registers and acknowledge both; the loader hook is only called for the CIA source so refresh stays once per frame.
+- Raster: writing `#$FF` to `VIC2_IRQ_STATUS` acknowledges every VIC latch. Writing only `#$80` can leave a pending sprite IRQ asserted and starve the main loop; writing `#$01` clears sprite 0 only.
+- CIA2: the `$0318` NMI handler reads `CIA2_IRQ_CONTROL` once at entry to acknowledge the timer flag. Writing `$01`/`$02` masks Timer A/B; writing `$81`/`$82` re-enables them. Timer A is continuous while a job is active; each owner NMI stops it and schedules one-shot Timer B, whose NMI restarts Timer A. The regular backend stops both timers and masks both sources on completion, error, and deinit.
+- The loader hook is only called from the NMI handler, so refresh stays once per frame.
 
 ### 7.5 Condition provider
 
@@ -1127,7 +1223,7 @@ New tests:
 ### Phase 5 — regular IRQ DOS-sector loader
 - [x] Make the regular host-side IEC/U1 DOS-sector backend the default selected by `add_engine()`.
 - [x] Keep the deterministic stub backend available through explicit builder/test selection.
-- [x] Service the regular backend from bounded steps of the shared IRQ dispatcher (CIA2 Timer A for IEC phases, raster for refresh) so frame playback continues during loading.
+- [x] Service the regular backend from bounded steps of the interrupt hooks (CIA2 Timer A NMI for IEC phases, raster IRQ for refresh) so frame playback continues during loading.
 - [x] Add structural/CPU tests for backend selection, one-job continuity, and overlap of load and frame playback.
 - [ ] Validate real drive timing and tune `interleave` in a later hardware/VICE pass.
 - [ ] Add NTSC config if required.
@@ -1155,7 +1251,7 @@ New tests:
 | Add a `ResourceKind` byte to the PRG table | The sequence already knows whether it plays frames or hands bytes to the music driver; the loader only needs the physical range. Names in Rust constants/reports are enough for debugging. |
 | Reserve a high `0x80..` opcode namespace | Obsolete because there is no bytecode script. |
 | Byte-wise 16 KiB ring from `streaming.md` | More flexible but harder to prove slot safety; six named 4 KiB frame slots are deterministic and testable. |
-| One IRQ owner per component | Both need `$0314`; a single dispatcher avoids vector save/restore chains and makes ack ownership explicit. |
+| One interrupt hook per source | Raster refresh uses `$0314`; CIA2 Timer A uses `$0318` because it is an NMI, so each handler owns its own acknowledgement. |
 | Call `engine__refresh__wait` inside `WaitLoaded` | Adds four refreshes per poll and turns short waits into multi-frame stalls. |
 | Music at `$8000..$8FFF` | User-reserved layout puts music at `$A000..$BFFF` and all of `$4000..$9FFF` to frame resources. |
 | Generate `intro.rs` source text from the encoder | Useful later; first generate constants/resource data so the Rust sequence stays readable and Rust remains authoritative for layout. |
@@ -1188,7 +1284,7 @@ The intro becomes a **Rust-authored, emitted-assembly, resource-driven player**:
 - Frame resources use six 4 KiB slots across `$4000..$9FFF`.
 - Music uses `$A000..$BFFF` with ROM banked out.
 - `MasterPlanner` derives each `LoadRange` from the encoded resource size and generates a 7-byte-per-resource table containing only loader metadata, plus constants and the raw D64 sector image.
-- A single IRQ dispatcher owns both frame pacing and loader servicing. The default regular backend performs host-side IEC/U1 DOS-sector reads in bounded IRQ steps while frame playback continues; a stub or future custom loader can be selected at build time.
+- A raster IRQ hook owns frame pacing and a CIA2 Timer A NMI hook owns loader servicing. The default regular backend performs host-side IEC/U1 DOS-sector reads in bounded NMI steps while frame playback continues; a stub or future custom loader can be selected at build time.
 - Future “until music is before …” and “until disk is turned” loops are implemented as label loops plus condition JSR calls.
 
 This keeps timing explicit and adjustable while preserving the frame-command format, evaluator, and compression work — without adding an unnecessary interpreter layer.

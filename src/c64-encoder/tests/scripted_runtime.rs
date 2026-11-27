@@ -6,9 +6,9 @@ use c64_assembler::{
 };
 use c64_encoder::command::{
     modules::{
-        dummy_resource_table_module, BankBuilder, ConditionBuilder, EngineBuilder, FramePlayBuilder, LoaderBackend,
-        LoaderBuilder, LoaderRegularBuilder, RefreshBuilder, RefreshWaitN, RegularLoaderBackend, ResourceBuilder,
-        StubLoaderBackend,
+        dummy_resource_table_module, BankBuilder, ConditionBuilder, EngineBuilder, FramePlayBuilder, Irq,
+        LoaderBackend, LoaderBuilder, LoaderRegularBuilder, RefreshBuilder, RefreshWaitN, RegularLoaderBackend,
+        ResourceBuilder, StubLoaderBackend,
     },
     DecoderModule,
 };
@@ -24,6 +24,49 @@ const STUB_IMAGE_ADDRESS: u16 = 0x3000;
 const RESOURCE_DEST_0: u16 = 0x4000;
 const RESOURCE_DEST_1: u16 = 0x5000;
 const STUB_COUNTER: u16 = 0x3E10;
+const CIA2_IRQ_CONTROL: u16 = 0xDD0D;
+const CIA2_TIMER_A_CONTROL: u16 = 0xDD0E;
+const CIA2_TIMER_B_CONTROL: u16 = 0xDD0F;
+const LOADER_STATUS: u16 = 0x80;
+const LOADER_TEST_CALLS: u16 = 0x3E10;
+const ENGINE_NMI_TIMER_B_PENDING: u16 = 0x3E34;
+const NMI_FRAME_A: u8 = 0xC3;
+const NMI_FRAME_X: u8 = 0xA7;
+const NMI_FRAME_Y: u8 = 0x5E;
+
+#[derive(Clone, Debug, Default)]
+struct IcrBus {
+    memory: Memory,
+    irq_control_writes: Vec<u8>,
+    timer_control_writes: Vec<u8>,
+}
+
+impl Bus for IcrBus {
+    fn get_byte(&mut self, address: u16) -> u8 {
+        self.memory.get_byte(address)
+    }
+
+    fn set_byte(&mut self, address: u16, value: u8) {
+        match address {
+            CIA2_IRQ_CONTROL => self.irq_control_writes.push(value),
+            CIA2_TIMER_A_CONTROL | CIA2_TIMER_B_CONTROL => self.timer_control_writes.push(value),
+            _ => {}
+        }
+        self.memory.set_byte(address, value);
+    }
+}
+
+/// Seed the emulator's RTI frame at `$01F7..$01F9` (status/PC).
+///
+/// The KERNAL NMI entry at `$FE43` is only `SEI; JMP ($0318)`, so the engine
+/// handler owns the A/X/Y frame. Callers set those registers on the CPU before
+/// running, with SP left at `$F6`; the handler restores them and RTI leaves SP
+/// at `$F9`.
+fn seed_interrupt_frame(bus: &mut IcrBus, stop_address: u16) {
+    bus.memory.set_byte(0x01F7, 0x20);
+    bus.memory.set_byte(0x01F8, stop_address as u8);
+    bus.memory.set_byte(0x01F9, (stop_address >> 8) as u8);
+}
 
 fn resource_table() -> Vec<u8> {
     vec![
@@ -321,6 +364,320 @@ fn regular_turnaround_resets_the_receive_index() -> AssemblerResult<()> {
 }
 
 #[test]
+fn regular_timer_mask_is_set_on_enable_and_cleared_on_disable() -> AssemblerResult<()> {
+    let main = InstructionBuilder::default()
+        .jsr_addr("engine__loader__regular__enable_timer")
+        .jsr_addr("engine__loader__regular__disable_timer")
+        .jsr_addr("engine__loader__regular__enable_timer")
+        .raw(&[0xFF])
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("CURRENT_PTR", 0xFE)
+        .add_loader_addresses()
+        .add_loader_regular_addresses()
+        .add_resource_addresses()
+        .add_condition_addresses()
+        .module(ModuleBuilder::default().instructions(main).build())
+        .module(resource_table_module())
+        .module(c64_encoder::command::modules::Resource::module())
+        .module(c64_encoder::command::modules::Condition::module())
+        .module(RegularLoaderBackend::module())
+        .build()?;
+    application.validate()?;
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut bus = IcrBus::default();
+    bus.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+    let mut cpu = CPU::new(bus, Nmos6502);
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    assert_eq!(cpu.memory.irq_control_writes, vec![0x81, 0x03, 0x81]);
+    assert_eq!(
+        cpu.memory.timer_control_writes,
+        vec![0x00, 0x01, 0x00, 0x00, 0x00, 0x01]
+    );
+    Ok(())
+}
+
+#[test]
+fn nmi_handler_saves_its_own_frame_and_a_timer_b_handoff_flag() -> AssemblerResult<()> {
+    let hooks = InstructionBuilder::default()
+        .label("engine__loader__on_irq")
+        .rts()
+        .label("engine__refresh__on_refresh")
+        .rts()
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("CIA2_TIMER_A_CONTROL", CIA2_TIMER_A_CONTROL)
+        .define_address("CIA2_TIMER_A_LO", 0xDD04)
+        .define_address("CIA2_TIMER_A_HI", 0xDD05)
+        .define_address("CIA2_TIMER_B_CONTROL", 0xDD0F)
+        .define_address("CIA2_TIMER_B_LO", 0xDD06)
+        .define_address("CIA2_TIMER_B_HI", 0xDD07)
+        .define_address("ENGINE_NMI_ACTIVE", 0x3E31)
+        .define_address("ENGINE_NMI_TIMER_B_PENDING", ENGINE_NMI_TIMER_B_PENDING)
+        .define_address("LOADER_STATUS", 0x80)
+        .define_address("VIC2_IRQ_STATUS", 0xD019)
+        .define_address("C64_IRQ_EPLOGUE", 0xEA81)
+        .module(ModuleBuilder::default().instructions(hooks).build())
+        .module(Irq::module())
+        .build()?;
+    application.validate()?;
+    let source = DasmGenerator::default().generate(application)?;
+
+    assert!(source.contains(
+        "engine__irq__nmi_handler:\n  pha\n  inc ENGINE_NMI_ACTIVE\n  lda #$00\n  sta CIA2_TIMER_A_CONTROL\n  sta CIA2_TIMER_B_CONTROL\n  lda CIA2_IRQ_CONTROL\n  lda ENGINE_NMI_ACTIVE\n  cmp #$01\n  bne engine__irq__nmi_handler__nested\n  lda ENGINE_NMI_TIMER_B_PENDING\n  bne engine__irq__nmi_handler__timer_b"
+    ));
+    assert!(source.contains("engine__irq__nmi_handler__nested:\n  dec ENGINE_NMI_ACTIVE\n  pla\n  rti"));
+    assert!(source.contains(
+        "engine__irq__nmi_handler__timer_b:\n  lda #$00\n  sta ENGINE_NMI_TIMER_B_PENDING\n  lda #$02\n  sta CIA2_IRQ_CONTROL\n  lda #$00\n  sta CIA2_TIMER_B_CONTROL\n  lda #$32\n  sta CIA2_TIMER_A_LO"
+    ));
+    assert!(source.contains(
+        "engine__irq__nmi_handler__owner_done:\n  lda LOADER_STATUS\n  and #$02\n  beq engine__irq__nmi_handler__clear_guard"
+    ));
+    assert!(source.contains("  lda #$01\n  sta ENGINE_NMI_TIMER_B_PENDING\n  lda #$09\n  sta CIA2_TIMER_B_CONTROL"));
+    assert!(source.contains("engine__irq__nmi_handler__clear_guard:\n  lda #$00\n  sta ENGINE_NMI_ACTIVE\n  pla\n  tay\n  pla\n  tax\n  pla\n  rti"));
+    assert!(!source.contains("engine__irq__nmi_handler__nested:\n  dec ENGINE_NMI_ACTIVE\n  jmp engine__irq__epilogue"));
+    assert!(!source.contains("sta ENGINE_NMI_A\n"));
+    assert!(!source.contains("lda ENGINE_NMI_A\n"));
+    Ok(())
+}
+
+#[test]
+fn nmi_handler_schedules_the_next_phase_only_while_busy() -> AssemblerResult<()> {
+    const STOP_ADDRESS: u16 = 0x0200;
+
+    let main = InstructionBuilder::default()
+        .jmp_addr("engine__irq__nmi_handler")
+        .build();
+    let hooks = InstructionBuilder::default()
+        .label("engine__loader__on_irq")
+        .inc_addr("LOADER_TEST_CALLS")
+        .rts()
+        .label("engine__refresh__on_refresh")
+        .rts()
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("CIA2_TIMER_A_CONTROL", CIA2_TIMER_A_CONTROL)
+        .define_address("CIA2_TIMER_A_LO", 0xDD04)
+        .define_address("CIA2_TIMER_A_HI", 0xDD05)
+        .define_address("CIA2_TIMER_B_CONTROL", 0xDD0F)
+        .define_address("CIA2_TIMER_B_LO", 0xDD06)
+        .define_address("CIA2_TIMER_B_HI", 0xDD07)
+        .define_address("ENGINE_NMI_ACTIVE", 0x3E31)
+        .define_address("ENGINE_NMI_TIMER_B_PENDING", ENGINE_NMI_TIMER_B_PENDING)
+        .define_address("LOADER_STATUS", LOADER_STATUS)
+        .define_address("LOADER_TEST_CALLS", LOADER_TEST_CALLS)
+        .define_address("VIC2_IRQ_STATUS", 0xD019)
+        .define_address("C64_IRQ_EPLOGUE", 0xEA81)
+        .module(ModuleBuilder::default().instructions(main).build())
+        .module(ModuleBuilder::default().instructions(hooks).build())
+        .module(Irq::module())
+        .build()?;
+    application.validate()?;
+
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut bus = IcrBus::default();
+    bus.memory.set_byte(LOADER_STATUS, 0b0000_0010);
+    bus.memory.set_byte(STOP_ADDRESS, 0xFF);
+    seed_interrupt_frame(&mut bus, STOP_ADDRESS);
+    bus.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+
+    let mut cpu = CPU::new(bus, Nmos6502);
+    cpu.registers.stack_pointer.0 = 0xF6;
+    cpu.registers.accumulator = NMI_FRAME_A;
+    cpu.registers.index_x = NMI_FRAME_X;
+    cpu.registers.index_y = NMI_FRAME_Y;
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    assert_eq!(cpu.memory.irq_control_writes, vec![0x02, 0x82]);
+    assert_eq!(cpu.memory.timer_control_writes, vec![0x00, 0x00, 0x00, 0x09]);
+    assert_eq!(cpu.memory.get_byte(0x3E31), 0);
+    assert_eq!(cpu.memory.get_byte(ENGINE_NMI_TIMER_B_PENDING), 1);
+    assert_eq!(cpu.memory.get_byte(LOADER_TEST_CALLS), 1);
+    assert_eq!(cpu.registers.accumulator, NMI_FRAME_A);
+    assert_eq!(cpu.registers.index_x, NMI_FRAME_X);
+    assert_eq!(cpu.registers.index_y, NMI_FRAME_Y);
+    assert_eq!(cpu.registers.stack_pointer.0, 0xF9);
+    Ok(())
+}
+
+#[test]
+fn nested_nmi_entry_does_not_run_the_loader_or_disturb_the_owner_stack() -> AssemblerResult<()> {
+    const STOP_ADDRESS: u16 = 0x0200;
+
+    let main = InstructionBuilder::default()
+        .jmp_addr("engine__irq__nmi_handler")
+        .build();
+    let hooks = InstructionBuilder::default()
+        .label("engine__loader__on_irq")
+        .inc_addr("LOADER_TEST_CALLS")
+        .rts()
+        .label("engine__refresh__on_refresh")
+        .rts()
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("CIA2_TIMER_A_CONTROL", CIA2_TIMER_A_CONTROL)
+        .define_address("CIA2_TIMER_A_LO", 0xDD04)
+        .define_address("CIA2_TIMER_A_HI", 0xDD05)
+        .define_address("CIA2_TIMER_B_CONTROL", CIA2_TIMER_B_CONTROL)
+        .define_address("CIA2_TIMER_B_LO", 0xDD06)
+        .define_address("CIA2_TIMER_B_HI", 0xDD07)
+        .define_address("ENGINE_NMI_ACTIVE", 0x3E31)
+        .define_address("ENGINE_NMI_TIMER_B_PENDING", ENGINE_NMI_TIMER_B_PENDING)
+        .define_address("LOADER_STATUS", 0x80)
+        .define_address("LOADER_TEST_CALLS", LOADER_TEST_CALLS)
+        .define_address("VIC2_IRQ_STATUS", 0xD019)
+        .define_address("C64_IRQ_EPLOGUE", 0xEA81)
+        .module(ModuleBuilder::default().instructions(main).build())
+        .module(ModuleBuilder::default().instructions(hooks).build())
+        .module(Irq::module())
+        .build()?;
+    application.validate()?;
+
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut bus = IcrBus::default();
+    bus.memory.set_byte(0x3E31, 1);
+    bus.memory.set_byte(LOADER_STATUS, 0b0000_0010);
+    bus.memory.set_byte(STOP_ADDRESS, 0xFF);
+    seed_interrupt_frame(&mut bus, STOP_ADDRESS);
+    bus.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+
+    let mut cpu = CPU::new(bus, Nmos6502);
+    cpu.registers.stack_pointer.0 = 0xF6;
+    cpu.registers.accumulator = NMI_FRAME_A;
+    cpu.registers.index_x = NMI_FRAME_X;
+    cpu.registers.index_y = NMI_FRAME_Y;
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    assert!(cpu.memory.irq_control_writes.is_empty());
+    assert_eq!(cpu.memory.timer_control_writes, vec![0x00, 0x00]);
+    assert_eq!(cpu.memory.get_byte(0x3E31), 1);
+    assert_eq!(cpu.memory.get_byte(ENGINE_NMI_TIMER_B_PENDING), 0);
+    assert_eq!(cpu.memory.get_byte(LOADER_TEST_CALLS), 0);
+    assert_eq!(cpu.registers.accumulator, NMI_FRAME_A);
+    assert_eq!(cpu.registers.index_x, NMI_FRAME_X);
+    assert_eq!(cpu.registers.index_y, NMI_FRAME_Y);
+    assert_eq!(cpu.registers.stack_pointer.0, 0xF9);
+    Ok(())
+}
+
+#[test]
+fn timer_b_nmi_restarts_timer_a_without_running_the_loader() -> AssemblerResult<()> {
+    const STOP_ADDRESS: u16 = 0x0200;
+
+    let main = InstructionBuilder::default()
+        .jmp_addr("engine__irq__nmi_handler")
+        .build();
+    let hooks = InstructionBuilder::default()
+        .label("engine__loader__on_irq")
+        .inc_addr("LOADER_TEST_CALLS")
+        .rts()
+        .label("engine__refresh__on_refresh")
+        .rts()
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("CIA2_TIMER_A_CONTROL", CIA2_TIMER_A_CONTROL)
+        .define_address("CIA2_TIMER_A_LO", 0xDD04)
+        .define_address("CIA2_TIMER_A_HI", 0xDD05)
+        .define_address("CIA2_TIMER_B_CONTROL", CIA2_TIMER_B_CONTROL)
+        .define_address("CIA2_TIMER_B_LO", 0xDD06)
+        .define_address("CIA2_TIMER_B_HI", 0xDD07)
+        .define_address("ENGINE_NMI_ACTIVE", 0x3E31)
+        .define_address("ENGINE_NMI_TIMER_B_PENDING", ENGINE_NMI_TIMER_B_PENDING)
+        .define_address("LOADER_STATUS", 0x80)
+        .define_address("LOADER_TEST_CALLS", LOADER_TEST_CALLS)
+        .define_address("VIC2_IRQ_STATUS", 0xD019)
+        .define_address("C64_IRQ_EPLOGUE", 0xEA81)
+        .module(ModuleBuilder::default().instructions(main).build())
+        .module(ModuleBuilder::default().instructions(hooks).build())
+        .module(Irq::module())
+        .build()?;
+    application.validate()?;
+
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut bus = IcrBus::default();
+    bus.memory.set_byte(ENGINE_NMI_TIMER_B_PENDING, 1);
+    bus.memory.set_byte(0x3E31, 0);
+    bus.memory.set_byte(LOADER_STATUS, 0b0000_0010);
+    bus.memory.set_byte(STOP_ADDRESS, 0xFF);
+    seed_interrupt_frame(&mut bus, STOP_ADDRESS);
+    bus.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+
+    let mut cpu = CPU::new(bus, Nmos6502);
+    cpu.registers.stack_pointer.0 = 0xF6;
+    cpu.registers.accumulator = NMI_FRAME_A;
+    cpu.registers.index_x = NMI_FRAME_X;
+    cpu.registers.index_y = NMI_FRAME_Y;
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    assert_eq!(cpu.memory.irq_control_writes, vec![0x02, 0x81]);
+    assert_eq!(cpu.memory.timer_control_writes, vec![0x00, 0x00, 0x00, 0x01]);
+    assert_eq!(cpu.memory.get_byte(0xDD04), 50);
+    assert_eq!(cpu.memory.get_byte(0xDD05), 0);
+    assert_eq!(cpu.memory.get_byte(0x3E31), 0);
+    assert_eq!(cpu.memory.get_byte(ENGINE_NMI_TIMER_B_PENDING), 0);
+    assert_eq!(cpu.memory.get_byte(LOADER_TEST_CALLS), 0);
+    assert_eq!(cpu.registers.accumulator, NMI_FRAME_A);
+    assert_eq!(cpu.registers.index_x, NMI_FRAME_X);
+    assert_eq!(cpu.registers.index_y, NMI_FRAME_Y);
+    assert_eq!(cpu.registers.stack_pointer.0, 0xF9);
+    Ok(())
+}
+
+#[test]
+fn regular_loader_state_lives_outside_kernal_zero_page() -> AssemblerResult<()> {
+    let application = ApplicationBuilder::default()
+        .add_loader_regular_addresses()
+        .add_refresh_addresses()
+        .build()?;
+
+    let address = |name: &str| match application
+        .defines
+        .iter()
+        .find(|define| define.name == name)
+        .unwrap_or_else(|| panic!("missing define {name}"))
+        .value
+    {
+        c64_assembler::memory::define::Value::Address(address)
+        | c64_assembler::memory::define::Value::Zeropage(address) => address,
+    };
+
+    assert_eq!(address("LOADER_IEC_STATE"), 0x3E20);
+    assert_eq!(address("LOADER_IEC_TIMEOUT"), 0x3E2E);
+    assert_eq!(address("REFRESH_WAIT_COUNT"), 0x3E2F);
+    for name in [
+        "LOADER_IEC_STATE",
+        "LOADER_IEC_PHASE",
+        "LOADER_IEC_BIT",
+        "LOADER_IEC_BYTE",
+        "LOADER_IEC_FLAGS",
+        "LOADER_IEC_PORT",
+        "LOADER_IEC_TRACK",
+        "LOADER_IEC_SECTOR",
+        "LOADER_IEC_SECTOR_LEFT",
+        "LOADER_IEC_INDEX",
+        "LOADER_IEC_TENS",
+        "LOADER_IEC_ONES",
+        "LOADER_IEC_MODULUS",
+        "LOADER_IEC_TIMEOUT_HI",
+        "LOADER_IEC_TIMEOUT",
+        "REFRESH_WAIT_COUNT",
+    ] {
+        assert!(address(name) >= 0x0100, "{name} must not use KERNAL/BASIC zero page");
+    }
+    Ok(())
+}
+
+#[test]
 fn frame_play_n_calls_frame_process_exactly_n_times() -> AssemblerResult<()> {
     let mut stub = InstructionBuilder::default();
     stub.label("engine__frame__process")
@@ -480,6 +837,7 @@ fn full_runtime_application_has_expected_primitives_without_interpreter_state() 
         "engine__bank__init:",
         "engine__bank__restore:",
         "engine__irq__handler:",
+        "engine__irq__nmi_handler:",
         "resource_table:",
     ] {
         assert!(source.contains(label), "missing {label}");
@@ -487,10 +845,33 @@ fn full_runtime_application_has_expected_primitives_without_interpreter_state() 
     assert!(source.contains("; --- Module begin: ENGINE__LOADER__BACKEND_REGULAR ---"));
     assert!(!source.contains("ENGINE__LOADER__BACKEND_STUB"));
     assert!(source.contains("CIA2_TIMER_A_CONTROL"));
+    assert!(source.contains("CIA2_TIMER_B_CONTROL"));
+    assert!(source.contains("  lda #$FF\n  sta VIC2_IRQ_STATUS"));
     assert!(source.contains("  jsr engine__loader__on_irq"));
     assert!(!source.contains("LOADER_WAIT_REQUIRED"));
     assert!(!source.contains("SEQUENCE_PTR"));
     assert!(!source.contains("engine__sequence__opcode"));
+
+    // The first send phase asserts ATN and CLK together, then waits for the
+    // listener ACK before sending any data bits.
+    assert!(source.contains("  jsr engine__loader__regular__atn_mask"));
+    assert!(source.contains("  ora #$10"));
+    assert!(source.contains("  jsr engine__loader__regular__line"));
+
+    // Timeout-driven EOI is reachable, and a normal first CLK-low goes to
+    // bit reception instead of skipping the EOI branch.
+    assert!(source.contains("engine__loader__regular__recv_phase__eoi_start:"));
+    assert!(source.contains("  jmp engine__loader__regular__recv_phase__eoi_start"));
+    assert!(source.contains("  jmp engine__loader__regular__recv_phase__bit_loop"));
+
+    // Each received bit must resume at the sampler. Branching back to
+    // `bit_loop` would reset BIT to eight on every bit and never reach the
+    // byte ACK. A single read and inline X countdown keep the sampler tight
+    // enough for short CLK edges; a JSR timeout check misses the eighth bit.
+    assert!(source.contains("engine__loader__regular__recv_phase__bit_low_wait:\n  lda CIA2_DATA_PORT\n  asl"));
+    assert!(source.contains("  bmi engine__loader__regular__recv_phase__bit_low_tick\n  dec LOADER_IEC_BIT\n  bne engine__loader__regular__recv_phase__bit_high_wait\n  jmp engine__loader__regular__recv_phase__byte_ack"));
+    assert!(source.contains("engine__loader__regular__recv_phase__bit_high_tick:\n  dex\n  bne engine__loader__regular__recv_phase__bit_high_wait"));
+    assert!(source.contains("engine__loader__regular__recv_phase__bit_low_tick:\n  dex\n  bne engine__loader__regular__recv_phase__bit_low_wait"));
     Ok(())
 }
 
