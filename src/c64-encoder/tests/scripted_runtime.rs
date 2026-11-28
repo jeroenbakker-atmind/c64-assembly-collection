@@ -25,6 +25,7 @@ const RESOURCE_DEST_0: u16 = 0x4000;
 const RESOURCE_DEST_1: u16 = 0x5000;
 const STUB_COUNTER: u16 = 0x3E10;
 const SECTOR_CHAIN_RESULT_BASE: u16 = 0x3F00;
+const CIA2_DATA_PORT: u16 = 0xDD00;
 const CIA2_IRQ_CONTROL: u16 = 0xDD0D;
 const CIA2_TIMER_A_CONTROL: u16 = 0xDD0E;
 const CIA2_TIMER_B_CONTROL: u16 = 0xDD0F;
@@ -45,6 +46,7 @@ struct IcrBus {
     memory: Memory,
     irq_control_writes: Vec<u8>,
     timer_control_writes: Vec<u8>,
+    port_writes: Vec<u8>,
 }
 
 impl Bus for IcrBus {
@@ -54,6 +56,7 @@ impl Bus for IcrBus {
 
     fn set_byte(&mut self, address: u16, value: u8) {
         match address {
+            CIA2_DATA_PORT => self.port_writes.push(value),
             CIA2_IRQ_CONTROL => self.irq_control_writes.push(value),
             CIA2_TIMER_A_CONTROL | CIA2_TIMER_B_CONTROL => self.timer_control_writes.push(value),
             _ => {}
@@ -622,6 +625,43 @@ fn regular_timer_mask_is_set_on_enable_and_cleared_on_disable() -> AssemblerResu
 }
 
 #[test]
+fn regular_loader_preserves_the_engine_vic_bank_on_port_writes() -> AssemblerResult<()> {
+    let main = InstructionBuilder::default()
+        .jsr_addr("engine__loader__backend__init")
+        .lda_imm(0b0001_0000)
+        .jsr_addr("engine__loader__regular__line")
+        .raw(&[0xFF])
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CURRENT_PTR", 0xFE)
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .add_loader_addresses()
+        .add_loader_regular_addresses()
+        .add_resource_addresses()
+        .add_condition_addresses()
+        .module(ModuleBuilder::default().instructions(main).build())
+        .module(resource_table_module())
+        .module(c64_encoder::command::modules::Resource::module())
+        .module(c64_encoder::command::modules::Condition::module())
+        .module(RegularLoaderBackend::module())
+        .build()?;
+    application.validate()?;
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut bus = IcrBus::default();
+    // `engine__init` selected VIC bank 3 by writing zero to bits 0-1.
+    bus.memory.set_byte(CIA2_DATA_PORT, 0);
+    bus.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+    let mut cpu = CPU::new(bus, Nmos6502);
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    assert_eq!(cpu.memory.get_byte(0x3E37), 0x04);
+    assert_eq!(cpu.memory.port_writes, vec![0x04, 0x14]);
+    assert_eq!(cpu.memory.get_byte(CIA2_DATA_PORT), 0x14);
+    Ok(())
+}
+
+#[test]
 fn nmi_handler_saves_its_own_frame_and_a_timer_b_handoff_flag() -> AssemblerResult<()> {
     let hooks = InstructionBuilder::default()
         .label("engine__loader__on_irq")
@@ -890,6 +930,7 @@ fn regular_loader_state_lives_outside_kernal_zero_page() -> AssemblerResult<()> 
         "LOADER_IEC_BYTE",
         "LOADER_IEC_FLAGS",
         "LOADER_IEC_PORT",
+        "LOADER_IEC_PORT_BASE",
         "LOADER_IEC_TRACK",
         "LOADER_IEC_SECTOR",
         "LOADER_IEC_SECTOR_LEFT",
