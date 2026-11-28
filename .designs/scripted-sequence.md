@@ -911,7 +911,7 @@ impl<'a> SequenceEmitter<'a> {
 }
 ```
 
-`SequenceStep` is an authoring type, not a runtime opcode. `SequenceEmitter::emit` produces the assembler instructions that become a `Module` in `intro.prg`. Fluent methods on `Sequence` (`init()`, `load()`, `wait_loaded()`, `stream_part()`, `play()`, `repeat_until()`, etc.) only construct this AST. `StreamPart` owns the load/replay/wait interleave and emits generated labels, a load-completion JSR, replay instructions, and a back-edge `jmp`; builders do not need to expose that loop themselves.
+`SequenceStep` is an authoring type, not a runtime opcode. `SequenceEmitter::emit` produces the assembler instructions that become a `Module` in `intro.prg`. Fluent methods on `Sequence` (`init()`, `load()`, `wait_loaded()`, `stream_part()`, `recycle()`, `play()`, `repeat_until()`, etc.) only construct this AST. `StreamPart` owns the load/replay/wait interleave and emits generated labels, a load-completion JSR, replay instructions, and a back-edge `jmp`; builders do not need to expose that loop themselves. `recycle()` emits no runtime code; it is the explicit slot lifetime marker consumed by `ResourcePlan::allocate_slots`.
 
 ### 8.3 MasterPlanner
 
@@ -937,7 +937,7 @@ Algorithm:
 1. **Input**: one or more `DemoBuilder`s (act 1, act 2) plus named byte blobs such as encoded music.
 2. **Frame records**: compute each `FrameBuilder::byte_size()` and keep the original bytes. Do not parse the global frame count; frame resources contain only frame records.
 3. **Resource splitting**: walk frames in playback order. Close a frame resource before adding a frame that would exceed `slot_size`. Force a close at act boundaries. Assign stable `ResourceId`s in creation order and derive each `name` from act/range (for example `act1_p0`). Assert `frame_count <= u16::MAX`.
-4. **Frame placement**: resources with `frame = Some(_)` get `slot = frame_resource_index % slot_count` and destination `frame_region.base + slot * slot_size`. Assert that a resource scheduled to load while another resource is still being played never uses the same slot.
+4. **Frame placement**: `ResourcePlan::allocate_slots` walks the finished sequence and assigns a slot at each `Load`/`StreamPart`. A slot stays live until its explicit `Recycle`, then returns to the free pool; destination is `frame_region.base + slot * slot_size`. Playing, reloading, or recycling outside those lifetimes is a build error.
 5. **Auxiliary placement**: resources with `frame = None` get no frame slot. They are allocated from `music_region` using their actual `encoded_bytes.len()`. If the blob exceeds `$A000..$BFFF`, fail the build with the resource `name`, required size, and configured region. `requires_bank_out` is derived from the region and emitted into the generated startup code.
 6. **Known encoded size**: `encoded_bytes` is fixed. Compute `sector_count = ceil(encoded_bytes.len() / 256)`. Pad the last sector with `0x00`. `payload_bytes` remains exact.
 7. **Sector allocation**: consume logical sectors from the mastered stream order (§9). Store `start = (track, sector)` and derived `sector_count` in the generated `LoadRange`.

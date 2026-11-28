@@ -40,8 +40,10 @@ pub fn build_intro() -> AssemblerResult<IntroBuild> {
 }
 
 fn build_intro_from_demos(act1: &DemoBuilder, act2: &DemoBuilder) -> AssemblerResult<IntroBuild> {
-    let plan = build_plan(act1, act2);
+    let mut plan = build_plan(act1, act2);
     let sequence = build_sequence(&plan);
+    plan.allocate_slots(&sequence)
+        .expect("failed to allocate intro frame slots");
     let application = build_application(&plan, &sequence)?;
     application.validate()?;
     let prg = ProgramGenerator::default().generate(application)?;
@@ -118,7 +120,9 @@ fn append_parts(sequence: Sequence, parts: &[FramePart]) -> Sequence {
     let mut sequence = sequence.load(first.id).wait_loaded();
     let mut previous = first;
     for next in rest {
-        sequence = sequence.stream_part(next.id, previous.id, previous.frames);
+        sequence = sequence
+            .stream_part(next.id, previous.id, previous.frames)
+            .recycle(previous.id);
         previous = next;
     }
     sequence.play(previous.id, 0, previous.frames)
@@ -239,11 +243,15 @@ mod tests {
         let load0 = format!("Load({p0})");
         let stream01 = format!("StreamPart {{ next: {p1}, previous: {p0}, frames: {p0_frames} }}");
         let stream12 = format!("StreamPart {{ next: {p2}, previous: {p1}, frames: {p1_frames} }}");
+        let recycle0 = format!("Recycle({p0})");
+        let recycle1 = format!("Recycle({p1})");
         let play2 = format!("PlayFrames {{ resource: {p2}, offset: 0, count: {p2_frames} }}");
 
         assert!(steps.find(&load0).unwrap() < steps.find(&stream01).unwrap());
-        assert!(steps.find(&stream01).unwrap() < steps.find(&stream12).unwrap());
-        assert!(steps.find(&stream12).unwrap() < steps.find(&play2).unwrap());
+        assert!(steps.find(&stream01).unwrap() < steps.find(&recycle0).unwrap());
+        assert!(steps.find(&recycle0).unwrap() < steps.find(&stream12).unwrap());
+        assert!(steps.find(&stream12).unwrap() < steps.find(&recycle1).unwrap());
+        assert!(steps.find(&recycle1).unwrap() < steps.find(&play2).unwrap());
         assert!(steps.contains(&stream01));
         assert!(steps.contains(&stream12));
         assert!(!steps.contains("RepeatUntil { condition: LoadComplete"));

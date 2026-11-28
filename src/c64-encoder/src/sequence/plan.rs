@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt;
 
 use c64::create_disk::MasteredRange;
@@ -174,6 +174,8 @@ pub enum PlanError {
     OutOfMemory(String),
     TooManyResources,
     SectorCountOverflow(String),
+    SlotExhausted(String),
+    InvalidSlotLifetime(String),
 }
 
 impl fmt::Display for PlanError {
@@ -186,6 +188,12 @@ impl fmt::Display for PlanError {
             PlanError::TooManyResources => write!(f, "more than 255 resources"),
             PlanError::SectorCountOverflow(name) => {
                 write!(f, "resource {name} needs more than 255 sectors")
+            }
+            PlanError::SlotExhausted(name) => {
+                write!(f, "no free frame slot remains for resource {name}")
+            }
+            PlanError::InvalidSlotLifetime(message) => {
+                write!(f, "invalid frame slot lifetime: {message}")
             }
         }
     }
@@ -625,10 +633,61 @@ impl ResourcePlan {
         hash
     }
 
-    /// Rejects a new frame load into the slot whose frames are still being played.
-    pub fn validate_sequence_slots(&self, sequence: &Sequence) -> Result<(), PlanError> {
-        let mut last_played_slot: Option<SlotId> = None;
-        validate_slots(&self.resources, &sequence.steps, &mut last_played_slot)
+    /// Assign frame slots from explicit sequence lifetimes.
+    ///
+    /// A frame resource owns a slot from its `Load`/`StreamPart` until its
+    /// `Recycle`. Slots are reused only after the explicit release, so the
+    /// allocator cannot mistake "most recently played" for "still live".
+    pub fn allocate_slots(&mut self, sequence: &Sequence) -> Result<(), PlanError> {
+        let mut free: VecDeque<SlotId> = (0..self.config.slot_count).collect();
+        let mut live = BTreeMap::new();
+        let mut assigned = BTreeMap::new();
+        let mut retired = HashSet::new();
+        allocate_slots_in_steps(
+            &self.resources,
+            &sequence.steps,
+            &mut free,
+            &mut live,
+            &mut assigned,
+            &mut retired,
+            false,
+        )?;
+
+        let base = self.config.frame_region.base;
+        let slot_size = self.config.slot_size;
+        for resource in &mut self.resources {
+            if resource.frame.is_none() {
+                continue;
+            }
+            let slot = *assigned.get(&resource.id).ok_or_else(|| {
+                PlanError::InvalidSlotLifetime(format!("frame resource {} is never loaded", resource.name))
+            })?;
+            resource.slot = Some(slot);
+            resource.dest = base + slot as u16 * slot_size;
+        }
+
+        let destinations: BTreeMap<ResourceId, u16> = self
+            .resources
+            .iter()
+            .map(|resource| (resource.id, resource.dest))
+            .collect();
+        for range in &mut self.ranges {
+            if let Some(dest) = destinations.get(&range.resource_id) {
+                range.dest = *dest;
+            }
+        }
+        for report in &mut self.reports {
+            if let Some(dest) = destinations.get(&report.resource_id) {
+                report.dest = *dest;
+            }
+        }
+        for resource in &self.resources {
+            if resource.frame.is_some() {
+                let key = format!("DEST_{}", symbol_name(&resource.name));
+                self.constants.values.insert(key, resource.dest);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -643,38 +702,108 @@ fn mix_u16(hash: &mut u64, value: u16) {
     mix(hash, &[value as u8, (value >> 8) as u8]);
 }
 
-fn validate_slots(
+fn allocate_slots_in_steps(
     resources: &[DiskResource],
     steps: &[SequenceStep],
-    last_played_slot: &mut Option<SlotId>,
+    free: &mut VecDeque<SlotId>,
+    live: &mut BTreeMap<ResourceId, SlotId>,
+    assigned: &mut BTreeMap<ResourceId, SlotId>,
+    retired: &mut HashSet<ResourceId>,
+    in_loop: bool,
 ) -> Result<(), PlanError> {
     for step in steps {
         match step {
-            SequenceStep::Load(resource) => {
-                let slot = resources
-                    .iter()
-                    .find(|item| item.id == *resource)
-                    .and_then(|item| item.slot);
-                if let (Some(slot), Some(playing)) = (slot, *last_played_slot) {
-                    if slot == playing {
-                        return Err(PlanError::InvalidResource(format!(
-                            "resource {resource} would overwrite slot {slot} while it is playing"
+            SequenceStep::Load(resource) | SequenceStep::StreamPart { next: resource, .. } => {
+                if in_loop {
+                    return Err(PlanError::InvalidSlotLifetime(
+                        "loads must not be created inside a loop body".to_string(),
+                    ));
+                }
+                allocate_one_slot(resources, *resource, free, live, assigned, retired)?;
+                if let SequenceStep::StreamPart { previous, .. } = step {
+                    if !live.contains_key(previous) {
+                        return Err(PlanError::InvalidSlotLifetime(format!(
+                            "resource {previous} is replayed before it is loaded"
                         )));
                     }
                 }
             }
+            SequenceStep::Recycle(resource) => {
+                if in_loop {
+                    return Err(PlanError::InvalidSlotLifetime(
+                        "recycles must not be hidden inside a loop body".to_string(),
+                    ));
+                }
+                let resource = find_resource(resources, *resource)?;
+                if resource.frame.is_none() {
+                    return Err(PlanError::InvalidSlotLifetime(format!(
+                        "resource {} is not a frame slot",
+                        resource.name
+                    )));
+                }
+                if retired.contains(&resource.id) {
+                    return Err(PlanError::InvalidSlotLifetime(format!(
+                        "resource {} is recycled twice",
+                        resource.name
+                    )));
+                }
+                let slot = live.remove(&resource.id).ok_or_else(|| {
+                    PlanError::InvalidSlotLifetime(format!("resource {} is recycled while not live", resource.name))
+                })?;
+                free.push_back(slot);
+                retired.insert(resource.id);
+            }
             SequenceStep::PlayFrames { resource, .. } => {
-                *last_played_slot = resources
-                    .iter()
-                    .find(|item| item.id == *resource)
-                    .and_then(|item| item.slot);
+                if !live.contains_key(resource) {
+                    return Err(PlanError::InvalidSlotLifetime(format!(
+                        "resource {resource} is played before load or after recycle"
+                    )));
+                }
             }
             SequenceStep::RepeatCount { body, .. } | SequenceStep::RepeatUntil { body, .. } => {
-                let mut nested = *last_played_slot;
-                validate_slots(resources, body, &mut nested)?;
+                allocate_slots_in_steps(resources, body, free, live, assigned, retired, true)?;
             }
-            _ => {}
+            SequenceStep::Init | SequenceStep::WaitLoaded | SequenceStep::WaitRefreshes(_) | SequenceStep::End => {}
         }
     }
     Ok(())
+}
+
+fn allocate_one_slot(
+    resources: &[DiskResource],
+    id: ResourceId,
+    free: &mut VecDeque<SlotId>,
+    live: &mut BTreeMap<ResourceId, SlotId>,
+    assigned: &mut BTreeMap<ResourceId, SlotId>,
+    retired: &mut HashSet<ResourceId>,
+) -> Result<(), PlanError> {
+    let resource = find_resource(resources, id)?;
+    if resource.frame.is_none() {
+        return Ok(());
+    }
+    if live.contains_key(&id) {
+        return Err(PlanError::InvalidSlotLifetime(format!(
+            "resource {} is loaded twice without recycle",
+            resource.name
+        )));
+    }
+    if retired.contains(&id) {
+        return Err(PlanError::InvalidSlotLifetime(format!(
+            "resource {} is loaded after recycle",
+            resource.name
+        )));
+    }
+    let slot = free
+        .pop_front()
+        .ok_or_else(|| PlanError::SlotExhausted(resource.name.clone()))?;
+    live.insert(id, slot);
+    assigned.insert(id, slot);
+    Ok(())
+}
+
+fn find_resource(resources: &[DiskResource], id: ResourceId) -> Result<&DiskResource, PlanError> {
+    resources
+        .iter()
+        .find(|resource| resource.id == id)
+        .ok_or_else(|| PlanError::InvalidResource(format!("unknown resource id {id}")))
 }

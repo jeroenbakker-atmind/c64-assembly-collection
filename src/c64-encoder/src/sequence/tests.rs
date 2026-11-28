@@ -427,38 +427,112 @@ fn plan_hash_is_deterministic_and_changes_with_payload() {
     assert_ne!(first.plan_hash(), changed.plan_hash());
 }
 
-#[test]
-fn slot_lifetime_validation_rejects_overwriting_playing_frames() {
+fn slot_plan(chunks: usize) -> ResourcePlan {
     let mut planner = MasterPlanner::with_defaults().unwrap();
-    for index in 0..7 {
+    for index in 0..chunks {
         planner
             .add_frame_resource(
                 format!("chunk{index}"),
                 1,
-                index * 10 + 1,
-                index * 10 + 10,
+                index as u16 * 10 + 1,
+                index as u16 * 10 + 10,
                 vec![index as u8; 64],
             )
             .unwrap();
     }
-    let plan = planner.build().unwrap();
-    assert_eq!(plan.resources[6].slot, plan.resources[0].slot);
+    planner.build().unwrap()
+}
 
-    let bad = Sequence::new("bad")
-        .init()
-        .play(plan.id("chunk0"), 0, 10)
-        .load(plan.id("chunk6"))
-        .wait_loaded()
-        .play(plan.id("chunk6"), 0, 10)
-        .end();
-    assert!(plan.validate_sequence_slots(&bad).is_err());
+#[test]
+fn slot_allocator_reuses_only_after_recycle() {
+    let mut plan = slot_plan(7);
+    let mut sequence = Sequence::new("intro").init();
+    for index in 0..7 {
+        let id = plan.id(&format!("chunk{index}"));
+        if index == 0 {
+            sequence = sequence.load(id).wait_loaded();
+        } else {
+            sequence = sequence
+                .stream_part(id, plan.id(&format!("chunk{}", index - 1)), 10)
+                .recycle(plan.id(&format!("chunk{}", index - 1)));
+        }
+        sequence = sequence.play(id, 0, 10);
+    }
+    sequence = sequence.end();
 
-    let good = Sequence::new("good")
+    plan.allocate_slots(&sequence).unwrap();
+    let slots = (0..7)
+        .map(|index| plan.resources[index].slot.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(slots[0], 0);
+    assert_eq!(slots[1], 1);
+    assert_eq!(slots[6], slots[0]);
+    assert_eq!(plan.ranges[6].dest, plan.ranges[0].dest);
+    assert_eq!(plan.constants.get("DEST_CHUNK6"), Some(plan.ranges[0].dest));
+}
+
+#[test]
+fn slot_allocator_rejects_slot_exhaustion_without_recycle() {
+    let mut plan = slot_plan(7);
+    let mut sequence = Sequence::new("bad").init().load(plan.id("chunk0")).wait_loaded();
+    for index in 1..7 {
+        sequence = sequence
+            .stream_part(plan.id(&format!("chunk{index}")), plan.id("chunk0"), 10)
+            .play(plan.id(&format!("chunk{index}")), 0, 10);
+    }
+    sequence = sequence.end();
+
+    assert!(plan.allocate_slots(&sequence).is_err());
+}
+
+#[test]
+fn slot_allocator_rejects_use_after_recycle_and_double_recycle() {
+    let use_after = {
+        let mut plan = slot_plan(1);
+        let id = plan.id("chunk0");
+        let sequence = Sequence::new("bad")
+            .init()
+            .load(id)
+            .wait_loaded()
+            .play(id, 0, 10)
+            .recycle(id)
+            .play(id, 0, 10)
+            .end();
+        plan.allocate_slots(&sequence)
+    };
+    assert!(use_after.is_err());
+
+    let double_recycle = {
+        let mut plan = slot_plan(1);
+        let id = plan.id("chunk0");
+        let sequence = Sequence::new("bad")
+            .init()
+            .load(id)
+            .wait_loaded()
+            .play(id, 0, 10)
+            .recycle(id)
+            .recycle(id)
+            .end();
+        plan.allocate_slots(&sequence)
+    };
+    assert!(double_recycle.is_err());
+}
+
+#[test]
+fn slot_allocator_rejects_lifetime_changes_inside_loops() {
+    let mut plan = slot_plan(2);
+    let sequence = Sequence::new("bad")
         .init()
-        .play(plan.id("chunk0"), 0, 10)
-        .load(plan.id("chunk1"))
-        .wait_loaded()
-        .play(plan.id("chunk1"), 0, 10)
+        .repeat_count(2, |body| body.load(plan.id("chunk0")).wait_loaded())
         .end();
-    assert!(plan.validate_sequence_slots(&good).is_ok());
+    assert!(plan.allocate_slots(&sequence).is_err());
+
+    let mut plan = slot_plan(2);
+    let sequence = Sequence::new("bad")
+        .init()
+        .load(plan.id("chunk0"))
+        .wait_loaded()
+        .repeat_count(2, |body| body.recycle(plan.id("chunk0")))
+        .end();
+    assert!(plan.allocate_slots(&sequence).is_err());
 }

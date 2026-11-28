@@ -74,7 +74,9 @@ impl<'a> SequenceEmitter<'a> {
                 self.check_resource(*next)?;
                 self.check_resource(*previous)
             }
-            SequenceStep::PlayFrames { resource, .. } => self.check_resource(*resource),
+            SequenceStep::Recycle(resource) | SequenceStep::PlayFrames { resource, .. } => {
+                self.check_resource(*resource)
+            }
             SequenceStep::RepeatCount { body, .. } | SequenceStep::RepeatUntil { body, .. } => {
                 for nested in body {
                     self.validate_resources(nested)?;
@@ -126,6 +128,7 @@ impl<'a> SequenceEmitter<'a> {
                     builder.jmp_addr(&label).label(&done_label);
                     builder.jsr_addr("engine__loader__wait_loaded");
                 }
+                SequenceStep::Recycle(_) => {}
                 SequenceStep::PlayFrames {
                     resource,
                     offset,
@@ -217,6 +220,9 @@ impl<'a> SequenceEmitter<'a> {
                     lines.push(format!("{done_label}:"));
                     lines.push("    jsr engine__loader__wait_loaded".to_string());
                 }
+                SequenceStep::Recycle(resource) => {
+                    lines.push(format!("    ; recycle {resource} (build-time slot release)"));
+                }
                 SequenceStep::PlayFrames {
                     resource,
                     offset,
@@ -306,6 +312,11 @@ fn validate_steps(steps: &[SequenceStep], active: &mut Option<ResourceId>, in_lo
                 }
             }
             SequenceStep::StreamPart { next, previous, frames } => {
+                if in_loop {
+                    return Err(EmitError::Validation(
+                        "StreamPart must not appear in a loop body".to_string(),
+                    ));
+                }
                 if *next == *previous {
                     return Err(EmitError::Validation(
                         "StreamPart cannot replay the resource it is loading".to_string(),
@@ -322,6 +333,18 @@ fn validate_steps(steps: &[SequenceStep], active: &mut Option<ResourceId>, in_lo
                 // The emitted sequence starts and waits for its own load.
                 *active = Some(*next);
                 *active = None;
+            }
+            SequenceStep::Recycle(_) => {
+                if in_loop {
+                    return Err(EmitError::Validation(
+                        "Recycle must not appear in a loop body".to_string(),
+                    ));
+                }
+                if active.is_some() {
+                    return Err(EmitError::Validation(
+                        "Recycle emitted while a load is pending".to_string(),
+                    ));
+                }
             }
             SequenceStep::PlayFrames { resource, count, .. } => {
                 if *count == 0 {

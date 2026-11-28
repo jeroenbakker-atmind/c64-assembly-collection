@@ -19,6 +19,8 @@ pub enum SequenceStep {
         previous: ResourceId,
         frames: u16,
     },
+    /// Build-time slot release marker; emits no runtime instructions.
+    Recycle(ResourceId),
     PlayFrames {
         resource: ResourceId,
         offset: u16,
@@ -72,6 +74,12 @@ impl Sequence {
     /// Load the next part while the previous part is replayed during the transfer.
     pub fn stream_part(mut self, next: ResourceId, previous: ResourceId, frames: u16) -> Self {
         self.steps.push(SequenceStep::StreamPart { next, previous, frames });
+        self
+    }
+
+    /// Release a frame slot after its resource is no longer replayed.
+    pub fn recycle(mut self, resource: ResourceId) -> Self {
+        self.steps.push(SequenceStep::Recycle(resource));
         self
     }
 
