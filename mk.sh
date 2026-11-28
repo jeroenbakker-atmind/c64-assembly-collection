@@ -38,4 +38,8 @@ cd ..
 
 cargo run --release --bin builder
 
-${X64_BIN} ${DISK_IMAGE_PATH}
+${X64_BIN} \
+    -8 "${DISK_IMAGE_PATH}" \
+    -sounddev dummy \
+    -keybuf-delay 5000 \
+    -keybuf 'load\x22intro\x22,8,1\x0drun\x0d'
