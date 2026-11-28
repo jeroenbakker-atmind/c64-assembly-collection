@@ -34,16 +34,10 @@ const OUT_DATA: u8 = 0b0010_0000;
 /// that same status, so the receive loop must test these exact bits.
 const IN_CLK: u8 = 0b0100_0000;
 const IN_DATA: u8 = 0b1000_0000;
-const PORT_VIC_BANK_MASK: u8 = 0b0000_0011;
-/// KERNAL leaves CIA2 port bit 2 high alongside the two VIC bank bits. VICE
-/// uses the whole written port value when modelling the serial drivers, so the
-/// fixed part of the base image must include that bit. The two bank bits are
-/// captured from the engine's setup instead of being forced to KERNAL's `$07`,
-/// because the custom charset lives in VIC bank 3.
-const PORT_KERNAL_FIXED: u8 = 0b0000_0100;
-/// KERNAL writes zero to CIA input bits 6-7. VICE models those writes as the
-/// serial line drivers, so they must stay clear for the 1541 to release CLK and
-/// DATA; this matches KERNAL's `$0F`/`$CF`/`$DF` port images.
+/// CIA2 port base image used by KERNAL while the VIC stays in bank 0:
+/// bits 0-1 select `$0000-$3FFF`, bit 2 is fixed high, and input bits 6-7 are
+/// written zero so VICE releases the CLK/DATA line drivers.
+const PORT_KERNAL_BASE: u8 = 0b0000_0111;
 
 /// Timer A period. At ~1 MHz this is 100 cycles / 25 us, short enough to keep
 /// IEC bit timing valid while still yielding the CPU between phases.
@@ -77,7 +71,6 @@ impl LoaderRegularBuilder for ApplicationBuilder {
             .define_address("LOADER_IEC_BYTE", 0x3E23)
             .define_address("LOADER_IEC_FLAGS", 0x3E24)
             .define_address("LOADER_IEC_PORT", 0x3E25)
-            .define_address("LOADER_IEC_PORT_BASE", 0x3E37)
             .define_address("LOADER_IEC_TRACK", 0x3E26)
             .define_address("LOADER_IEC_SECTOR", 0x3E27)
             .define_address("LOADER_IEC_SECTOR_LEFT", 0x3E28)
@@ -144,11 +137,7 @@ impl LoaderBackend for RegularLoaderBackend {
                         InstructionBuilder::default()
                             .lda_imm(0b0011_1111)
                             .sta_addr("CIA2_DATA_DDR")
-                            .comment("Cache the engine's VIC bank with KERNAL's fixed CIA2 base bit.")
-                            .lda_addr("CIA2_DATA_PORT")
-                            .and_imm(PORT_VIC_BANK_MASK)
-                            .ora_imm(PORT_KERNAL_FIXED)
-                            .sta_addr("LOADER_IEC_PORT_BASE")
+                            .comment("VIC bank 0 is fixed; release the serial lines from KERNAL's base.")
                             .jsr_addr("engine__loader__regular__release_all")
                             .jsr_addr("engine__loader__regular__disable_timer")
                             .lda_imm(0)
@@ -253,7 +242,7 @@ impl LoaderBackend for RegularLoaderBackend {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__regular__port_write")
-                    .doc(&["Write the cached CIA2 port image."])
+                    .doc(&["Write the current CIA2 port image."])
                     .instructions(
                         InstructionBuilder::default()
                             .lda_addr("LOADER_IEC_PORT")
@@ -267,7 +256,7 @@ impl LoaderBackend for RegularLoaderBackend {
                 FunctionBuilder::default()
                     .name("engine__loader__regular__release_all")
                     .doc(&[
-                        "Release ATN, CLK and DATA while preserving the cached VIC bank.",
+                        "Release ATN, CLK and DATA while preserving VIC bank 0.",
                         "",
                         "Writing zero to the CIA input bits keeps their serial drivers released.",
                         "The drive floats DATA after acknowledging, so it must not be held by",
@@ -275,7 +264,7 @@ impl LoaderBackend for RegularLoaderBackend {
                     ])
                     .instructions(
                         InstructionBuilder::default()
-                            .lda_addr("LOADER_IEC_PORT_BASE")
+                            .lda_imm(PORT_KERNAL_BASE)
                             .sta_addr("LOADER_IEC_PORT")
                             .jsr_addr("engine__loader__regular__port_write")
                             .rts()
@@ -316,11 +305,11 @@ impl LoaderBackend for RegularLoaderBackend {
             .function(
                 FunctionBuilder::default()
                     .name("engine__loader__regular__line")
-                    .doc(&["Write A's asserted-line mask from bits 3-5, preserving the cached VIC bank."])
+                    .doc(&["Write A's asserted-line mask from bits 3-5, preserving VIC bank 0."])
                     .instructions(
                         InstructionBuilder::default()
                             .sta_addr("LOADER_IEC_TENS")
-                            .lda_addr("LOADER_IEC_PORT_BASE")
+                            .lda_imm(PORT_KERNAL_BASE)
                             .ora_addr("LOADER_IEC_TENS")
                             .sta_addr("LOADER_IEC_PORT")
                             .jsr_addr("engine__loader__regular__port_write")
@@ -344,7 +333,7 @@ impl LoaderBackend for RegularLoaderBackend {
                             .lda_addr("LOADER_IEC_PORT")
                             .and_imm(OUT_ATN | OUT_CLK)
                             .ora_addr("LOADER_IEC_TENS")
-                            .ora_addr("LOADER_IEC_PORT_BASE")
+                            .ora_imm(PORT_KERNAL_BASE)
                             .sta_addr("LOADER_IEC_PORT")
                             .jsr_addr("engine__loader__regular__port_write")
                             .rts()

@@ -629,7 +629,7 @@ fn regular_timer_mask_is_set_on_enable_and_cleared_on_disable() -> AssemblerResu
 }
 
 #[test]
-fn regular_loader_preserves_the_engine_vic_bank_on_port_writes() -> AssemblerResult<()> {
+fn regular_loader_uses_the_kernal_bank_zero_base_on_port_writes() -> AssemblerResult<()> {
     let main = InstructionBuilder::default()
         .jsr_addr("engine__loader__backend__init")
         .lda_imm(0b0001_0000)
@@ -652,16 +652,15 @@ fn regular_loader_preserves_the_engine_vic_bank_on_port_writes() -> AssemblerRes
     application.validate()?;
     let program = ProgramGenerator::default().generate(application)?;
     let mut bus = IcrBus::default();
-    // `engine__init` selected VIC bank 3 by writing zero to bits 0-1.
+    // The engine leaves CIA2 alone, so the loader must supply KERNAL's bank-0 base.
     bus.memory.set_byte(CIA2_DATA_PORT, 0);
     bus.set_bytes(PROGRAM_ADDRESS, &program[2..]);
     let mut cpu = CPU::new(bus, Nmos6502);
     cpu.registers.program_counter = PROGRAM_ADDRESS;
     cpu.run();
 
-    assert_eq!(cpu.memory.get_byte(0x3E37), 0x04);
-    assert_eq!(cpu.memory.port_writes, vec![0x04, 0x14]);
-    assert_eq!(cpu.memory.get_byte(CIA2_DATA_PORT), 0x14);
+    assert_eq!(cpu.memory.port_writes, vec![0x07, 0x17]);
+    assert_eq!(cpu.memory.get_byte(CIA2_DATA_PORT), 0x17);
     Ok(())
 }
 
@@ -927,6 +926,13 @@ fn regular_loader_state_lives_outside_kernal_zero_page() -> AssemblerResult<()> 
     assert_eq!(address("LOADER_IEC_STATE"), 0x3E20);
     assert_eq!(address("LOADER_IEC_TIMEOUT"), 0x3E2E);
     assert_eq!(address("REFRESH_WAIT_COUNT"), 0x3E2F);
+    assert!(
+        !application
+            .defines
+            .iter()
+            .any(|define| define.name == "LOADER_IEC_PORT_BASE"),
+        "the fixed VIC bank no longer needs a loader port-base cache"
+    );
     for name in [
         "LOADER_IEC_STATE",
         "LOADER_IEC_PHASE",
@@ -934,7 +940,6 @@ fn regular_loader_state_lives_outside_kernal_zero_page() -> AssemblerResult<()> 
         "LOADER_IEC_BYTE",
         "LOADER_IEC_FLAGS",
         "LOADER_IEC_PORT",
-        "LOADER_IEC_PORT_BASE",
         "LOADER_IEC_TRACK",
         "LOADER_IEC_SECTOR",
         "LOADER_IEC_SECTOR_LEFT",
