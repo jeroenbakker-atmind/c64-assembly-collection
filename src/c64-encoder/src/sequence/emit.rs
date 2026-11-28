@@ -70,6 +70,10 @@ impl<'a> SequenceEmitter<'a> {
     fn validate_resources(&self, step: &SequenceStep) -> Result<(), EmitError> {
         match step {
             SequenceStep::Load(resource) => self.check_resource(*resource),
+            SequenceStep::StreamPart { next, previous, .. } => {
+                self.check_resource(*next)?;
+                self.check_resource(*previous)
+            }
             SequenceStep::PlayFrames { resource, .. } => self.check_resource(*resource),
             SequenceStep::RepeatCount { body, .. } | SequenceStep::RepeatUntil { body, .. } => {
                 for nested in body {
@@ -102,6 +106,24 @@ impl<'a> SequenceEmitter<'a> {
                     builder.lda_imm(*resource).jsr_addr("engine__loader__start");
                 }
                 SequenceStep::WaitLoaded => {
+                    builder.jsr_addr("engine__loader__wait_loaded");
+                }
+                SequenceStep::StreamPart { next, previous, frames } => {
+                    let label = self.unique_label("stream");
+                    let done_label = format!("{label}_done");
+                    builder.lda_imm(*next).jsr_addr("engine__loader__start");
+                    builder.label(&label);
+                    builder.jsr_addr("engine__condition__load_complete");
+                    builder.beq_addr(&done_label);
+                    builder
+                        .lda_imm(*previous)
+                        .ldx_imm(0)
+                        .ldy_imm(0)
+                        .jsr_addr("engine__resource__use")
+                        .lda_imm(*frames as u8)
+                        .ldx_imm((*frames >> 8) as u8)
+                        .jsr_addr("engine__frame__play_n");
+                    builder.jmp_addr(&label).label(&done_label);
                     builder.jsr_addr("engine__loader__wait_loaded");
                 }
                 SequenceStep::PlayFrames {
@@ -174,6 +196,25 @@ impl<'a> SequenceEmitter<'a> {
                     lines.push("    jsr engine__loader__start".to_string());
                 }
                 SequenceStep::WaitLoaded => {
+                    lines.push("    jsr engine__loader__wait_loaded".to_string());
+                }
+                SequenceStep::StreamPart { next, previous, frames } => {
+                    let label = self.unique_label("stream");
+                    let done_label = format!("{label}_done");
+                    lines.push(format!("    lda #{next}"));
+                    lines.push("    jsr engine__loader__start".to_string());
+                    lines.push(format!("{label}:"));
+                    lines.push("    jsr engine__condition__load_complete".to_string());
+                    lines.push(format!("    beq {done_label}"));
+                    lines.push(format!("    lda #{previous}"));
+                    lines.push("    ldx #$00".to_string());
+                    lines.push("    ldy #$00".to_string());
+                    lines.push("    jsr engine__resource__use".to_string());
+                    lines.push(format!("    lda #<{frames}"));
+                    lines.push(format!("    ldx #>{frames}"));
+                    lines.push("    jsr engine__frame__play_n".to_string());
+                    lines.push(format!("    jmp {label}"));
+                    lines.push(format!("{done_label}:"));
                     lines.push("    jsr engine__loader__wait_loaded".to_string());
                 }
                 SequenceStep::PlayFrames {
@@ -263,6 +304,24 @@ fn validate_steps(steps: &[SequenceStep], active: &mut Option<ResourceId>, in_lo
                 if active.take().is_none() {
                     return Err(EmitError::Validation("WaitLoaded without a pending Load".to_string()));
                 }
+            }
+            SequenceStep::StreamPart { next, previous, frames } => {
+                if *next == *previous {
+                    return Err(EmitError::Validation(
+                        "StreamPart cannot replay the resource it is loading".to_string(),
+                    ));
+                }
+                if *frames == 0 {
+                    return Err(EmitError::Validation("StreamPart frames must be non-zero".to_string()));
+                }
+                if active.is_some() {
+                    return Err(EmitError::Validation(
+                        "StreamPart emitted while another load is pending".to_string(),
+                    ));
+                }
+                // The emitted sequence starts and waits for its own load.
+                *active = Some(*next);
+                *active = None;
             }
             SequenceStep::PlayFrames { resource, count, .. } => {
                 if *count == 0 {

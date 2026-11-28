@@ -118,6 +118,9 @@ fn walk_steps(steps: &[SequenceStep], state: &mut TimingWalkState) {
             SequenceStep::Load(resource) => {
                 state.pending = Some((*resource, 0));
             }
+            SequenceStep::StreamPart { next, frames, .. } => {
+                state.lead_frames.insert(*next, *frames);
+            }
             SequenceStep::PlayFrames { count, .. } => {
                 if let Some((_, lead)) = state.pending.as_mut() {
                     *lead = lead.saturating_add(*count);

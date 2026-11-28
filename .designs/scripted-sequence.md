@@ -911,7 +911,7 @@ impl<'a> SequenceEmitter<'a> {
 }
 ```
 
-`SequenceStep` is an authoring type, not a runtime opcode. `SequenceEmitter::emit` produces the assembler instructions that become a `Module` in `intro.prg`. Fluent methods on `Sequence` (`init()`, `load()`, `wait_loaded()`, `play()`, `repeat_until()`, etc.) only construct this AST. `RepeatUntil` emits generated labels, a condition JSR, `beq` exit, body instructions, and a back-edge `jmp`.
+`SequenceStep` is an authoring type, not a runtime opcode. `SequenceEmitter::emit` produces the assembler instructions that become a `Module` in `intro.prg`. Fluent methods on `Sequence` (`init()`, `load()`, `wait_loaded()`, `stream_part()`, `play()`, `repeat_until()`, etc.) only construct this AST. `StreamPart` owns the load/replay/wait interleave and emits generated labels, a load-completion JSR, replay instructions, and a back-edge `jmp`; builders do not need to expose that loop themselves.
 
 ### 8.3 MasterPlanner
 

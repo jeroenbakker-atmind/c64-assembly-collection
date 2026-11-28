@@ -7,7 +7,7 @@ use c64_assembler::{
 use c64_encoder::{
     builder::demo::DemoBuilder,
     command::modules::EngineBuilder,
-    sequence::{Condition, MasterPlanner, ResourceId, ResourcePlan, Sequence, SequenceEmitter},
+    sequence::{MasterPlanner, ResourceId, ResourcePlan, Sequence, SequenceEmitter},
 };
 use cube_encoder::encode_act_demo;
 
@@ -107,24 +107,21 @@ fn frame_parts(plan: &ResourcePlan, prefix: &str) -> Vec<FramePart> {
         .collect()
 }
 
-/// Loads one part at a time. While a part arrives, the previous part is replayed
-/// until the load completes, so the demo stays animated during the slow U1
-/// sector transfer instead of freezing on its last frame.
-fn append_parts(mut sequence: Sequence, parts: &[FramePart]) -> Sequence {
-    for (index, part) in parts.iter().enumerate() {
-        sequence = sequence.load(part.id);
-        if let Some(previous) = index.checked_sub(1).map(|previous| parts[previous]) {
-            sequence = sequence.repeat_until(Condition::LoadComplete, |body| {
-                body.play(previous.id, 0, previous.frames)
-            });
-        }
-        sequence = sequence.wait_loaded();
-    }
+/// Loads one part at a time. `stream_part` owns the whole interleave: it starts
+/// the next async load, replays the previous part until the load completes, and
+/// waits for completion before returning. The final part plays on its own.
+fn append_parts(sequence: Sequence, parts: &[FramePart]) -> Sequence {
+    let Some((first, rest)) = parts.split_first() else {
+        return sequence;
+    };
 
-    if let Some(last) = parts.last() {
-        sequence = sequence.play(last.id, 0, last.frames);
+    let mut sequence = sequence.load(first.id).wait_loaded();
+    let mut previous = first;
+    for next in rest {
+        sequence = sequence.stream_part(next.id, previous.id, previous.frames);
+        previous = next;
     }
-    sequence
+    sequence.play(previous.id, 0, previous.frames)
 }
 
 fn build_application(plan: &ResourcePlan, sequence: &Sequence) -> AssemblerResult<Application> {
@@ -234,17 +231,21 @@ mod tests {
         let steps = format!("{:?}", build_sequence(&plan).steps);
         let p0 = plan.id("act1_p0");
         let p1 = plan.id("act1_p1");
+        let p2 = plan.id("act2_p0");
         let p0_frames = plan.frames("act1_p0");
         let p1_frames = plan.frames("act1_p1");
+        let p2_frames = plan.frames("act2_p0");
 
         let load0 = format!("Load({p0})");
-        let load1 = format!("Load({p1})");
-        let play0 = format!("PlayFrames {{ resource: {p0}, offset: 0, count: {p0_frames} }}");
-        let play1 = format!("PlayFrames {{ resource: {p1}, offset: 0, count: {p1_frames} }}");
+        let stream01 = format!("StreamPart {{ next: {p1}, previous: {p0}, frames: {p0_frames} }}");
+        let stream12 = format!("StreamPart {{ next: {p2}, previous: {p1}, frames: {p1_frames} }}");
+        let play2 = format!("PlayFrames {{ resource: {p2}, offset: 0, count: {p2_frames} }}");
 
-        assert!(steps.find(&load0).unwrap() < steps.find(&load1).unwrap());
-        assert!(steps.find(&load1).unwrap() < steps.find(&play0).unwrap());
-        assert!(steps.find(&play0).unwrap() < steps.find(&play1).unwrap());
-        assert!(steps.contains("RepeatUntil { condition: LoadComplete"));
+        assert!(steps.find(&load0).unwrap() < steps.find(&stream01).unwrap());
+        assert!(steps.find(&stream01).unwrap() < steps.find(&stream12).unwrap());
+        assert!(steps.find(&stream12).unwrap() < steps.find(&play2).unwrap());
+        assert!(steps.contains(&stream01));
+        assert!(steps.contains(&stream12));
+        assert!(!steps.contains("RepeatUntil { condition: LoadComplete"));
     }
 }

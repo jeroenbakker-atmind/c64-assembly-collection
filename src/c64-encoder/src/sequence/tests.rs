@@ -211,6 +211,59 @@ fn validation_allows_replaying_a_loaded_part_while_another_load_is_pending() {
 }
 
 #[test]
+fn stream_part_emits_load_replay_loop_and_wait() {
+    let plan = example_plan();
+    let sequence = Sequence::new("intro")
+        .init()
+        .stream_part(plan.id("act1_p1"), plan.id("act1_p0"), 12)
+        .end();
+
+    let text = SequenceEmitter::new(&plan).emit_asm_text(&sequence).unwrap();
+    assert!(text.contains("    jsr engine__loader__start"));
+    assert!(text.contains("seq_stream_0:"));
+    assert!(text.contains("    jsr engine__condition__load_complete"));
+    assert!(text.contains("    beq seq_stream_0_done"));
+    assert!(text.contains("    jsr engine__resource__use"));
+    assert!(text.contains("    jsr engine__frame__play_n"));
+    assert!(text.contains("    jmp seq_stream_0"));
+    assert!(text.contains("seq_stream_0_done:"));
+    assert!(text.contains("    jsr engine__loader__wait_loaded"));
+
+    let instructions = SequenceEmitter::new(&plan).emit(&sequence).unwrap();
+    assert_eq!(
+        jsr_targets(&instructions),
+        vec![
+            "engine__init",
+            "engine__loader__init",
+            "engine__condition__init",
+            "engine__loader__start",
+            "engine__condition__load_complete",
+            "engine__resource__use",
+            "engine__frame__play_n",
+            "engine__loader__wait_loaded",
+            "engine__loader__deinit",
+            "engine__deinit",
+        ]
+    );
+}
+
+#[test]
+fn stream_part_rejects_invalid_sources_and_pending_loads() {
+    let self_stream = Sequence::new("bad").init().stream_part(0, 0, 1).end();
+    assert!(SequenceEmitter::validate(&self_stream).is_err());
+
+    let zero_frames = Sequence::new("bad").init().stream_part(1, 0, 0).end();
+    assert!(SequenceEmitter::validate(&zero_frames).is_err());
+
+    let pending_load = Sequence::new("bad").init().load(0).stream_part(1, 0, 1).end();
+    assert!(SequenceEmitter::validate(&pending_load).is_err());
+
+    let plan = example_plan();
+    let unknown = Sequence::new("bad").init().stream_part(99, plan.id("act1_p0"), 1).end();
+    assert!(SequenceEmitter::new(&plan).emit(&unknown).is_err());
+}
+
+#[test]
 fn emitter_emits_expected_runtime_primitives() {
     let plan = example_plan();
     let sequence = Sequence::new("intro_main")
@@ -323,6 +376,19 @@ fn reports_get_lead_frames_from_the_sequence() {
     assert_eq!(plan.reports[0].lead_frames, Some(31));
     assert!(plan.reports[0].margin_ms.is_some());
     assert!(ResourceReport::markdown_table(&plan.reports).contains("music0"));
+}
+
+#[test]
+fn stream_part_reports_lead_frames_for_the_next_resource() {
+    let mut plan = example_plan();
+    let sequence = Sequence::new("intro")
+        .init()
+        .stream_part(plan.id("music0"), plan.id("act1_p0"), 12)
+        .end();
+
+    plan.annotate_timing(&sequence);
+    assert_eq!(plan.reports[2].lead_frames, Some(12));
+    assert!(plan.reports[2].margin_ms.is_some());
 }
 
 #[test]

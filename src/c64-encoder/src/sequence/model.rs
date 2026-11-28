@@ -13,6 +13,12 @@ pub enum SequenceStep {
     Init,
     Load(ResourceId),
     WaitLoaded,
+    /// Start loading `next` while replaying `previous` until the load completes.
+    StreamPart {
+        next: ResourceId,
+        previous: ResourceId,
+        frames: u16,
+    },
     PlayFrames {
         resource: ResourceId,
         offset: u16,
@@ -60,6 +66,12 @@ impl Sequence {
 
     pub fn wait_loaded(mut self) -> Self {
         self.steps.push(SequenceStep::WaitLoaded);
+        self
+    }
+
+    /// Load the next part while the previous part is replayed during the transfer.
+    pub fn stream_part(mut self, next: ResourceId, previous: ResourceId, frames: u16) -> Self {
+        self.steps.push(SequenceStep::StreamPart { next, previous, frames });
         self
     }
 
