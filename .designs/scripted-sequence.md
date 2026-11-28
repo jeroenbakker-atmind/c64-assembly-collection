@@ -491,7 +491,10 @@ This is what makes development practical: sector counts are unknown while author
 | Address | Purpose |
 |---|---|
 | `$0000..$00FF` | Zero page/workspace. Existing engine keeps `$FB`, `$FC`, `$FE`; loader uses the ranges below. |
-| `$0801..$3DFF` | Generated program: BASIC stub, engine, frame decoders, Rust-emitted sequence assembly, loader, resource table. Build asserts the program ends below `$3E00`. |
+| `$0801..$27FF` | Generated program: BASIC stub, engine, frame decoders, Rust-emitted sequence assembly, loader, resource table. Build asserts the program ends at or below `$2800`. |
+| `$2800..$2FFF` | Charset (VIC bank 0). |
+| `$3000..$33E7` | Screen RAM (VIC bank 0). |
+| `$3400..$3DFF` | Scratch/growth margin in bank 0. |
 | `$3E00..$3EFF` | Runtime condition/status blackboard: `$3E00` `MUSIC_POSITION_ADDR`, `$3E01` `DISK_TURNED_LATCH`, `$3E02/$3E03` saved processor-port state. |
 | `$3F00..$3FFF` | Spare program-area RAM / growth margin. |
 | `$4000..$4FFF` | Frame resource/slot 0. |
@@ -501,10 +504,9 @@ This is what makes development practical: sector counts are unknown while author
 | `$8000..$8FFF` | Frame resource/slot 4. |
 | `$9000..$9FFF` | Frame resource/slot 5. |
 | `$A000..$BFFF` | Music region (`MUSIC_BASE = $A000`, 8 KiB). RAM under BASIC ROM; CPU access requires bank-out. Never used as a frame slot. |
-| `$C000..$C3E7` | Screen RAM (VIC bank 3). |
-| `$C800..$CFFF` | Charset (VIC bank 3). |
 | `$D000..$DBFF` | VIC/SID/color registers. |
-| `$DD00` | CIA2/VIC bank selection. |
+| `$DD00` | CIA2/VIC bank selection; left at KERNAL's bank-0 image for the whole demo. |
+| `$D018` | `$CA` during the demo: screen `$3000`, charset `$2800`. |
 | `$E000..$FFFF` | KERNAL/ROM unless explicitly banked out. |
 
 Zero-page allocation:

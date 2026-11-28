@@ -560,7 +560,7 @@ fn regular_init_position_recovers_a_non_zero_starting_sector() -> AssemblerResul
 }
 
 #[test]
-fn engine_init_maps_the_custom_charset_at_c800() -> AssemblerResult<()> {
+fn engine_init_maps_the_custom_charset_in_vic_bank_zero() -> AssemblerResult<()> {
     let application = ApplicationBuilder::default()
         .include_vic2_defines()
         .module(resource_table_module())
@@ -577,12 +577,16 @@ fn engine_init_maps_the_custom_charset_at_c800() -> AssemblerResult<()> {
         .expect("unterminated engine__init");
 
     assert!(
-        init.contains("lda #$03"),
-        "engine init must select screen $C000 and charset $C800: {init}"
+        init.contains("lda #$CA"),
+        "engine init must select screen $3000 and charset $2800: {init}"
     );
     assert!(
         init.contains("sta VIC2_MEMORY_SETUP"),
         "missing VIC memory setup: {init}"
+    );
+    assert!(
+        !init.contains("C64_BANK_SELECTION"),
+        "engine must leave CIA2 bank selection alone: {init}"
     );
     Ok(())
 }

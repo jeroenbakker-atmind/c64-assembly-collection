@@ -16,6 +16,10 @@ use cube_encoder::encode_act_demo;
 /// consumes four raster refreshes per call, so 20 calls allow ~1.6 s on PAL.
 const DRIVE_READY_REFRESHES: u8 = 20;
 
+/// The generated program must end before the bank-0 charset at `$2800`.
+const PROGRAM_START: u16 = 0x0800;
+const PROGRAM_LIMIT: u16 = 0x2800;
+
 /// Everything the builder needs from the intro build: the PRG plus the
 /// immutable master plan needed by disk mastering.
 pub struct IntroBuild {
@@ -41,6 +45,11 @@ fn build_intro_from_demos(act1: &DemoBuilder, act2: &DemoBuilder) -> AssemblerRe
     let application = build_application(&plan, &sequence)?;
     application.validate()?;
     let prg = ProgramGenerator::default().generate(application)?;
+    let program_end = PROGRAM_START + (prg.len() - 2) as u16;
+    assert!(
+        program_end <= PROGRAM_LIMIT,
+        "intro program ends at ${program_end:04X}; charset starts at ${PROGRAM_LIMIT:04X}"
+    );
 
     for report in &plan.reports {
         println!(

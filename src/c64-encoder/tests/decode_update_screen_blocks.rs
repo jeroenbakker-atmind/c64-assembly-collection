@@ -228,7 +228,7 @@ fn dispatcher_decodes_block_command() -> AssemblerResult<()> {
         .set_bytes(0x00FE, &[STREAM_ADDRESS as u8, (STREAM_ADDRESS >> 8) as u8]);
     cpu.memory.set_bytes(PROGRAM_ADDRESS, &program[2..]);
     cpu.memory.set_bytes(STREAM_ADDRESS, &stream);
-    cpu.memory.set_bytes(0xC000, &from);
+    cpu.memory.set_bytes(0x3000, &from);
     cpu.registers.program_counter = PROGRAM_ADDRESS;
     cpu.run();
 
@@ -237,7 +237,7 @@ fn dispatcher_decodes_block_command() -> AssemblerResult<()> {
     assert_eq!(cpu.memory.get_byte(0x00FE), (end & 0xFF) as u8);
     assert_eq!(cpu.memory.get_byte(0x00FF), (end >> 8) as u8);
     let decoded = (0..SCREEN_CHARS)
-        .map(|offset| cpu.memory.get_byte(0xC000 + offset as u16))
+        .map(|offset| cpu.memory.get_byte(0x3000 + offset as u16))
         .collect::<Vec<_>>();
     assert_eq!(decoded.as_slice(), to.as_slice());
     Ok(())
