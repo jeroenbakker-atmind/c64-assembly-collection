@@ -4,6 +4,8 @@ use super::resources::ResourceId;
 pub enum Condition {
     MusicBefore(u8),
     DiskTurned,
+    /// Z=1 once the current `Load` has completed.
+    LoadComplete,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -142,6 +142,9 @@ impl<'a> SequenceEmitter<'a> {
                         Condition::DiskTurned => {
                             builder.jsr_addr("engine__condition__disk_turned");
                         }
+                        Condition::LoadComplete => {
+                            builder.jsr_addr("engine__condition__load_complete");
+                        }
                     }
                     builder.beq_addr(&done_label);
                     self.emit_steps(body, builder)?;
@@ -213,6 +216,9 @@ impl<'a> SequenceEmitter<'a> {
                         }
                         Condition::DiskTurned => {
                             lines.push("    jsr engine__condition__disk_turned".to_string());
+                        }
+                        Condition::LoadComplete => {
+                            lines.push("    jsr engine__condition__load_complete".to_string());
                         }
                     }
                     lines.push(format!("    beq {done_label}"));
@@ -304,12 +310,13 @@ fn validate_steps(steps: &[SequenceStep], active: &mut Option<ResourceId>, in_lo
 }
 
 fn validate_loop_body(body: &[SequenceStep], active: &mut Option<ResourceId>) -> Result<(), EmitError> {
-    if active.is_some() {
-        return Err(EmitError::Validation("Load cannot span a loop boundary".to_string()));
-    }
+    // A load may already be in flight when a loop starts: playing the previous
+    // part until that load completes is the intended interleave. What must not
+    // happen is a load being *created* or *completed* inside the loop.
+    let active_on_entry = *active;
     validate_steps(body, active, true)?;
-    if active.is_some() {
-        return Err(EmitError::Validation("loop body leaks a pending Load".to_string()));
+    if *active != active_on_entry {
+        return Err(EmitError::Validation("loop body changes a pending Load".to_string()));
     }
     Ok(())
 }

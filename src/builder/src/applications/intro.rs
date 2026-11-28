@@ -7,7 +7,7 @@ use c64_assembler::{
 use c64_encoder::{
     builder::demo::DemoBuilder,
     command::modules::EngineBuilder,
-    sequence::{MasterPlanner, ResourceId, ResourcePlan, Sequence, SequenceEmitter},
+    sequence::{Condition, MasterPlanner, ResourceId, ResourcePlan, Sequence, SequenceEmitter},
 };
 use cube_encoder::encode_act_demo;
 
@@ -77,12 +77,11 @@ struct FramePart {
 }
 
 fn build_sequence(plan: &ResourcePlan) -> Sequence {
-    let act1 = frame_parts(plan, "act1_p");
-    let act2 = frame_parts(plan, "act2_p");
+    let mut parts = frame_parts(plan, "act1_p");
+    parts.extend(frame_parts(plan, "act2_p"));
 
     let mut sequence = Sequence::new("intro_main").init().wait_refreshes(DRIVE_READY_REFRESHES);
-    sequence = append_act(sequence, &act1);
-    sequence = append_act(sequence, &act2);
+    sequence = append_parts(sequence, &parts);
     sequence.end()
 }
 
@@ -99,18 +98,17 @@ fn frame_parts(plan: &ResourcePlan, prefix: &str) -> Vec<FramePart> {
         .collect()
 }
 
-/// Loads one part at a time. Each new load starts before the previous part is
-/// played, so the current frames remain visible while the next part arrives.
-fn append_act(mut sequence: Sequence, parts: &[FramePart]) -> Sequence {
+/// Loads one part at a time. While a part arrives, the previous part is replayed
+/// until the load completes, so the demo stays animated during the slow U1
+/// sector transfer instead of freezing on its last frame.
+fn append_parts(mut sequence: Sequence, parts: &[FramePart]) -> Sequence {
     for (index, part) in parts.iter().enumerate() {
         sequence = sequence.load(part.id);
-        if index == 0 {
-            sequence = sequence.wait_loaded();
-            continue;
+        if let Some(previous) = index.checked_sub(1).map(|previous| parts[previous]) {
+            sequence = sequence.repeat_until(Condition::LoadComplete, |body| {
+                body.play(previous.id, 0, previous.frames)
+            });
         }
-
-        let previous = parts[index - 1];
-        sequence = sequence.play(previous.id, 0, previous.frames);
         sequence = sequence.wait_loaded();
     }
 
@@ -238,5 +236,6 @@ mod tests {
         assert!(steps.find(&load0).unwrap() < steps.find(&load1).unwrap());
         assert!(steps.find(&load1).unwrap() < steps.find(&play0).unwrap());
         assert!(steps.find(&play0).unwrap() < steps.find(&play1).unwrap());
+        assert!(steps.contains("RepeatUntil { condition: LoadComplete"));
     }
 }

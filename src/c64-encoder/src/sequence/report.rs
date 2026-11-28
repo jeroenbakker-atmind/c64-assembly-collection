@@ -129,11 +129,9 @@ fn walk_steps(steps: &[SequenceStep], state: &mut TimingWalkState) {
                 }
             }
             SequenceStep::RepeatCount { body, .. } | SequenceStep::RepeatUntil { body, .. } => {
-                let mut nested = TimingWalkState::default();
-                walk_steps(body, &mut nested);
-                for (resource, lead) in nested.lead_frames {
-                    state.lead_frames.insert(resource, lead);
-                }
+                // Loops that only play frames while a load is in flight still
+                // contribute their lead frames to that load.
+                walk_steps(body, state);
             }
             _ => {}
         }

@@ -192,6 +192,25 @@ fn validation_rejects_unbalanced_loads() {
 }
 
 #[test]
+fn validation_allows_replaying_a_loaded_part_while_another_load_is_pending() {
+    let plan = example_plan();
+    let sequence = Sequence::new("intro")
+        .init()
+        .load(plan.id("act1_p1"))
+        .repeat_until(Condition::LoadComplete, |body| body.play(plan.id("act1_p0"), 0, 10))
+        .wait_loaded()
+        .end();
+    assert!(SequenceEmitter::new(&plan).emit(&sequence).is_ok());
+
+    let completing_load_in_loop = Sequence::new("bad")
+        .init()
+        .load(plan.id("act1_p1"))
+        .repeat_until(Condition::LoadComplete, |body| body.wait_loaded())
+        .end();
+    assert!(SequenceEmitter::validate(&completing_load_in_loop).is_err());
+}
+
+#[test]
 fn emitter_emits_expected_runtime_primitives() {
     let plan = example_plan();
     let sequence = Sequence::new("intro_main")
@@ -277,6 +296,14 @@ fn condition_loops_emit_labels_condition_jsrs_and_back_edges() {
     assert!(music_text.contains("    beq seq_until_0_done"));
     assert!(music_text.contains("    jmp seq_until_0"));
     assert!(music_text.contains("seq_until_0_done:"));
+
+    let load_sequence = Sequence::new("wait_load")
+        .init()
+        .repeat_until(Condition::LoadComplete, |body| body.play(plan.id("act1_p0"), 0, 10))
+        .end();
+    let load_text = SequenceEmitter::new(&plan).emit_asm_text(&load_sequence).unwrap();
+    assert!(load_text.contains("    jsr engine__condition__load_complete"));
+    assert!(load_text.contains("    beq seq_until_0_done"));
 }
 
 #[test]

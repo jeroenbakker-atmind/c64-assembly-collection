@@ -111,7 +111,7 @@ impl DecoderModule for Engine {
                             .comment("Attach the VIC-II to bank 3 ($C000-$FFFF)")
                             .sta_addr("C64_BANK_SELECTION")
                             .lda_imm(0b00000011)
-                            .comment("Set screen chars to $C000 and charset to $C800.")
+                            .comment("D018: screen $C000 and charset $C800 in VIC bank 3.")
                             .sta_addr("VIC2_MEMORY_SETUP")
                             .comment("Make RAM visible at $A000..$BFFF before any music load.")
                             .jsr_addr("engine__bank__init")

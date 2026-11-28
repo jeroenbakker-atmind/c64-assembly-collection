@@ -87,6 +87,8 @@ impl LoaderRegularBuilder for ApplicationBuilder {
             .define_address("LOADER_IEC_TIMEOUT", 0x3E2E)
             .define_address("LOADER_IEC_BUFFER_OPEN", 0x3E30)
             .define_address("LOADER_IEC_SETTLE", 0x3E32)
+            .define_address("LOADER_IEC_POSITION", 0x3E35)
+            .define_address("LOADER_IEC_POSITION_SCRATCH", 0x3E36)
             .define_address("LOADER_INTERLEAVE", 7)
             .define_address("CIA2_DATA_PORT", 0xDD00)
             .define_address("CIA2_DATA_DDR", 0xDD02)
@@ -175,6 +177,10 @@ impl LoaderBackend for RegularLoaderBackend {
                             .lda_addr("LOADER_CURRENT_RESOURCE")
                             .jsr_addr("engine__resource__sector_count")
                             .sta_addr("LOADER_IEC_SECTOR_LEFT")
+                            .comment("Recover the planner's logical slot for the starting physical sector.")
+                            .lda_addr("LOADER_IEC_TRACK")
+                            .jsr_addr("engine__loader__regular__track_modulus")
+                            .jsr_addr("engine__loader__regular__init_position")
                             .jsr_addr("engine__loader__regular__build_u1_command")
                             .jsr_addr("engine__loader__regular__release_all")
                             .lda_imm(0)
@@ -804,28 +810,87 @@ impl LoaderBackend for RegularLoaderBackend {
             )
             .function(
                 FunctionBuilder::default()
-                    .name("engine__loader__regular__advance_sector")
-                    .doc(&["Move to the next physical sector in the mastered interleave."])
+                    .name("engine__loader__regular__sector_from_position")
+                    .doc(&[
+                        "Map a logical interleave slot in A to its physical sector.",
+                        "",
+                        "The master planner uses `1 + (position * interleave) % modulus`. Adding",
+                        "`position` `interleave` times keeps every intermediate value below two",
+                        "times the modulus, so the whole calculation stays in one byte.",
+                    ])
                     .instructions(
                         InstructionBuilder::default()
-                            .lda_addr("LOADER_IEC_SECTOR")
-                            .sec()
-                            .sbc_imm(1)
+                            .sta_addr("LOADER_IEC_POSITION_SCRATCH")
+                            .lda_imm(0)
+                            .sta_addr("LOADER_IEC_ONES")
+                            .lda_imm_low("LOADER_INTERLEAVE")
+                            .tax()
+                            .label("engine__loader__regular__sector_from_position__add")
                             .clc()
-                            .adc_imm_low("LOADER_INTERLEAVE")
-                            .jsr_addr("engine__loader__regular__track_modulus")
-                            .label("engine__loader__regular__advance_sector__compare")
+                            .lda_addr("LOADER_IEC_ONES")
+                            .adc_addr("LOADER_IEC_POSITION_SCRATCH")
                             .cmp_addr("LOADER_IEC_MODULUS")
-                            .bcc_addr("engine__loader__regular__advance_sector__store")
+                            .bcc_addr("engine__loader__regular__sector_from_position__store")
                             .sbc_addr("LOADER_IEC_MODULUS")
-                            .sta_addr("LOADER_IEC_TENS")
-                            .jsr_addr("engine__loader__regular__next_track")
-                            .jsr_addr("engine__loader__regular__track_modulus")
-                            .lda_addr("LOADER_IEC_TENS")
-                            .jmp_addr("engine__loader__regular__advance_sector__compare")
-                            .label("engine__loader__regular__advance_sector__store")
+                            .label("engine__loader__regular__sector_from_position__store")
+                            .sta_addr("LOADER_IEC_ONES")
+                            .dex()
+                            .bne_addr("engine__loader__regular__sector_from_position__add")
+                            .lda_addr("LOADER_IEC_ONES")
                             .clc()
                             .adc_imm(1)
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__loader__regular__init_position")
+                    .doc(&["Recover the logical interleave slot for the current physical sector."])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_imm(0)
+                            .sta_addr("LOADER_IEC_POSITION")
+                            .label("engine__loader__regular__init_position__next")
+                            .lda_addr("LOADER_IEC_POSITION")
+                            .cmp_addr("LOADER_IEC_MODULUS")
+                            .bcs_addr("engine__loader__regular__init_position__done")
+                            .jsr_addr("engine__loader__regular__sector_from_position")
+                            .cmp_addr("LOADER_IEC_SECTOR")
+                            .beq_addr("engine__loader__regular__init_position__done")
+                            .inc_addr("LOADER_IEC_POSITION")
+                            .jmp_addr("engine__loader__regular__init_position__next")
+                            .label("engine__loader__regular__init_position__done")
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__loader__regular__advance_sector")
+                    .doc(&[
+                        "Move to the next physical sector in the mastered interleave.",
+                        "",
+                        "The logical slot advances independently of the physical sector so a",
+                        "modulo wrap does not change tracks early. A track changes only after the",
+                        "last usable slot, matching `MasterPlanner`'s sector cursor.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .inc_addr("LOADER_IEC_POSITION")
+                            .lda_addr("LOADER_IEC_POSITION")
+                            .cmp_addr("LOADER_IEC_MODULUS")
+                            .bcc_addr("engine__loader__regular__advance_sector__map")
+                            .lda_imm(0)
+                            .sta_addr("LOADER_IEC_POSITION")
+                            .jsr_addr("engine__loader__regular__next_track")
+                            .lda_addr("LOADER_IEC_TRACK")
+                            .jsr_addr("engine__loader__regular__track_modulus")
+                            .label("engine__loader__regular__advance_sector__map")
+                            .lda_addr("LOADER_IEC_POSITION")
+                            .jsr_addr("engine__loader__regular__sector_from_position")
                             .sta_addr("LOADER_IEC_SECTOR")
                             .rts()
                             .build(),

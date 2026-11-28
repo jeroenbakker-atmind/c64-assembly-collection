@@ -3,6 +3,7 @@ use c64_assembler::{
     Module,
 };
 
+use super::LOADER_STATUS_BUSY;
 use crate::command::DecoderModule;
 
 pub const MUSIC_POSITION_ADDR: u16 = 0x3E00;
@@ -80,6 +81,29 @@ impl DecoderModule for Condition {
                             .rts()
                             .label("engine__condition__disk_turned__not_turned")
                             .lda_imm(1)
+                            .rts()
+                            .build(),
+                    )
+                    .build(),
+            )
+            .function(
+                FunctionBuilder::default()
+                    .name("engine__condition__load_complete")
+                    .doc(&[
+                        "Return Z=1 when no load is busy.",
+                        "",
+                        "Used by `RepeatUntil(LoadComplete)` to keep the previous part animating",
+                        "while the next resource arrives.",
+                    ])
+                    .instructions(
+                        InstructionBuilder::default()
+                            .lda_addr("LOADER_STATUS")
+                            .and_imm(LOADER_STATUS_BUSY)
+                            .beq_addr("engine__condition__load_complete__idle")
+                            .lda_imm(1)
+                            .rts()
+                            .label("engine__condition__load_complete__idle")
+                            .lda_imm(0)
                             .rts()
                             .build(),
                     )

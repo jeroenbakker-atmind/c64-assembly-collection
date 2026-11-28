@@ -24,6 +24,7 @@ const STUB_IMAGE_ADDRESS: u16 = 0x3000;
 const RESOURCE_DEST_0: u16 = 0x4000;
 const RESOURCE_DEST_1: u16 = 0x5000;
 const STUB_COUNTER: u16 = 0x3E10;
+const SECTOR_CHAIN_RESULT_BASE: u16 = 0x3F00;
 const CIA2_IRQ_CONTROL: u16 = 0xDD0D;
 const CIA2_TIMER_A_CONTROL: u16 = 0xDD0E;
 const CIA2_TIMER_B_CONTROL: u16 = 0xDD0F;
@@ -33,6 +34,7 @@ const LOADER_IEC_TRACK: u16 = 0x3E26;
 const LOADER_IEC_SECTOR: u16 = 0x3E27;
 const LOADER_IEC_TENS: u16 = 0x3E2A;
 const LOADER_IEC_MODULUS: u16 = 0x3E2C;
+const LOADER_IEC_POSITION: u16 = 0x3E35;
 const ENGINE_NMI_TIMER_B_PENDING: u16 = 0x3E34;
 const NMI_FRAME_A: u8 = 0xC3;
 const NMI_FRAME_X: u8 = 0xA7;
@@ -406,13 +408,179 @@ fn regular_advance_sector_preserves_the_interleaved_sector_offset() -> Assembler
     cpu.memory.set_byte(LOADER_IEC_TRACK, 1);
     cpu.memory.set_byte(LOADER_IEC_SECTOR, 1);
     cpu.memory.set_byte(LOADER_IEC_TENS, 0);
-    cpu.memory.set_byte(LOADER_IEC_MODULUS, 16);
+    cpu.memory.set_byte(LOADER_IEC_POSITION, 0);
+    cpu.memory.set_byte(LOADER_IEC_MODULUS, 20);
     cpu.registers.program_counter = PROGRAM_ADDRESS;
     cpu.run();
 
     assert_eq!(cpu.memory.get_byte(RESULT_SECTOR), 8);
     assert_eq!(cpu.memory.get_byte(RESULT_TRACK), 1);
     assert_eq!(cpu.memory.get_byte(RESULT_MODULUS), 20);
+    Ok(())
+}
+
+#[test]
+fn regular_advance_sector_walks_the_full_mastered_interleave() -> AssemblerResult<()> {
+    let mut main = InstructionBuilder::default();
+    for index in 0..32_u16 {
+        main.jsr_addr("engine__loader__regular__advance_sector")
+            .lda_addr("LOADER_IEC_SECTOR")
+            .sta_addr_offs("SECTOR_CHAIN_RESULT_BASE", index)
+            .lda_addr("LOADER_IEC_TRACK")
+            .sta_addr_offs("SECTOR_CHAIN_RESULT_BASE", index + 32);
+    }
+    main.raw(&[0xFF]);
+
+    let application = ApplicationBuilder::default()
+        .define_address("CURRENT_PTR", 0xFE)
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("SECTOR_CHAIN_RESULT_BASE", SECTOR_CHAIN_RESULT_BASE)
+        .add_loader_addresses()
+        .add_loader_regular_addresses()
+        .add_resource_addresses()
+        .add_condition_addresses()
+        .module(ModuleBuilder::default().instructions(main.build()).build())
+        .module(resource_table_module())
+        .module(c64_encoder::command::modules::Resource::module())
+        .module(c64_encoder::command::modules::Condition::module())
+        .module(RegularLoaderBackend::module())
+        .build()?;
+    application.validate()?;
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut cpu = CPU::new(Memory::new(), Nmos6502);
+    cpu.memory.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+    cpu.memory.set_byte(LOADER_IEC_TRACK, 1);
+    cpu.memory.set_byte(LOADER_IEC_SECTOR, 1);
+    cpu.memory.set_byte(LOADER_IEC_TENS, 0);
+    cpu.memory.set_byte(LOADER_IEC_POSITION, 0);
+    cpu.memory.set_byte(LOADER_IEC_MODULUS, 20);
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    let expected: [(u8, u8); 32] = [
+        (1, 8),
+        (1, 15),
+        (1, 2),
+        (1, 9),
+        (1, 16),
+        (1, 3),
+        (1, 10),
+        (1, 17),
+        (1, 4),
+        (1, 11),
+        (1, 18),
+        (1, 5),
+        (1, 12),
+        (1, 19),
+        (1, 6),
+        (1, 13),
+        (1, 20),
+        (1, 7),
+        (1, 14),
+        (2, 1),
+        (2, 8),
+        (2, 15),
+        (2, 2),
+        (2, 9),
+        (2, 16),
+        (2, 3),
+        (2, 10),
+        (2, 17),
+        (2, 4),
+        (2, 11),
+        (2, 18),
+        (2, 5),
+    ];
+    for (index, (track, sector)) in expected.iter().enumerate() {
+        assert_eq!(
+            cpu.memory.get_byte(SECTOR_CHAIN_RESULT_BASE + index as u16),
+            *sector,
+            "sector at chain position {index}"
+        );
+        assert_eq!(
+            cpu.memory.get_byte(SECTOR_CHAIN_RESULT_BASE + 32 + index as u16),
+            *track,
+            "track at chain position {index}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn regular_init_position_recovers_a_non_zero_starting_sector() -> AssemblerResult<()> {
+    const RESULT_SECTOR: u16 = STUB_COUNTER;
+    const RESULT_TRACK: u16 = STUB_COUNTER + 1;
+    const RESULT_POSITION: u16 = STUB_COUNTER + 2;
+
+    let main = InstructionBuilder::default()
+        .lda_addr("LOADER_IEC_TRACK")
+        .jsr_addr("engine__loader__regular__track_modulus")
+        .jsr_addr("engine__loader__regular__init_position")
+        .lda_addr("LOADER_IEC_POSITION")
+        .sta_addr("RESULT_POSITION")
+        .jsr_addr("engine__loader__regular__advance_sector")
+        .lda_addr("LOADER_IEC_SECTOR")
+        .sta_addr("RESULT_SECTOR")
+        .lda_addr("LOADER_IEC_TRACK")
+        .sta_addr("RESULT_TRACK")
+        .raw(&[0xFF])
+        .build();
+    let application = ApplicationBuilder::default()
+        .define_address("CURRENT_PTR", 0xFE)
+        .define_address("CIA2_IRQ_CONTROL", CIA2_IRQ_CONTROL)
+        .define_address("RESULT_SECTOR", RESULT_SECTOR)
+        .define_address("RESULT_TRACK", RESULT_TRACK)
+        .define_address("RESULT_POSITION", RESULT_POSITION)
+        .add_loader_addresses()
+        .add_loader_regular_addresses()
+        .add_resource_addresses()
+        .add_condition_addresses()
+        .module(ModuleBuilder::default().instructions(main).build())
+        .module(resource_table_module())
+        .module(c64_encoder::command::modules::Resource::module())
+        .module(c64_encoder::command::modules::Condition::module())
+        .module(RegularLoaderBackend::module())
+        .build()?;
+    application.validate()?;
+    let program = ProgramGenerator::default().generate(application)?;
+    let mut cpu = CPU::new(Memory::new(), Nmos6502);
+    cpu.memory.set_bytes(PROGRAM_ADDRESS, &program[2..]);
+    cpu.memory.set_byte(LOADER_IEC_TRACK, 1);
+    cpu.memory.set_byte(LOADER_IEC_SECTOR, 13);
+    cpu.registers.program_counter = PROGRAM_ADDRESS;
+    cpu.run();
+
+    assert_eq!(cpu.memory.get_byte(RESULT_POSITION), 16);
+    assert_eq!(cpu.memory.get_byte(RESULT_SECTOR), 20);
+    assert_eq!(cpu.memory.get_byte(RESULT_TRACK), 1);
+    Ok(())
+}
+
+#[test]
+fn engine_init_maps_the_custom_charset_at_c800() -> AssemblerResult<()> {
+    let application = ApplicationBuilder::default()
+        .include_vic2_defines()
+        .module(resource_table_module())
+        .add_engine_with_loader::<StubLoaderBackend>()
+        .build()?;
+    application.validate()?;
+    let source = DasmGenerator::default().generate(application)?;
+    let init = source
+        .split("engine__init:")
+        .nth(1)
+        .expect("missing engine__init")
+        .split("; --- Function end: ENGINE__INIT ---")
+        .next()
+        .expect("unterminated engine__init");
+
+    assert!(
+        init.contains("lda #$03"),
+        "engine init must select screen $C000 and charset $C800: {init}"
+    );
+    assert!(
+        init.contains("sta VIC2_MEMORY_SETUP"),
+        "missing VIC memory setup: {init}"
+    );
     Ok(())
 }
 
@@ -793,9 +961,11 @@ fn run_condition_stub(
     stub: Instructions,
     music_position: u8,
     disk_turned: u8,
+    loader_status: u8,
     expected_disk_turned: u8,
 ) -> AssemblerResult<bool> {
     let application = ApplicationBuilder::default()
+        .define_address("LOADER_STATUS", 0x80)
         .add_condition_addresses()
         .module(ModuleBuilder::default().instructions(stub).build())
         .module(c64_encoder::command::modules::Condition::module())
@@ -806,6 +976,7 @@ fn run_condition_stub(
     cpu.memory.set_bytes(PROGRAM_ADDRESS, &program[2..]);
     cpu.memory.set_byte(0x3E00, music_position);
     cpu.memory.set_byte(0x3E01, disk_turned);
+    cpu.memory.set_byte(0x80, loader_status);
     cpu.registers.program_counter = PROGRAM_ADDRESS;
     cpu.run();
     assert_eq!(cpu.memory.get_byte(0x3E00), music_position);
@@ -820,23 +991,30 @@ fn condition_routines_return_zero_flag_for_true() -> AssemblerResult<()> {
         .jsr_addr("engine__condition__music_before")
         .raw(&[0xFF])
         .build();
-    assert!(run_condition_stub(music_before.clone(), 2, 0, 0)?);
-    assert!(!run_condition_stub(music_before.clone(), 5, 0, 0)?);
-    assert!(!run_condition_stub(music_before, 6, 0, 0)?);
+    assert!(run_condition_stub(music_before.clone(), 2, 0, 0, 0)?);
+    assert!(!run_condition_stub(music_before.clone(), 5, 0, 0, 0)?);
+    assert!(!run_condition_stub(music_before, 6, 0, 0, 0)?);
 
     let disk_turned = InstructionBuilder::default()
         .jsr_addr("engine__condition__disk_turned")
         .raw(&[0xFF])
         .build();
-    assert!(!run_condition_stub(disk_turned.clone(), 0, 0, 0)?);
-    assert!(run_condition_stub(disk_turned, 0, 1, 1)?);
+    assert!(!run_condition_stub(disk_turned.clone(), 0, 0, 0, 0)?);
+    assert!(run_condition_stub(disk_turned, 0, 1, 0, 1)?);
 
     let marked = InstructionBuilder::default()
         .jsr_addr("engine__condition__mark_disk_turned")
         .jsr_addr("engine__condition__disk_turned")
         .raw(&[0xFF])
         .build();
-    assert!(run_condition_stub(marked, 0, 0, 1)?);
+    assert!(run_condition_stub(marked, 0, 0, 0, 1)?);
+
+    let load_complete = InstructionBuilder::default()
+        .jsr_addr("engine__condition__load_complete")
+        .raw(&[0xFF])
+        .build();
+    assert!(run_condition_stub(load_complete.clone(), 0, 0, 0, 0)?);
+    assert!(!run_condition_stub(load_complete, 0, 0, 2, 0)?);
     Ok(())
 }
 
@@ -875,6 +1053,7 @@ fn full_runtime_application_has_expected_primitives_without_interpreter_state() 
         "engine__condition__init:",
         "engine__condition__music_before:",
         "engine__condition__disk_turned:",
+        "engine__condition__load_complete:",
         "engine__loader__regular__enable_timer:",
         "engine__loader__regular__disable_timer:",
         "engine__loader__regular__timeout_tick:",
